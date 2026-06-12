@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/HAPM.API/HAPM.API.csproj" />
+    <Project Path="src/HAPM.Application/HAPM.Application.csproj" />
+    <Project Path="src/HAPM.Domain/HAPM.Domain.csproj" />
+    <Project Path="src/HAPM.Infrastructure/HAPM.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/HAPM.Application.Tests/HAPM.Application.Tests.csproj" />
+  </Folder>
+</Solution>
