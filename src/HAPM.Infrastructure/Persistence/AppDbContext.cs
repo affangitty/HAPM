@@ -28,6 +28,7 @@ public class AppDbContext : DbContext
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<PrescriptionTemplate> PrescriptionTemplates => Set<PrescriptionTemplate>();
     public DbSet<PrescriptionTemplateItem> PrescriptionTemplateItems => Set<PrescriptionTemplateItem>();
+    public DbSet<StaffMessage> StaffMessages => Set<StaffMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -229,6 +230,14 @@ public class AppDbContext : DbContext
             b.Property(a => a.ChangesJson).HasColumnType("jsonb").IsRequired();
             b.HasIndex(a => new { a.EntityName, a.EntityId });
             b.HasIndex(a => a.CreatedAtUtc);
+        });
+
+        modelBuilder.Entity<StaffMessage>(b =>
+        {
+            b.Property(m => m.Content).HasMaxLength(2000).IsRequired();
+            b.HasIndex(m => new { m.Target, m.DoctorId, m.CreatedAtUtc });
+            b.HasOne(m => m.Sender).WithMany().HasForeignKey(m => m.SenderUserId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne(m => m.Doctor).WithMany().HasForeignKey(m => m.DoctorId).OnDelete(DeleteBehavior.SetNull);
         });
     }
 

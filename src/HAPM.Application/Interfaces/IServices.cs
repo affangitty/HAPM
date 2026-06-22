@@ -158,3 +158,10 @@ public interface IExportService
     Task<CsvExport> ExportPatientsAsync(CancellationToken ct = default);
     Task<CsvExport> ExportInvoicesAsync(DateOnly? fromDate, DateOnly? toDate, CancellationToken ct = default);
 }
+
+public interface IStaffMessageService
+{
+    Task<PagedResult<StaffMessageDto>> GetPagedAsync(StaffMessageQueryParams query, CancellationToken ct = default);
+    Task<StaffMessageDto> SendToDoctorAsync(SendDoctorMessageRequest request, CancellationToken ct = default);
+    Task<StaffMessageDto> BroadcastToStaffAsync(BroadcastStaffMessageRequest request, CancellationToken ct = default);
+}

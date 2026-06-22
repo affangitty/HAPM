@@ -38,9 +38,9 @@ Interactive docs: **`/swagger`** (use the **Authorize** button with your access 
 
 ---
 
-## Authentication — `/api/auth`
+## Authentication - `/api/auth`
 
-### POST `/api/auth/register` (Public) — patient self-registration
+### POST `/api/auth/register` (Public) - patient self-registration
 
 ```json
 {
@@ -90,7 +90,7 @@ Returns the same `AuthResponse` shape as register.
 
 Rotates the refresh token: the old one is revoked and a new pair is returned.
 
-### POST `/api/auth/logout` (Authenticated) — revokes the supplied refresh token
+### POST `/api/auth/logout` (Authenticated) - revokes the supplied refresh token
 
 ### POST `/api/auth/change-password` (Authenticated)
 
@@ -98,22 +98,22 @@ Rotates the refresh token: the old one is revoked and a new pair is returned.
 { "currentPassword": "Admin@12345", "newPassword": "NewAdmin@456" }
 ```
 
-### GET `/api/auth/me` (Authenticated) — current user profile
+### GET `/api/auth/me` (Authenticated) - current user profile
 
 ---
 
-## Users (admin) — `/api/users`
+## Users (admin) - `/api/users`
 
 | Method | Endpoint | Roles | Notes |
 |--------|----------|-------|-------|
 | GET | `/api/users?role=Doctor&isActive=true&search=` | Admin | Sort: `name`, `email`, `createdAt` |
 | POST | `/api/users/receptionists` | Admin | `{ email, password, fullName, phoneNumber }` |
-| PATCH | `/api/users/{id}/status` | Admin | `{ "isActive": false }` — revokes all refresh tokens |
+| PATCH | `/api/users/{id}/status` | Admin | `{ "isActive": false }` - revokes all refresh tokens |
 | POST | `/api/users/{id}/reset-password` | Admin | `{ "newPassword": "..." }` |
 
 ---
 
-## Doctors — `/api/doctors`
+## Doctors - `/api/doctors`
 
 | Method | Endpoint | Roles |
 |--------|----------|-------|
@@ -151,7 +151,7 @@ Sort options: `name`, `fee`, `experience`, `specialization`. Doctor responses in
 }
 ```
 
-**Set weekly schedule** (`PUT /{id}/schedules` — replaces all):
+**Set weekly schedule** (`PUT /{id}/schedules` - replaces all):
 
 ```json
 [
@@ -160,13 +160,13 @@ Sort options: `name`, `fee`, `experience`, `specialization`. Doctor responses in
 ]
 ```
 
-**Add leave** (`POST /{id}/leaves`) — blocks slot lookup and booking for the period; rejected (409) while active appointments exist in it:
+**Add leave** (`POST /{id}/leaves`) - blocks slot lookup and booking for the period; rejected (409) while active appointments exist in it:
 
 ```json
 { "startDate": "2026-06-22", "endDate": "2026-06-24", "reason": "Conference" }
 ```
 
-**Update own profile** (`PUT /{id}/profile`, Doctor only — own `id`):
+**Update own profile** (`PUT /{id}/profile`, Doctor only - own `id`):
 
 ```json
 { "fullName": "Dr. Anil Sharma", "phoneNumber": "+919999990001", "roomNumber": "C-101", "biography": "Cardiologist with 15 years experience." }
@@ -176,7 +176,7 @@ Admin-only fields (specialization, fee, availability, etc.) remain on `PUT /{id}
 
 ---
 
-## Patients — `/api/patients`
+## Patients - `/api/patients`
 
 | Method | Endpoint | Roles |
 |--------|----------|-------|
@@ -192,7 +192,7 @@ Search matches name, email, MRN and phone. Sort: `name`, `mrn`, `registeredAt`. 
 
 ---
 
-## Appointments — `/api/appointments`
+## Appointments - `/api/appointments`
 
 Data is auto-scoped: patients see their own, doctors see theirs, staff see all.
 
@@ -203,8 +203,8 @@ Data is auto-scoped: patients see their own, doctors see theirs, staff see all.
 | POST | `/api/appointments` | Patient, Admin, Receptionist |
 | POST | `/api/appointments/{id}/confirm` | Doctor (own), Admin, Receptionist |
 | POST | `/api/appointments/{id}/check-in` | Doctor (own), Admin, Receptionist |
-| POST | `/api/appointments/{id}/complete` | Doctor (own), Admin, Receptionist — `{ "notes": "..." }` |
-| POST | `/api/appointments/{id}/cancel` | Owner or staff — `{ "reason": "..." }` |
+| POST | `/api/appointments/{id}/complete` | Doctor (own), Admin, Receptionist - `{ "notes": "..." }` |
+| POST | `/api/appointments/{id}/cancel` | Owner or staff - `{ "reason": "..." }` |
 | POST | `/api/appointments/{id}/no-show` | Doctor (own), Admin, Receptionist (past slots only) |
 | PUT | `/api/appointments/{id}/reschedule` | Owner or staff |
 
@@ -226,7 +226,7 @@ Validation errors → 400 (outside consulting hours, on leave, misaligned slot, 
 
 ---
 
-## Vitals — `/api/vitals`
+## Vitals - `/api/vitals`
 
 | Method | Endpoint | Roles |
 |--------|----------|-------|
@@ -253,7 +253,7 @@ Validation errors → 400 (outside consulting hours, on leave, misaligned slot, 
 
 ---
 
-## Prescriptions — `/api/prescriptions`
+## Prescriptions - `/api/prescriptions`
 
 | Method | Endpoint | Roles |
 |--------|----------|-------|
@@ -263,7 +263,7 @@ Validation errors → 400 (outside consulting hours, on leave, misaligned slot, 
 | POST | `/api/prescriptions` | Doctor (own checked-in/completed appointment) |
 | PUT | `/api/prescriptions/{id}` | Prescribing doctor |
 
-**Create** (one per appointment — 409 if it already exists):
+**Create** (one per appointment - 409 if it already exists):
 
 ```json
 {
@@ -289,7 +289,7 @@ When `followUpDate` is set, the patient automatically receives a `FollowUpDue` n
 
 ---
 
-## Prescription Templates — `/api/prescription-templates`
+## Prescription Templates - `/api/prescription-templates`
 
 Doctor-owned presets (e.g. "Viral Fever Protocol"). Using a template is **optional**: the doctor fetches one to prefill a normal create-prescription request, adjusts it, and submits as usual.
 
@@ -301,7 +301,7 @@ Doctor-owned presets (e.g. "Viral Fever Protocol"). Using a template is **option
 | PUT | `/api/prescription-templates/{id}` | Doctor (own) |
 | DELETE | `/api/prescription-templates/{id}` | Doctor (own) |
 
-**Save template** (name unique per doctor — duplicate → 409):
+**Save template** (name unique per doctor - duplicate → 409):
 
 ```json
 {
@@ -315,20 +315,20 @@ Doctor-owned presets (e.g. "Viral Fever Protocol"). Using a template is **option
 }
 ```
 
-Templates are fully isolated per doctor — other doctors get 404 for templates they don't own.
+Templates are fully isolated per doctor - other doctors get 404 for templates they don't own.
 
 ---
 
-## Lab Reports — `/api/lab-reports`
+## Lab Reports - `/api/lab-reports`
 
 | Method | Endpoint | Roles |
 |--------|----------|-------|
 | GET | `/api/lab-reports?patientId=&doctorId=&reportType=&status=Reviewed` | Authenticated (patients: own) |
 | GET | `/api/lab-reports/{id}` | Authenticated (scoped) |
-| GET | `/api/lab-reports/{id}/download` | Authenticated (scoped) — streams the file |
+| GET | `/api/lab-reports/{id}/download` | Authenticated (scoped) - streams the file |
 | POST | `/api/lab-reports` | Admin, Receptionist, Doctor (`multipart/form-data`) |
 | PUT | `/api/lab-reports/{id}` | Admin, Receptionist, Doctor (`multipart/form-data`, `file` optional) |
-| POST | `/api/lab-reports/{id}/review` | Doctor — `{ "remarks": "..." }` |
+| POST | `/api/lab-reports/{id}/review` | Doctor - `{ "remarks": "..." }` |
 | DELETE | `/api/lab-reports/{id}` | Admin (also deletes the file) |
 
 **Upload form fields:** `patientId` (required), `doctorId`, `appointmentId` (optional), `reportType`, `title`, `file` (required; `.pdf .jpg .jpeg .png .dcm`, max 10 MB).
@@ -337,7 +337,7 @@ Templates are fully isolated per doctor — other doctors get 404 for templates 
 
 ---
 
-## Invoices — `/api/invoices`
+## Invoices - `/api/invoices`
 
 | Method | Endpoint | Roles |
 |--------|----------|-------|
@@ -389,7 +389,7 @@ Each payment gets a receipt number (`RCP-2026-000001`). Status: `Pending → Par
 
 ---
 
-## Reviews — `/api/reviews`
+## Reviews - `/api/reviews`
 
 | Method | Endpoint | Roles |
 |--------|----------|-------|
@@ -403,7 +403,7 @@ Each payment gets a receipt number (`RCP-2026-000001`). Status: `Pending → Par
 
 ---
 
-## Waitlist — `/api/waitlist`
+## Waitlist - `/api/waitlist`
 
 | Method | Endpoint | Roles |
 |--------|----------|-------|
@@ -419,7 +419,7 @@ When an appointment for that doctor/date is cancelled, every active waitlisted p
 
 ---
 
-## Notifications — `/api/notifications`
+## Notifications - `/api/notifications`
 
 | Method | Endpoint | Roles |
 |--------|----------|-------|
@@ -432,7 +432,7 @@ When an appointment for that doctor/date is cancelled, every active waitlisted p
 
 ---
 
-## Dashboard — `/api/dashboard`
+## Dashboard - `/api/dashboard`
 
 ### GET `/api/dashboard/stats` (Admin)
 
@@ -455,7 +455,7 @@ Revenue is computed from received payments, not invoice face value.
 
 ### GET `/api/dashboard/peak-hours?fromDate=&toDate=` (Admin)
 
-Appointment counts grouped by day-of-week × hour-of-day (cancelled excluded) — ready to render as a heatmap:
+Appointment counts grouped by day-of-week × hour-of-day (cancelled excluded) - ready to render as a heatmap:
 
 ```json
 [
@@ -476,9 +476,9 @@ Received payments grouped by the doctor's specialization (payments on invoices w
 
 ---
 
-## Doctor Performance — `/api/doctors/{id}/performance`
+## Doctor Performance - `/api/doctors/{id}/performance`
 
-**Roles:** Admin, Doctor (own metrics only — other doctors' → 403).
+**Roles:** Admin, Doctor (own metrics only - other doctors' → 403).
 
 ```json
 {
@@ -502,7 +502,7 @@ Received payments grouped by the doctor's specialization (payments on invoices w
 
 ---
 
-## Audit Logs — `/api/audit-logs`
+## Audit Logs - `/api/audit-logs`
 
 ### GET `/api/audit-logs?entityName=Invoice&action=Updated&userId=&fromDate=&toDate=` (Admin)
 
@@ -510,7 +510,7 @@ Every create/update/delete is captured automatically by an EF Core interceptor w
 
 ---
 
-## Exports — `/api/exports` (Admin, Receptionist)
+## Exports - `/api/exports` (Admin, Receptionist)
 
 | Method | Endpoint | Output |
 |--------|----------|--------|

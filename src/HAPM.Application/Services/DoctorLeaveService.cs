@@ -88,13 +88,9 @@ public class DoctorLeaveService : IDoctorLeaveService
         if (_currentUser.Role == UserRole.Admin)
             return;
 
-        if (_currentUser.Role == UserRole.Doctor)
-        {
-            var ownsProfile = await _uow.Doctors.Query()
-                .AnyAsync(d => d.Id == doctorId && d.UserId == _currentUser.UserId, ct);
-            if (ownsProfile)
-                return;
-        }
+        if (_currentUser.Role == UserRole.Doctor &&
+            await _uow.Doctors.Query().AnyAsync(d => d.Id == doctorId && d.UserId == _currentUser.UserId, ct))
+            return;
 
         throw new ForbiddenException("Only admins or the doctor themselves can manage leave.");
     }

@@ -36,6 +36,7 @@ public interface IUnitOfWork
     IRepository<Payment> Payments { get; }
     IRepository<AuditLog> AuditLogs { get; }
     IRepository<PrescriptionTemplate> PrescriptionTemplates { get; }
+    IRepository<StaffMessage> StaffMessages { get; }
 
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 }

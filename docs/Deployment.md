@@ -1,4 +1,4 @@
-# Deployment Guide — HAPM API
+# Deployment Guide - HAPM API
 
 ## Prerequisites
 
@@ -18,7 +18,7 @@ cd HAPM
 
 ### 2. Configure PostgreSQL
 
-Create the database (or let any superuser-owned DB name work — migrations create all tables):
+Create the database (or let any superuser-owned DB name work - migrations create all tables):
 
 ```sql
 CREATE DATABASE hapm_db;
@@ -144,7 +144,7 @@ Set these in the hosting environment (do **not** commit secrets):
 | `ASPNETCORE_ENVIRONMENT` | `Production` |
 | `ASPNETCORE_URLS` | e.g. `http://0.0.0.0:8080` |
 
-> The seeded `Jwt:Key` in `appsettings.json` is a placeholder — it **must** be replaced in production.
+> The seeded `Jwt:Key` in `appsettings.json` is a placeholder - it **must** be replaced in production.
 
 ### 3. Run
 
@@ -160,7 +160,7 @@ Recommended setup:
 - Point a load-balancer health probe at `/health/live`; readiness at `/health` (includes DB)
 - Persist the `uploads/` and `logs/` directories outside the publish folder
 - Swagger is Development-only by default; the rate limiter (300 req/min global, 10 req/min auth, per IP) is always on
-- `UseHttpsRedirection()` is enabled automatically when `ASPNETCORE_ENVIRONMENT` is not `Development` — terminate TLS at your reverse proxy or App Service
+- `UseHttpsRedirection()` is enabled automatically when `ASPNETCORE_ENVIRONMENT` is not `Development` - terminate TLS at your reverse proxy or App Service
 
 ### 4. systemd example (Linux)
 
@@ -189,7 +189,7 @@ WantedBy=multi-user.target
 - `AppointmentReminderService` (hosted service) runs every 5 minutes and creates:
   - reminders for confirmed appointments starting within 24 hours (deduplicated via `Appointment.ReminderSent`)
   - follow-up reminders for prescriptions whose follow-up date is within 2 days (deduplicated via `Prescription.FollowUpReminderSent`)
-- No external broker/scheduler is required — the job lives inside the API process
+- No external broker/scheduler is required - the job lives inside the API process
 
 ---
 

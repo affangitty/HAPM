@@ -119,4 +119,16 @@ public static class Projections
 
     public static readonly Expression<Func<AuditLog, AuditLogDto>> AuditLog = a =>
         new AuditLogDto(a.Id, a.UserId, a.UserEmail, a.EntityName, a.EntityId, a.Action, a.ChangesJson, a.CreatedAtUtc);
+
+    public static readonly Expression<Func<StaffMessage, StaffMessageDto>> StaffMessage = m =>
+        new StaffMessageDto(
+            m.Id,
+            m.SenderUserId,
+            m.Sender.FullName,
+            m.Sender.Role.ToString(),
+            m.Target,
+            m.DoctorId,
+            m.Doctor != null ? m.Doctor.User.FullName : null,
+            m.Content,
+            m.CreatedAtUtc);
 }

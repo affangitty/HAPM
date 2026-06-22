@@ -10,7 +10,7 @@
 
 ### 1.1 Purpose
 
-This document defines the functional and non-functional requirements for the HAPM backend API — an enterprise-grade Hospital Appointment & Patient Management System.
+This document defines the functional and non-functional requirements for the HAPM backend API - an enterprise-grade Hospital Appointment & Patient Management System.
 
 ### 1.2 Scope
 

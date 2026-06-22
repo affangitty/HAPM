@@ -1,5 +1,6 @@
 using HAPM.Application.Interfaces;
 using HAPM.Application.Services;
+using HAPM.Application.Realtime;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace HAPM.Application;
@@ -25,6 +26,12 @@ public static class DependencyInjection
         services.AddScoped<IAuditLogService, AuditLogService>();
         services.AddScoped<IExportService, ExportService>();
         services.AddScoped<IPrescriptionTemplateService, PrescriptionTemplateService>();
+        services.AddScoped<IStaffMessageService, StaffMessageService>();
+
+        services.AddSingleton<IRealtimeNotificationDispatcher, NullRealtimeNotificationDispatcher>();
+        services.AddSingleton<IAppointmentBoardDispatcher, NullAppointmentBoardDispatcher>();
+        services.AddSingleton<IStaffMessageDispatcher, NullStaffMessageDispatcher>();
+
         return services;
     }
 }

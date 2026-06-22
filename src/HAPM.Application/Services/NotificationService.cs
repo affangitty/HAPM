@@ -12,23 +12,37 @@ public class NotificationService : INotificationService
 {
     private readonly IUnitOfWork _uow;
     private readonly ICurrentUserService _currentUser;
+    private readonly IRealtimeNotificationDispatcher _realtime;
 
-    public NotificationService(IUnitOfWork uow, ICurrentUserService currentUser)
+    public NotificationService(
+        IUnitOfWork uow,
+        ICurrentUserService currentUser,
+        IRealtimeNotificationDispatcher realtime)
     {
         _uow = uow;
         _currentUser = currentUser;
+        _realtime = realtime;
     }
 
     public async Task NotifyAsync(int userId, NotificationType type, string title, string message, CancellationToken ct = default)
     {
-        await _uow.Notifications.AddAsync(new Notification
+        var notification = new Notification
         {
             UserId = userId,
             Type = type,
             Title = title,
             Message = message
-        }, ct);
+        };
+
+        await _uow.Notifications.AddAsync(notification, ct);
         await _uow.SaveChangesAsync(ct);
+
+        var dto = await _uow.Notifications.Query()
+            .Where(n => n.Id == notification.Id)
+            .Select(Projections.Notification)
+            .FirstAsync(ct);
+
+        await _realtime.PushNotificationAsync(userId, dto, ct);
     }
 
     public async Task<PagedResult<NotificationDto>> GetMyNotificationsAsync(PaginationParams query, bool unreadOnly, CancellationToken ct = default)

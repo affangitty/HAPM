@@ -77,3 +77,9 @@ public enum NotificationType
     FollowUpDue = 10,
     AppointmentCompleted = 11
 }
+
+public enum StaffMessageTarget
+{
+    DoctorRoom = 1,
+    StaffBroadcast = 2
+}

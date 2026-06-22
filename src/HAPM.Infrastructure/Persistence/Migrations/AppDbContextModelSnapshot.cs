@@ -78,7 +78,7 @@ namespace HAPM.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("PatientId", "AppointmentDate");
 
-                    b.ToTable("Appointments", (string)null);
+                    b.ToTable("Appointments");
                 });
 
             modelBuilder.Entity("HAPM.Domain.Entities.AuditLog", b =>
@@ -125,7 +125,7 @@ namespace HAPM.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("EntityName", "EntityId");
 
-                    b.ToTable("AuditLogs", (string)null);
+                    b.ToTable("AuditLogs");
                 });
 
             modelBuilder.Entity("HAPM.Domain.Entities.Doctor", b =>
@@ -188,7 +188,7 @@ namespace HAPM.Infrastructure.Persistence.Migrations
                     b.HasIndex("UserId")
                         .IsUnique();
 
-                    b.ToTable("Doctors", (string)null);
+                    b.ToTable("Doctors");
                 });
 
             modelBuilder.Entity("HAPM.Domain.Entities.DoctorLeave", b =>
@@ -226,7 +226,7 @@ namespace HAPM.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("DoctorId", "StartDate", "EndDate");
 
-                    b.ToTable("DoctorLeaves", (string)null);
+                    b.ToTable("DoctorLeaves");
                 });
 
             modelBuilder.Entity("HAPM.Domain.Entities.DoctorReview", b =>
@@ -268,7 +268,7 @@ namespace HAPM.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("PatientId");
 
-                    b.ToTable("DoctorReviews", (string)null);
+                    b.ToTable("DoctorReviews");
                 });
 
             modelBuilder.Entity("HAPM.Domain.Entities.DoctorSchedule", b =>
@@ -304,7 +304,7 @@ namespace HAPM.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("DoctorId", "DayOfWeek");
 
-                    b.ToTable("DoctorSchedules", (string)null);
+                    b.ToTable("DoctorSchedules");
                 });
 
             modelBuilder.Entity("HAPM.Domain.Entities.Invoice", b =>
@@ -374,7 +374,7 @@ namespace HAPM.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("Status");
 
-                    b.ToTable("Invoices", (string)null);
+                    b.ToTable("Invoices");
                 });
 
             modelBuilder.Entity("HAPM.Domain.Entities.InvoiceItem", b =>
@@ -414,7 +414,7 @@ namespace HAPM.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("InvoiceId");
 
-                    b.ToTable("InvoiceItems", (string)null);
+                    b.ToTable("InvoiceItems");
                 });
 
             modelBuilder.Entity("HAPM.Domain.Entities.LabReport", b =>
@@ -486,7 +486,7 @@ namespace HAPM.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("PatientId", "ReportType");
 
-                    b.ToTable("LabReports", (string)null);
+                    b.ToTable("LabReports");
                 });
 
             modelBuilder.Entity("HAPM.Domain.Entities.Notification", b =>
@@ -529,7 +529,7 @@ namespace HAPM.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("UserId", "IsRead");
 
-                    b.ToTable("Notifications", (string)null);
+                    b.ToTable("Notifications");
                 });
 
             modelBuilder.Entity("HAPM.Domain.Entities.Patient", b =>
@@ -592,7 +592,7 @@ namespace HAPM.Infrastructure.Persistence.Migrations
                     b.HasIndex("UserId")
                         .IsUnique();
 
-                    b.ToTable("Patients", (string)null);
+                    b.ToTable("Patients");
                 });
 
             modelBuilder.Entity("HAPM.Domain.Entities.Payment", b =>
@@ -638,7 +638,7 @@ namespace HAPM.Infrastructure.Persistence.Migrations
                     b.HasIndex("ReceiptNumber")
                         .IsUnique();
 
-                    b.ToTable("Payments", (string)null);
+                    b.ToTable("Payments");
                 });
 
             modelBuilder.Entity("HAPM.Domain.Entities.Prescription", b =>
@@ -688,7 +688,7 @@ namespace HAPM.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("PatientId");
 
-                    b.ToTable("Prescriptions", (string)null);
+                    b.ToTable("Prescriptions");
                 });
 
             modelBuilder.Entity("HAPM.Domain.Entities.PrescriptionItem", b =>
@@ -734,7 +734,7 @@ namespace HAPM.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("PrescriptionId");
 
-                    b.ToTable("PrescriptionItems", (string)null);
+                    b.ToTable("PrescriptionItems");
                 });
 
             modelBuilder.Entity("HAPM.Domain.Entities.PrescriptionTemplate", b =>
@@ -773,7 +773,7 @@ namespace HAPM.Infrastructure.Persistence.Migrations
                     b.HasIndex("DoctorId", "Name")
                         .IsUnique();
 
-                    b.ToTable("PrescriptionTemplates", (string)null);
+                    b.ToTable("PrescriptionTemplates");
                 });
 
             modelBuilder.Entity("HAPM.Domain.Entities.PrescriptionTemplateItem", b =>
@@ -819,7 +819,7 @@ namespace HAPM.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("PrescriptionTemplateId");
 
-                    b.ToTable("PrescriptionTemplateItems", (string)null);
+                    b.ToTable("PrescriptionTemplateItems");
                 });
 
             modelBuilder.Entity("HAPM.Domain.Entities.RefreshToken", b =>
@@ -860,7 +860,46 @@ namespace HAPM.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("RefreshTokens", (string)null);
+                    b.ToTable("RefreshTokens");
+                });
+
+            modelBuilder.Entity("HAPM.Domain.Entities.StaffMessage", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("DoctorId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SenderUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Target")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DoctorId");
+
+                    b.HasIndex("SenderUserId");
+
+                    b.HasIndex("Target", "DoctorId", "CreatedAtUtc");
+
+                    b.ToTable("StaffMessages");
                 });
 
             modelBuilder.Entity("HAPM.Domain.Entities.User", b =>
@@ -906,7 +945,7 @@ namespace HAPM.Infrastructure.Persistence.Migrations
                     b.HasIndex("Email")
                         .IsUnique();
 
-                    b.ToTable("Users", (string)null);
+                    b.ToTable("Users");
                 });
 
             modelBuilder.Entity("HAPM.Domain.Entities.VitalSign", b =>
@@ -970,7 +1009,7 @@ namespace HAPM.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("PatientId");
 
-                    b.ToTable("VitalSigns", (string)null);
+                    b.ToTable("VitalSigns");
                 });
 
             modelBuilder.Entity("HAPM.Domain.Entities.WaitlistEntry", b =>
@@ -1012,7 +1051,7 @@ namespace HAPM.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("DoctorId", "PreferredDate", "Status");
 
-                    b.ToTable("WaitlistEntries", (string)null);
+                    b.ToTable("WaitlistEntries");
                 });
 
             modelBuilder.Entity("HAPM.Domain.Entities.Appointment", b =>
@@ -1250,6 +1289,24 @@ namespace HAPM.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("HAPM.Domain.Entities.StaffMessage", b =>
+                {
+                    b.HasOne("HAPM.Domain.Entities.Doctor", "Doctor")
+                        .WithMany()
+                        .HasForeignKey("DoctorId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("HAPM.Domain.Entities.User", "Sender")
+                        .WithMany()
+                        .HasForeignKey("SenderUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Doctor");
+
+                    b.Navigation("Sender");
                 });
 
             modelBuilder.Entity("HAPM.Domain.Entities.VitalSign", b =>

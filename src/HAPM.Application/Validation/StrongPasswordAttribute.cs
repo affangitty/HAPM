@@ -14,6 +14,6 @@ public sealed class StrongPasswordAttribute : ValidationAttribute
 
         return PasswordValidator.IsValid(password)
             ? ValidationResult.Success
-            : new ValidationResult(ErrorMessage ?? PasswordValidator.ErrorMessage);
+            : new ValidationResult(ErrorMessage ?? PasswordValidator.ErrorMessage, new[] { validationContext.MemberName! });
     }
 }

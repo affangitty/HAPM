@@ -1,4 +1,4 @@
-using HAPM.Application.Common;
+using HAPM.Application.Interfaces;
 using HAPM.Domain.Enums;
 using HAPM.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -11,6 +11,7 @@ namespace HAPM.Infrastructure.BackgroundJobs;
 /// <summary>
 /// Periodically creates in-app reminder notifications for confirmed appointments
 /// happening within the next 24 hours, and for prescription follow-ups due within 2 days.
+/// Notifications are persisted and pushed in real time via <see cref="INotificationService"/>.
 /// </summary>
 public class AppointmentReminderService : BackgroundService
 {
@@ -51,10 +52,11 @@ public class AppointmentReminderService : BackgroundService
     {
         using var scope = _scopeFactory.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var notifications = scope.ServiceProvider.GetRequiredService<INotificationService>();
 
-        var now = HospitalClock.Now;
+        var now = Application.Common.HospitalClock.Now;
         var windowEnd = now.AddHours(24);
-        var today = HospitalClock.Today;
+        var today = Application.Common.HospitalClock.Today;
         var windowEndDate = DateOnly.FromDateTime(windowEnd);
 
         var due = await context.Appointments
@@ -73,14 +75,13 @@ public class AppointmentReminderService : BackgroundService
             if (slotStart <= now || slotStart > windowEnd)
                 continue;
 
-            context.Notifications.Add(new Domain.Entities.Notification
-            {
-                UserId = appointment.Patient.UserId,
-                Type = NotificationType.AppointmentReminder,
-                Title = "Appointment reminder",
-                Message = $"Reminder: you have an appointment with Dr. {appointment.Doctor.User.FullName} " +
-                          $"on {appointment.AppointmentDate:yyyy-MM-dd} at {appointment.StartTime:HH\\:mm}."
-            });
+            await notifications.NotifyAsync(
+                appointment.Patient.UserId,
+                NotificationType.AppointmentReminder,
+                "Appointment reminder",
+                $"Reminder: you have an appointment with Dr. {appointment.Doctor.User.FullName} " +
+                $"on {appointment.AppointmentDate:yyyy-MM-dd} at {appointment.StartTime:HH\\:mm}.",
+                ct);
 
             appointment.ReminderSent = true;
             sent++;
@@ -97,8 +98,9 @@ public class AppointmentReminderService : BackgroundService
     {
         using var scope = _scopeFactory.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var notifications = scope.ServiceProvider.GetRequiredService<INotificationService>();
 
-        var today = HospitalClock.Today;
+        var today = Application.Common.HospitalClock.Today;
         var windowEnd = today.AddDays(2);
 
         var due = await context.Prescriptions
@@ -112,14 +114,13 @@ public class AppointmentReminderService : BackgroundService
 
         foreach (var prescription in due)
         {
-            context.Notifications.Add(new Domain.Entities.Notification
-            {
-                UserId = prescription.Patient.UserId,
-                Type = NotificationType.FollowUpDue,
-                Title = "Follow-up due soon",
-                Message = $"Your follow-up with Dr. {prescription.Doctor.User.FullName} is due on " +
-                          $"{prescription.FollowUpDate:yyyy-MM-dd}. Please book an appointment."
-            });
+            await notifications.NotifyAsync(
+                prescription.Patient.UserId,
+                NotificationType.FollowUpDue,
+                "Follow-up due soon",
+                $"Your follow-up with Dr. {prescription.Doctor.User.FullName} is due on " +
+                $"{prescription.FollowUpDate:yyyy-MM-dd}. Please book an appointment.",
+                ct);
 
             prescription.FollowUpReminderSent = true;
         }

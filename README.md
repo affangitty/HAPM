@@ -1,6 +1,6 @@
 # Hospital Appointment & Patient Management System (HAPM)
 
-Backend API for managing doctors, patients, appointments, prescriptions, lab reports and billing — built with **ASP.NET Core 8**, **PostgreSQL** and **Entity Framework Core** using a layered clean architecture with **JWT authentication** and **role-based access control**.
+Backend API for managing doctors, patients, appointments, prescriptions, lab reports and billing - built with **ASP.NET Core 8**, **PostgreSQL** and **Entity Framework Core** using a layered clean architecture with **JWT authentication** and **role-based access control**.
 
 ## Architecture
 
@@ -22,32 +22,35 @@ PostgreSQL
 
 | Project | Responsibility |
 |---|---|
-| `HAPM.Domain` | Entities, enums — no dependencies |
+| `HAPM.Domain` | Entities, enums - no dependencies |
 | `HAPM.Application` | Service layer, DTOs, business rules, repository abstractions |
 | `HAPM.Infrastructure` | Repository layer, EF Core + Npgsql, BCrypt hashing, JWT, local file storage, reminder job |
 | `HAPM.API` | Web API host, controllers, exception middleware, Serilog, Swagger |
 
 ## Features
 
+For a complete capability list, see **[docs/FEATURES.md](docs/FEATURES.md)**.
+
 - **JWT authentication** with **refresh-token rotation** and revocation on logout/deactivation
 - **RBAC** with 4 roles: `Admin`, `Doctor`, `Patient`, `Receptionist`
-- **Doctor management** — profiles (doctors update own name/phone/room/bio), weekly schedules, computed **available slots**
-- **Appointment lifecycle** — `Pending → Confirmed → CheckedIn → Completed` (+ `Cancelled`, `NoShow`) with slot-grid validation and **double-booking prevention** for both doctor and patient
-- **Prescriptions** — one per appointment, multi-line medicines, doctor-only
-- **Prescription templates** — doctors save named diagnosis + medicines presets (e.g. "Viral Fever Protocol") and optionally apply them to prefill new prescriptions
-- **Follow-up reminders** — patients are auto-notified when a prescription's follow-up date is within 2 days
-- **Lab reports** — file upload (pdf/jpg/png/dcm, max 10 MB), metadata/file update, download streaming, doctor review
-- **Billing** — invoices with auto consultation fee, tax/discount math, **edit pending invoices**, **partial payments with receipt numbers** (`Pending → PartiallyPaid → Paid`)
-- **Vital signs per visit** — temperature, pulse, BP, SpO2, height/weight with **auto-computed BMI**
-- **Doctor leave management** — leave windows block slot lookup and booking; creation rejected while active appointments exist in the period
-- **Patient feedback & ratings** — 1–5 stars per completed appointment (one per appointment), average rating surfaced on doctor listings
-- **Appointment waitlist** — patients waitlist a doctor/date and are **auto-notified when a cancellation frees a slot**
-- **Audit log** — every create/update/delete recorded automatically by an EF Core interceptor (old/new values as JSON, passwords masked), queryable by admins
-- **CSV exports** — appointments, patients and invoices (Excel-friendly, UTF-8 BOM)
-- **Analytics** — peak-hours heatmap data (day-of-week × hour), revenue by specialization, and per-doctor **performance metrics** (outcomes, no-show rate, rating, prescriptions, revenue)
+- **Doctor management** - profiles (doctors update own name/phone/room/bio), weekly schedules, computed **available slots**
+- **Appointment lifecycle** - `Pending → Confirmed → CheckedIn → Completed` (+ `Cancelled`, `NoShow`) with slot-grid validation and **double-booking prevention** for both doctor and patient
+- **Prescriptions** - one per appointment, multi-line medicines, doctor-only
+- **Prescription templates** - doctors save named diagnosis + medicines presets (e.g. "Viral Fever Protocol") and optionally apply them to prefill new prescriptions
+- **Follow-up reminders** - patients are auto-notified when a prescription's follow-up date is within 2 days
+- **Lab reports** - file upload (pdf/jpg/png/dcm, max 10 MB), metadata/file update, download streaming, doctor review
+- **Billing** - invoices with auto consultation fee, tax/discount math, **edit pending invoices**, **partial payments with receipt numbers** (`Pending → PartiallyPaid → Paid`)
+- **Vital signs per visit** - temperature, pulse, BP, SpO2, height/weight with **auto-computed BMI**
+- **Doctor leave management** - leave windows block slot lookup and booking; creation rejected while active appointments exist in the period
+- **Patient feedback & ratings** - 1–5 stars per completed appointment (one per appointment), average rating surfaced on doctor listings
+- **Appointment waitlist** - patients waitlist a doctor/date and are **auto-notified when a cancellation frees a slot**
+- **Audit log** - every create/update/delete recorded automatically by an EF Core interceptor (old/new values as JSON, passwords masked), queryable by admins
+- **CSV exports** - appointments, patients and invoices (Excel-friendly, UTF-8 BOM)
+- **Analytics** - peak-hours heatmap data (day-of-week × hour), revenue by specialization, and per-doctor **performance metrics** (outcomes, no-show rate, rating, prescriptions, revenue)
 - **In-app notifications** (incl. on appointment complete) + background **appointment reminder job** (24 h window)
-- **Rate limiting** — global per-IP ceiling plus a strict policy on `/api/auth/*` for brute-force protection (HTTP 429)
-- **Health checks** — `/health` (includes DB connectivity) and `/health/live`
+- **SignalR real-time** — live notification push, appointment status board, staff internal messaging ([docs/SignalR.md](docs/SignalR.md))
+- **Rate limiting** - global per-IP ceiling plus a strict policy on `/api/auth/*` for brute-force protection (HTTP 429)
+- **Health checks** - `/health` (includes DB connectivity) and `/health/live`
 - **Search, filtering, sorting and pagination** on every list endpoint
 - Global exception middleware returning RFC-7807 `ProblemDetails`
 - Serilog console + rolling file logging, EF migrations, startup seeding, **HTTPS redirect in non-Development**
@@ -87,6 +90,48 @@ dotnet run --project src/HAPM.API --urls http://localhost:5080
 | Doctor (Dermatology) | `dr.iyer@hapm.local` | `Doctor@12345` |
 | Patient | `patient@hapm.local` | `Patient@12345` |
 
+### Unit tests
+
+xUnit tests live in `tests/HAPM.Application.Tests` and use **EF Core InMemory** for service-layer tests with mocked auth/notifications:
+
+```bash
+dotnet test tests/HAPM.Application.Tests/HAPM.Application.Tests.csproj
+```
+
+**Code coverage (Coverlet)** - scopes to `HAPM.Application.Services`:
+
+```bash
+dotnet test tests/HAPM.Application.Tests/HAPM.Application.Tests.csproj \
+  --settings tests/HAPM.Application.Tests/coverlet.runsettings \
+  --collect:"XPlat Code Coverage" \
+  --results-directory ./TestResults
+```
+
+The Cobertura report is written under `TestResults/<guid>/coverage.cobertura.xml`. Open it in VS Code with a coverage extension, or install [ReportGenerator](https://github.com/danielpalme/ReportGenerator):
+
+```bash
+dotnet tool install -g dotnet-reportgenerator-globaltool
+reportgenerator -reports:"TestResults/**/coverage.cobertura.xml" -targetdir:"TestResults/coverage-report" -reporttypes:Html
+```
+
+All **17 application services** have dedicated unit tests (186 tests total).
+
+### Evaluator demo (Postman)
+
+Import from `postman/`:
+
+- `HAPM-Setup.postman_collection.json` - private logins (run before demo)
+- `HAPM-Demo-Workflows.postman_collection.json` - evaluator-facing workflows
+- `HAPM-Evaluator.postman_environment.json` - variables and tokens
+
+Load demo data:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/prepare-evaluator-demo.ps1
+```
+
+See `docs/Demo_Plan.md` (18–20 min script), `docs/Evaluator_Demo_Guide.md` (prep checklist), and `CHANGELOG.md`.
+
 ### Smoke test
 
 With the API running:
@@ -108,7 +153,7 @@ All list endpoints accept `page`, `pageSize` (max 100), `search`, `sortBy`, `sor
 
 Authenticate via `Authorization: Bearer <accessToken>`.
 
-### Auth — `/api/auth`
+### Auth - `/api/auth`
 
 | Method | Route | Access | Description |
 |---|---|---|---|
@@ -119,7 +164,7 @@ Authenticate via `Authorization: Bearer <accessToken>`.
 | POST | `/change-password` | Authenticated | Change own password |
 | GET | `/me` | Authenticated | Current user profile |
 
-### Users (admin) — `/api/users`
+### Users (admin) - `/api/users`
 
 | Method | Route | Access | Description |
 |---|---|---|---|
@@ -128,7 +173,7 @@ Authenticate via `Authorization: Bearer <accessToken>`.
 | PATCH | `/{id}/status` | Admin | Activate/deactivate (revokes sessions) |
 | POST | `/{id}/reset-password` | Admin | Reset a user's password |
 
-### Doctors — `/api/doctors`
+### Doctors - `/api/doctors`
 
 | Method | Route | Access | Description |
 |---|---|---|---|
@@ -147,7 +192,7 @@ Authenticate via `Authorization: Bearer <accessToken>`.
 | DELETE | `/{id}/leaves/{leaveId}` | Admin, Doctor (own) | Remove a leave |
 | GET | `/{id}/performance` | Admin, Doctor (own) | Performance metrics: appointment outcomes, no-show rate, rating, prescriptions, distinct patients, revenue |
 
-### Patients — `/api/patients`
+### Patients - `/api/patients`
 
 | Method | Route | Access | Description |
 |---|---|---|---|
@@ -159,7 +204,7 @@ Authenticate via `Authorization: Bearer <accessToken>`.
 | PUT | `/{id}` | Auth (patients: own only) | Update patient |
 | DELETE | `/{id}` | Admin | Deactivate |
 
-### Appointments — `/api/appointments`
+### Appointments - `/api/appointments`
 
 Data is auto-scoped: patients see their own, doctors see theirs, staff see all.
 
@@ -175,7 +220,7 @@ Data is auto-scoped: patients see their own, doctors see theirs, staff see all.
 | POST | `/{id}/no-show` | Doctor (own), Staff | Past appointment → NoShow |
 | PUT | `/{id}/reschedule` | Owner or staff | Move to a new valid slot |
 
-### Prescriptions — `/api/prescriptions`
+### Prescriptions - `/api/prescriptions`
 
 | Method | Route | Access | Description |
 |---|---|---|---|
@@ -185,7 +230,7 @@ Data is auto-scoped: patients see their own, doctors see theirs, staff see all.
 | POST | `/` | Doctor (own appointment) | Issue prescription (checked-in/completed only, one per appointment) |
 | PUT | `/{id}` | Prescribing doctor | Update diagnosis/items |
 
-### Prescription templates — `/api/prescription-templates`
+### Prescription templates - `/api/prescription-templates`
 
 Doctor-owned presets; applying one simply prefills a normal create-prescription request (using a template is optional).
 
@@ -197,7 +242,7 @@ Doctor-owned presets; applying one simply prefills a normal create-prescription 
 | PUT | `/{id}` | Doctor (own) | Update a template |
 | DELETE | `/{id}` | Doctor (own) | Delete a template |
 
-### Lab reports — `/api/lab-reports`
+### Lab reports - `/api/lab-reports`
 
 | Method | Route | Access | Description |
 |---|---|---|---|
@@ -209,7 +254,7 @@ Doctor-owned presets; applying one simply prefills a normal create-prescription 
 | POST | `/{id}/review` | Doctor | Mark reviewed with remarks |
 | DELETE | `/{id}` | Admin | Delete report + file |
 
-### Invoices — `/api/invoices`
+### Invoices - `/api/invoices`
 
 | Method | Route | Access | Description |
 |---|---|---|---|
@@ -221,7 +266,7 @@ Doctor-owned presets; applying one simply prefills a normal create-prescription 
 | GET | `/{id}/payments` | Authenticated (scoped) | Payment receipts for the invoice |
 | POST | `/{id}/cancel` | Admin, Receptionist | Cancel pending invoice |
 
-### Notifications — `/api/notifications`
+### Notifications - `/api/notifications`
 
 | Method | Route | Access | Description |
 |---|---|---|---|
@@ -230,7 +275,7 @@ Doctor-owned presets; applying one simply prefills a normal create-prescription 
 | POST | `/{id}/read` | Authenticated | Mark one read |
 | POST | `/read-all` | Authenticated | Mark all read |
 
-### Vitals — `/api/vitals`
+### Vitals - `/api/vitals`
 
 | Method | Route | Access | Description |
 |---|---|---|---|
@@ -238,7 +283,7 @@ Doctor-owned presets; applying one simply prefills a normal create-prescription 
 | GET | `/{id}` | Authenticated (scoped) | Single reading (incl. computed BMI) |
 | POST | `/` | Admin, Receptionist, Doctor | Record readings for an appointment |
 
-### Reviews — `/api/reviews`
+### Reviews - `/api/reviews`
 
 | Method | Route | Access | Description |
 |---|---|---|---|
@@ -246,7 +291,7 @@ Doctor-owned presets; applying one simply prefills a normal create-prescription 
 | POST | `/` | Patient | Rate a completed appointment (1–5, one review per appointment) |
 | DELETE | `/{id}` | Admin or author | Delete a review |
 
-### Waitlist — `/api/waitlist`
+### Waitlist - `/api/waitlist`
 
 | Method | Route | Access | Description |
 |---|---|---|---|
@@ -254,7 +299,7 @@ Doctor-owned presets; applying one simply prefills a normal create-prescription 
 | POST | `/` | Patient, Staff | Join the waitlist for a doctor/date; auto-notified on cancellations |
 | POST | `/{id}/cancel` | Owner or staff | Leave the waitlist |
 
-### Exports — `/api/exports`
+### Exports - `/api/exports`
 
 | Method | Route | Access | Description |
 |---|---|---|---|
@@ -262,19 +307,41 @@ Doctor-owned presets; applying one simply prefills a normal create-prescription 
 | GET | `/patients` | Admin, Receptionist | Patient register as CSV |
 | GET | `/invoices?fromDate=&toDate=` | Admin, Receptionist | Invoices (incl. amount paid) as CSV |
 
-### Audit logs — `/api/audit-logs`
+### Audit logs - `/api/audit-logs`
 
 | Method | Route | Access | Description |
 |---|---|---|---|
 | GET | `/` | Admin | Data-change trail; filter `entityName`, `action`, `userId`, date range |
 
-### Dashboard — `/api/dashboard`
+### Dashboard - `/api/dashboard`
 
 | Method | Route | Access | Description |
 |---|---|---|---|
 | GET | `/stats` | Admin | Headcounts, today's/upcoming appointments, revenue (from received payments), status breakdown, top specializations |
 | GET | `/peak-hours?fromDate=&toDate=` | Admin | Appointment counts per day-of-week × hour-of-day (heatmap data) |
 | GET | `/revenue-by-specialization` | Admin | Received payments grouped by doctor specialization |
+
+### Staff messages — `/api/staff-messages`
+
+Internal operational messaging (Admin, Receptionist, Doctor). No patient access.
+
+| Method | Route | Access | Description |
+|---|---|---|---|
+| GET | `/` | Clinical | Message history (filter by doctor, target) |
+| POST | `/to-doctor` | Staff | Send message to a doctor's room |
+| POST | `/broadcast` | Admin | Broadcast to all connected staff |
+
+Delivered in real time via `/hubs/chat`. See [docs/SignalR.md](docs/SignalR.md).
+
+### SignalR hubs
+
+| Hub | URL | Access | Client events |
+|---|---|---|---|
+| Notifications | `/hubs/notifications` | Authenticated | `ReceiveNotification` |
+| Appointments board | `/hubs/appointments` | Admin, Receptionist | `AppointmentStatusChanged` |
+| Staff chat | `/hubs/chat` | Clinical (no patients) | `ReceiveStaffMessage` |
+
+Connect with JWT: `?access_token=<token>`. Full guide: [docs/SignalR.md](docs/SignalR.md).
 
 ### Operational endpoints
 
@@ -301,6 +368,7 @@ Appointment 1──* VitalSign
 Appointment 1──0..1 Invoice ──* InvoiceItem  (Invoice *──1 Patient)
 Invoice 1──* Payment
 Patient 1──* LabReport (optional links to Doctor / Appointment)
+User 1──* StaffMessage (internal staff messaging)
 AuditLog (standalone, written by EF interceptor)
 ```
 
@@ -351,7 +419,7 @@ ENTRYPOINT ["dotnet", "HAPM.API.dll"]
 
 ## Azure integration notes
 
-The brief's Azure services map to existing seams — no business logic changes required:
+The brief's Azure services map to existing seams - no business logic changes required:
 
 - **Azure Blob Storage** → implement `IFileStorageService` with `BlobContainerClient` and register it in `HAPM.Infrastructure/DependencyInjection.cs`.
 - **Azure Key Vault** → `builder.Configuration.AddAzureKeyVault(...)` in `Program.cs`; `Jwt:Key` and the connection string resolve transparently.

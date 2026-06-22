@@ -4,7 +4,7 @@ namespace HAPM.Domain.Entities;
 
 /// <summary>
 /// A doctor's reusable diagnosis + medicines preset (e.g. "Viral Fever Protocol").
-/// Applying a template is optional — it only prefills a normal prescription.
+/// Applying a template is optional - it only prefills a normal prescription.
 /// </summary>
 public class PrescriptionTemplate : BaseEntity
 {

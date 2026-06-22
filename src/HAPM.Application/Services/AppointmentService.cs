@@ -13,12 +13,18 @@ public class AppointmentService : IAppointmentService
     private readonly IUnitOfWork _uow;
     private readonly ICurrentUserService _currentUser;
     private readonly INotificationService _notifications;
+    private readonly IAppointmentBoardDispatcher _board;
 
-    public AppointmentService(IUnitOfWork uow, ICurrentUserService currentUser, INotificationService notifications)
+    public AppointmentService(
+        IUnitOfWork uow,
+        ICurrentUserService currentUser,
+        INotificationService notifications,
+        IAppointmentBoardDispatcher board)
     {
         _uow = uow;
         _currentUser = currentUser;
         _notifications = notifications;
+        _board = board;
     }
 
     public async Task<PagedResult<AppointmentDto>> GetPagedAsync(AppointmentQueryParams query, CancellationToken ct = default)
@@ -109,6 +115,7 @@ public class AppointmentService : IAppointmentService
         await _notifications.NotifyAsync(doctor.UserId, NotificationType.AppointmentBooked,
             "New appointment request", $"A new appointment has been requested for {when}.", ct);
 
+        await PublishBoardUpdateAsync(appointment.Id, ct);
         return await GetByIdUnscopedAsync(appointment.Id, ct);
     }
 
@@ -127,6 +134,7 @@ public class AppointmentService : IAppointmentService
             "Appointment confirmed",
             $"Your appointment with Dr. {appointment.Doctor.User.FullName} on {appointment.AppointmentDate:yyyy-MM-dd} at {appointment.StartTime:HH\\:mm} is confirmed.", ct);
 
+        await PublishBoardUpdateAsync(id, ct);
         return await GetByIdUnscopedAsync(id, ct);
     }
 
@@ -140,6 +148,7 @@ public class AppointmentService : IAppointmentService
 
         appointment.Status = AppointmentStatus.CheckedIn;
         await _uow.SaveChangesAsync(ct);
+        await PublishBoardUpdateAsync(id, ct);
         return await GetByIdUnscopedAsync(id, ct);
     }
 
@@ -159,6 +168,7 @@ public class AppointmentService : IAppointmentService
             "Appointment completed",
             $"Your appointment with Dr. {appointment.Doctor.User.FullName} on {appointment.AppointmentDate:yyyy-MM-dd} has been marked completed.", ct);
 
+        await PublishBoardUpdateAsync(id, ct);
         return await GetByIdUnscopedAsync(id, ct);
     }
 
@@ -182,6 +192,7 @@ public class AppointmentService : IAppointmentService
 
         await NotifyWaitlistedPatientsAsync(appointment, ct);
 
+        await PublishBoardUpdateAsync(id, ct);
         return await GetByIdUnscopedAsync(id, ct);
     }
 
@@ -227,6 +238,7 @@ public class AppointmentService : IAppointmentService
 
         appointment.Status = AppointmentStatus.NoShow;
         await _uow.SaveChangesAsync(ct);
+        await PublishBoardUpdateAsync(id, ct);
         return await GetByIdUnscopedAsync(id, ct);
     }
 
@@ -256,6 +268,7 @@ public class AppointmentService : IAppointmentService
         await _notifications.NotifyAsync(appointment.Doctor.UserId, NotificationType.AppointmentBooked,
             "Appointment rescheduled", $"The appointment with {appointment.Patient.User.FullName} was moved to {when}.", ct);
 
+        await PublishBoardUpdateAsync(id, ct);
         return await GetByIdUnscopedAsync(id, ct);
     }
 
@@ -405,5 +418,11 @@ public class AppointmentService : IAppointmentService
             .Where(a => a.Id == id)
             .Select(Projections.Appointment)
             .FirstAsync(ct);
+    }
+
+    private async Task PublishBoardUpdateAsync(int appointmentId, CancellationToken ct)
+    {
+        var dto = await GetByIdUnscopedAsync(appointmentId, ct);
+        await _board.PublishStatusChangeAsync(dto, ct);
     }
 }

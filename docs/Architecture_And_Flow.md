@@ -1,4 +1,4 @@
-# HAPM — Architecture & Flow Guide
+# HAPM - Architecture & Flow Guide
 
 This document explains how the application is structured, how a request travels through the system, and how each major feature works end-to-end.
 
@@ -86,7 +86,7 @@ HAPM.API
 
 ### 3.1 Domain Layer (`HAPM.Domain`)
 
-**Purpose:** define what the business *is* — not how it is stored or exposed.
+**Purpose:** define what the business *is* - not how it is stored or exposed.
 
 | Folder | Contents |
 |--------|----------|
@@ -94,7 +94,7 @@ HAPM.API
 | `Enums/` | `UserRole`, `Gender`, `AppointmentStatus`, `InvoiceStatus`, `PaymentMethod`, `LabReportStatus`, `NotificationType`, `WaitlistStatus`, `AuditAction` |
 | `Common/` | `BaseEntity` |
 
-**Key concept — `BaseEntity`:** every entity inherits
+**Key concept - `BaseEntity`:** every entity inherits
 
 ```
 Id (int), CreatedAtUtc, UpdatedAtUtc
@@ -111,20 +111,20 @@ Id (int), CreatedAtUtc, UpdatedAtUtc
 | `Interfaces/` | `IRepository<T>` + `IUnitOfWork`, service contracts (`IAuthService`, `IAppointmentService`, …), infrastructure contracts (`ITokenService`, `IPasswordHasher`, `IFileStorageService`, `ICurrentUserService`) |
 | `Services/` | All business logic implementations (Auth, User, Doctor, DoctorLeave, Patient, Appointment, Prescription, PrescriptionTemplate, VitalSign, LabReport, Billing, Review, Waitlist, Notification, Dashboard, AuditLog, Export) |
 | `DTOs/` | Request classes (DataAnnotations validation) + response records, one file per module |
-| `Mapping/Projections.cs` | EF-translatable `Expression<Func<Entity, Dto>>` used in `Select()` — single source of truth for entity→DTO shapes |
+| `Mapping/Projections.cs` | EF-translatable `Expression<Func<Entity, Dto>>` used in `Select()` - single source of truth for entity→DTO shapes |
 | `Common/` | `PagedResult<T>`, `PaginationParams`, `ToPagedResultAsync()`, typed exceptions (`NotFoundException`, `BadRequestException`, `ConflictException`, `ForbiddenException`, `UnauthorizedException`) |
 
 **Why DTOs + projections?** Entities map to tables; DTOs map to API contracts. Projections run *inside* SQL (no over-fetching) and keep mapping logic in one place without AutoMapper.
 
 ### 3.3 Infrastructure Layer (`HAPM.Infrastructure`)
 
-**Purpose:** all external concerns — database, security primitives, files, background work.
+**Purpose:** all external concerns - database, security primitives, files, background work.
 
 | Folder | Contents |
 |--------|----------|
 | `Persistence/` | `AppDbContext` (fluent configs inline), `Repository<T>` + `UnitOfWork`, `DbSeeder`, EF `Migrations/` |
 | `Auth/` | `TokenService` (JWT + refresh token values), `BcryptPasswordHasher`, `JwtSettings` |
-| `Auditing/` | `AuditSaveChangesInterceptor` — writes `AuditLog` rows on every save |
+| `Auditing/` | `AuditSaveChangesInterceptor` - writes `AuditLog` rows on every save |
 | `Storage/` | `LocalFileStorageService` (path-traversal-safe; swap target for Azure Blob) |
 | `BackgroundJobs/` | `AppointmentReminderService` (hosted service) |
 | `DependencyInjection.cs` | Registers DbContext + interceptor, UoW, token/hashing/storage services, hosted job |
@@ -135,12 +135,12 @@ Id (int), CreatedAtUtc, UpdatedAtUtc
 
 | Folder | Contents |
 |--------|----------|
-| `Controllers/` | 16 thin controllers — read input, call one service method, return result |
+| `Controllers/` | 16 thin controllers - read input, call one service method, return result |
 | `Middleware/` | `ExceptionHandlingMiddleware` → `ProblemDetails` |
 | `Security/` | `CurrentUserService` (claims → typed user), `Roles` constants |
 | `Program.cs` | Serilog, DI, JWT bearer, rate limiter, health checks, Swagger, CORS, migration+seed at startup |
 
-**Controller rule:** controllers never contain business logic. Authorization is two-layered — `[Authorize(Roles = ...)]` for coarse role gates, service-level checks for ownership/scoping.
+**Controller rule:** controllers never contain business logic. Authorization is two-layered - `[Authorize(Roles = ...)]` for coarse role gates, service-level checks for ownership/scoping.
 
 ---
 
@@ -159,7 +159,7 @@ Id (int), CreatedAtUtc, UpdatedAtUtc
 8. Health checks (DbContext check)
 9. CORS ("Frontend" policy)
 10. Swagger (with Bearer security scheme)
-11. — app.Build() —
+11. - app.Build() -
 12. Migrate + seed database (logged, non-fatal if DB down)
 13. Middleware pipeline (see §5)
 ```
@@ -191,7 +191,7 @@ IDashboardService, IAuditLogService, IExportService     (all scoped)
 
 ### 4.3 Scoped lifetime
 
-Services, repositories and the DbContext are **scoped** — one instance per HTTP request. A request shares one DbContext/UnitOfWork, so a single `SaveChangesAsync` commits the whole operation atomically; nothing leaks between concurrent requests.
+Services, repositories and the DbContext are **scoped** - one instance per HTTP request. A request shares one DbContext/UnitOfWork, so a single `SaveChangesAsync` commits the whole operation atomically; nothing leaks between concurrent requests.
 
 ---
 
@@ -287,8 +287,8 @@ sequenceDiagram
     AuthService->>UnitOfWork: Users.QueryTracked().FirstOrDefault(email)
     UnitOfWork->>DB: SELECT * FROM "Users" WHERE "Email" = ...
     AuthService->>AuthService: BCrypt.Verify(password, hash) + IsActive check
-    AuthService->>TokenService: CreateAccessToken(user)  — JWT, 30 min
-    AuthService->>TokenService: CreateRefreshTokenValue() — 64 random bytes
+    AuthService->>TokenService: CreateAccessToken(user)  - JWT, 30 min
+    AuthService->>TokenService: CreateRefreshTokenValue() - 64 random bytes
     AuthService->>DB: INSERT RefreshToken (7-day expiry)
     AuthService-->>AuthController: AuthResponse
     AuthController-->>Client: { accessToken, refreshToken, expiresAt, user }
@@ -327,7 +327,7 @@ Logout revokes the supplied token; deactivating a user revokes **all** their act
 
 ### 7.5 "Own resource" scoping (service level)
 
-Role gates aren't enough — a patient must not read *another patient's* records. Every read service applies a scope filter derived from `ICurrentUserService`:
+Role gates aren't enough - a patient must not read *another patient's* records. Every read service applies a scope filter derived from `ICurrentUserService`:
 
 ```
 ScopeToCurrentUserAsync(query):
@@ -354,7 +354,7 @@ flowchart TD
     H --> I[(PostgreSQL)]
     I --> H
     H --> G
-    G --> J[Select Projections.X — SQL-side mapping]
+    G --> J[Select Projections.X - SQL-side mapping]
     J --> K[Controller returns DTO / PagedResult]
     K --> L[JSON Response]
 
@@ -367,9 +367,9 @@ flowchart TD
 |------|-------|---------|
 | Receive HTTP | API | `PatientsController.GetAll([FromQuery] PatientQueryParams)` |
 | Validate input | Application DTOs | `[Required]`, `[Range]`, `[MaxLength]` attributes |
-| Business rules | Application | `PatientService.CreateAsync` — duplicate email check, MRN generation |
+| Business rules | Application | `PatientService.CreateAsync` - duplicate email check, MRN generation |
 | Query database | Infrastructure | `Repository<Patient>.Query()` (no-tracking IQueryable) |
-| Map result | Application | `.Select(Projections.Patient)` — runs in SQL |
+| Map result | Application | `.Select(Projections.Patient)` - runs in SQL |
 | Return JSON | API | `Ok(result)` / `CreatedAtAction(...)` |
 
 ---
@@ -463,7 +463,7 @@ POST /api/prescriptions  [Authorize: Doctor]
     └── Notify patient (PrescriptionIssued)
 ```
 
-**Prescription templates** (`/api/prescription-templates`) are doctor-private presets (name unique per doctor). Applying one is purely client-side — fetch, prefill, adjust, submit normally. If `followUpDate` is set on the prescription, the background job later sends a `FollowUpDue` notification (see §11).
+**Prescription templates** (`/api/prescription-templates`) are doctor-private presets (name unique per doctor). Applying one is purely client-side - fetch, prefill, adjust, submit normally. If `followUpDate` is set on the prescription, the background job later sends a `FollowUpDue` notification (see §11).
 
 ### 9.6 Vitals flow
 
@@ -494,7 +494,7 @@ POST /{id}/review [Doctor] → Status = Reviewed + remarks
 DELETE [Admin] → removes row + file from disk
 ```
 
-Files are **not** served as static files — every download passes the scoping check.
+Files are **not** served as static files - every download passes the scoping check.
 
 ### 9.8 Billing & payments flow
 
@@ -542,7 +542,7 @@ AuditSaveChangesInterceptor
     │       (skips AuditLog, Notification, RefreshToken; masks PasswordHash)
     ├── SavedChanges: keys now generated → build AuditLog rows
     │       { user, entity, id, action, ChangesJson: {old, new} }
-    └── second SaveChanges persists them (re-entry safe — pending list cleared)
+    └── second SaveChanges persists them (re-entry safe - pending list cleared)
 ```
 
 ---
@@ -567,7 +567,7 @@ Users ──1:1── Doctors ──1:N── DoctorSchedules
   ├──1:N── RefreshTokens
   └──1:N── Notifications
 
-AuditLogs (standalone — written by the EF interceptor)
+AuditLogs (standalone - written by the EF interceptor)
 ```
 
 See `docs/ER_Diagram.md` for the full dbdiagram.io schema.
@@ -577,7 +577,7 @@ See `docs/ER_Diagram.md` for the full dbdiagram.io schema.
 No global soft-delete flag. Instead:
 
 - **Users/Doctors/Patients:** deactivation (`User.IsActive = false`, `Doctor.IsAvailable = false`). Deactivated users cannot log in and their refresh tokens are revoked.
-- **Appointments/Invoices:** never deleted — terminal statuses (`Cancelled`, `NoShow`) preserve history; FKs use `Restrict`.
+- **Appointments/Invoices:** never deleted - terminal statuses (`Cancelled`, `NoShow`) preserve history; FKs use `Restrict`.
 - **Lab reports/Reviews/Leaves:** genuinely deletable; the audit log keeps the old values.
 
 ### 10.3 Auto-generated codes
@@ -633,7 +633,7 @@ DataAnnotations on request DTOs (`[Required]`, `[Range]`, `[MaxLength]`, `[Email
 
 ### 12.2 Mapping (Projections)
 
-`Application/Mapping/Projections.cs` holds one `Expression<Func<Entity, Dto>>` per aggregate. Services use them inside `Select()`, so EF translates the mapping to SQL — joins, aggregates (e.g. doctor `averageRating`) and child collections are fetched in a single query. No AutoMapper, no manual copying.
+`Application/Mapping/Projections.cs` holds one `Expression<Func<Entity, Dto>>` per aggregate. Services use them inside `Select()`, so EF translates the mapping to SQL - joins, aggregates (e.g. doctor `averageRating`) and child collections are fetched in a single query. No AutoMapper, no manual copying.
 
 ### 12.3 Logging (Serilog)
 
@@ -686,7 +686,36 @@ GET /api/doctors?search=cardio&sortBy=fee&page=1&pageSize=10
 
 ---
 
-## 14. Future Extensions
+## 14. Real-Time Layer (SignalR)
+
+Implemented in v1.5 — see [SignalR.md](SignalR.md) for client connection details.
+
+```
+NotificationService.NotifyAsync
+  → PostgreSQL (Notifications)
+  → IRealtimeNotificationDispatcher
+  → NotificationsHub.Clients.Group("user-{userId}")
+  → Client: ReceiveNotification(NotificationDto)
+
+AppointmentService (status transitions)
+  → IAppointmentBoardDispatcher
+  → AppointmentsHub.Clients.Group("staff-board")
+  → Client: AppointmentStatusChanged(AppointmentDto)
+
+StaffMessageService
+  → PostgreSQL (StaffMessages)
+  → IStaffMessageDispatcher
+  → ChatHub.Clients.Group("doctor-{id}" | "staff-broadcast")
+  → Client: ReceiveStaffMessage(StaffMessageDto)
+```
+
+Background `AppointmentReminderService` now calls `INotificationService` so reminders are pushed live too.
+
+Hub auth reuses JWT (`access_token` query param on `/hubs/*`). Null dispatchers are registered in tests.
+
+---
+
+## 15. Future Extensions
 
 The architecture is designed so these can be added without restructuring:
 
@@ -694,14 +723,13 @@ The architecture is designed so these can be added without restructuring:
 |---------|-----------|
 | **Azure Blob Storage** | Implement `IFileStorageService` with `BlobContainerClient`; swap the registration in `HAPM.Infrastructure/DependencyInjection.cs` |
 | **Azure Key Vault** | `builder.Configuration.AddAzureKeyVault(...)` in `Program.cs`; `Jwt:Key` and connection string resolve transparently |
-| **Azure Notification Hub / push** | Extend `INotificationService.NotifyAsync` to also push; the notifications table remains the audit trail |
-| **Angular frontend** | Consumes this REST API; JWT from `/api/auth/login`; CORS origin already configurable |
-| **SignalR real-time** | Add a hub in the API layer; call it from `NotificationService` after the DB insert |
+| **Azure Notification Hub / mobile push** | Extend `IRealtimeNotificationDispatcher` to also send push; DB remains audit trail |
+| **Angular frontend** | Consumes REST + SignalR hubs; JWT from `/api/auth/login`; CORS origin already configurable |
 | **Email/SMS** | New `IEmailProvider` abstraction invoked alongside in-app notifications |
 
 ---
 
-## Quick Reference — All Modules
+## Quick Reference - All Modules
 
 | Module | Controller | Service | Key Entities |
 |--------|-----------|---------|--------------|
@@ -718,6 +746,8 @@ The architecture is designed so these can be added without restructuring:
 | Reviews | `ReviewsController` | `ReviewService` | `DoctorReview` |
 | Waitlist | `WaitlistController` | `WaitlistService` | `WaitlistEntry` |
 | Notifications | `NotificationsController` | `NotificationService` | `Notification` |
+| Real-time | `NotificationsHub`, `AppointmentsHub`, `ChatHub` | Dispatchers + `StaffMessageService` | `StaffMessage` |
+| Staff messages | `StaffMessagesController` | `StaffMessageService` | `StaffMessage` |
 | Dashboard | `DashboardController` | `DashboardService` | (aggregates: stats, peak hours, revenue by specialization) |
 | Audit | `AuditLogsController` | `AuditLogService` | `AuditLog` |
 | Exports | `ExportsController` | `ExportService` | (CSV) |

@@ -55,6 +55,7 @@ public class UnitOfWork : IUnitOfWork
         Payments = new Repository<Payment>(context);
         AuditLogs = new Repository<AuditLog>(context);
         PrescriptionTemplates = new Repository<PrescriptionTemplate>(context);
+        StaffMessages = new Repository<StaffMessage>(context);
     }
 
     public IRepository<User> Users { get; }
@@ -74,6 +75,7 @@ public class UnitOfWork : IUnitOfWork
     public IRepository<Payment> Payments { get; }
     public IRepository<AuditLog> AuditLogs { get; }
     public IRepository<PrescriptionTemplate> PrescriptionTemplates { get; }
+    public IRepository<StaffMessage> StaffMessages { get; }
 
     public Task<int> SaveChangesAsync(CancellationToken ct = default) => _context.SaveChangesAsync(ct);
 }

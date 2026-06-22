@@ -1,6 +1,8 @@
 using System.Text;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
+using HAPM.API;
+using HAPM.API.Hubs;
 using HAPM.API.Middleware;
 using HAPM.API.Security;
 using HAPM.Application;
@@ -33,6 +35,7 @@ try
     // Layers
     builder.Services.AddApplication();
     builder.Services.AddInfrastructure(builder.Configuration);
+    builder.Services.AddHapmSignalR();
 
     builder.Services.AddHttpContextAccessor();
     builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
@@ -63,6 +66,18 @@ try
                 IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.Key)),
                 ValidateLifetime = true,
                 ClockSkew = TimeSpan.FromSeconds(30)
+            };
+
+            options.Events = new JwtBearerEvents
+            {
+                OnMessageReceived = context =>
+                {
+                    var accessToken = context.Request.Query["access_token"];
+                    var path = context.HttpContext.Request.Path;
+                    if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+                        context.Token = accessToken;
+                    return Task.CompletedTask;
+                }
             };
         });
 
@@ -100,7 +115,8 @@ try
     builder.Services.AddCors(options => options.AddPolicy("Frontend", policy => policy
         .WithOrigins(builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? new[] { "http://localhost:4200" })
         .AllowAnyHeader()
-        .AllowAnyMethod()));
+        .AllowAnyMethod()
+        .AllowCredentials()));
 
     // Swagger with JWT support
     builder.Services.AddEndpointsApiExplorer();
@@ -172,6 +188,7 @@ try
     app.UseAuthorization();
 
     app.MapControllers();
+    app.MapHapmHubs();
     app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription();
 
     // /health verifies database connectivity; /health/live only confirms the process is up.
