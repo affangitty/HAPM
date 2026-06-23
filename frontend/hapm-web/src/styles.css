@@ -1,0 +1,73 @@
+@import './styles/theme.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-size: var(--font-size);
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans);
+  }
+
+  h1 {
+    @apply text-2xl font-semibold tracking-tight;
+  }
+
+  h2 {
+    @apply text-xl font-semibold;
+  }
+
+  h3 {
+    @apply text-lg font-semibold;
+  }
+
+  .text-display {
+    @apply text-4xl font-bold tracking-tight;
+  }
+
+  .text-headline-lg {
+    @apply text-[28px] font-semibold leading-9 tracking-tight;
+  }
+
+  .text-headline-md {
+    @apply text-xl font-semibold leading-7;
+  }
+
+  .text-body-lg {
+    @apply text-base leading-6;
+  }
+
+  .text-body-md {
+    @apply text-sm leading-5;
+  }
+
+  .text-label {
+    @apply text-xs font-medium leading-4 tracking-wide;
+  }
+
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  .focus-ring {
+    @apply outline-none focus-visible:ring-[3px] focus-visible:ring-blue-500/50;
+  }
+}
+
+@layer utilities {
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+}
