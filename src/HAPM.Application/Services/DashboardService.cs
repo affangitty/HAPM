@@ -5,22 +5,32 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HAPM.Application.Services;
 
-public class DashboardService : IDashboardService
+public partial class DashboardService : IDashboardService
 {
     private readonly IUnitOfWork _uow;
+    private readonly ICurrentUserService _currentUser;
 
-    public DashboardService(IUnitOfWork uow) => _uow = uow;
+    public DashboardService(IUnitOfWork uow, ICurrentUserService currentUser)
+    {
+        _uow = uow;
+        _currentUser = currentUser;
+    }
 
     public async Task<DashboardStatsDto> GetStatsAsync(CancellationToken ct = default)
     {
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
-        var monthStart = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        var now = DateTime.UtcNow;
+        var today = DateOnly.FromDateTime(now);
+        var yesterday = today.AddDays(-1);
+        var monthStart = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        var lastMonthStart = monthStart.AddMonths(-1);
 
         var totalDoctors = await _uow.Doctors.Query().CountAsync(d => d.User.IsActive, ct);
         var totalPatients = await _uow.Patients.Query().CountAsync(p => p.User.IsActive, ct);
         var totalAppointments = await _uow.Appointments.Query().CountAsync(ct);
         var appointmentsToday = await _uow.Appointments.Query()
             .CountAsync(a => a.AppointmentDate == today && a.Status != AppointmentStatus.Cancelled, ct);
+        var appointmentsYesterday = await _uow.Appointments.Query()
+            .CountAsync(a => a.AppointmentDate == yesterday && a.Status != AppointmentStatus.Cancelled, ct);
         var upcoming = await _uow.Appointments.Query()
             .CountAsync(a => a.AppointmentDate >= today &&
                              (a.Status == AppointmentStatus.Pending || a.Status == AppointmentStatus.Confirmed), ct);
@@ -34,6 +44,20 @@ public class DashboardService : IDashboardService
         var revenueThisMonth = await _uow.Payments.Query()
             .Where(p => p.CreatedAtUtc >= monthStart)
             .SumAsync(p => (decimal?)p.Amount, ct) ?? 0m;
+
+        var revenueLastMonth = await _uow.Payments.Query()
+            .Where(p => p.CreatedAtUtc >= lastMonthStart && p.CreatedAtUtc < monthStart)
+            .SumAsync(p => (decimal?)p.Amount, ct) ?? 0m;
+
+        var newPatientsThisMonth = await _uow.Patients.Query()
+            .CountAsync(p => p.CreatedAtUtc >= monthStart, ct);
+        var newPatientsLastMonth = await _uow.Patients.Query()
+            .CountAsync(p => p.CreatedAtUtc >= lastMonthStart && p.CreatedAtUtc < monthStart, ct);
+
+        var pendingLabReviews = await _uow.LabReports.Query()
+            .CountAsync(r => r.Status == LabReportStatus.Uploaded, ct);
+        var activeWaitlist = await _uow.WaitlistEntries.Query()
+            .CountAsync(w => w.Status == WaitlistStatus.Active, ct);
 
         var byStatus = await _uow.Appointments.Query()
             .GroupBy(a => a.Status)
@@ -60,10 +84,20 @@ public class DashboardService : IDashboardService
             .Take(5)
             .ToList();
 
+        var systemHealth = new List<SystemHealthMetricDto>
+        {
+            new("Active Doctors", $"{totalDoctors} on roster", "success"),
+            new("Pending Invoices", pendingInvoices.ToString(), pendingInvoices > 10 ? "danger" : "default", Math.Min(pendingInvoices, 100)),
+            new("Lab Reviews", pendingLabReviews.ToString(), pendingLabReviews > 0 ? "danger" : "success"),
+            new("Waitlist", activeWaitlist.ToString(), activeWaitlist > 5 ? "default" : "success"),
+        };
+
         return new DashboardStatsDto(
             totalDoctors, totalPatients, totalAppointments, appointmentsToday,
             upcoming, pendingInvoices, totalRevenue, revenueThisMonth,
-            byStatus, topSpecializations);
+            revenueLastMonth, appointmentsYesterday, newPatientsThisMonth, newPatientsLastMonth,
+            pendingLabReviews, activeWaitlist,
+            byStatus, topSpecializations, systemHealth);
     }
 
     public async Task<IReadOnlyList<PeakHourCellDto>> GetPeakHoursAsync(

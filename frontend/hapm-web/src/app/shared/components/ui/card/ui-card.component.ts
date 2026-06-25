@@ -4,12 +4,16 @@ import { cn } from '../../../utils/cn';
 @Component({
   selector: 'app-ui-card',
   standalone: true,
+  host: {
+    class: 'flex min-h-0 min-w-0 flex-col',
+    '[class]': 'className()',
+  },
   template: `<div [class]="classes"><ng-content /></div>`,
 })
 export class UiCardComponent {
   readonly className = input('', { alias: 'class' });
   get classes(): string {
-    return cn('bg-card text-card-foreground flex flex-col gap-6 rounded-xl border', this.className());
+    return cn('bg-card text-card-foreground flex h-full flex-col gap-6 rounded-xl border', this.className());
   }
 }
 

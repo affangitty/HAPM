@@ -5,7 +5,9 @@ import { ApiClientService } from '../api/api-client.service';
 import {
   AuthResponse,
   ChangePasswordRequest,
+  CompletePasswordResetRequest,
   ForgotPasswordRequest,
+  ForgotPasswordResponse,
   JwtPayload,
   LoginRequest,
   RegisterRequest,
@@ -97,17 +99,12 @@ export class AuthService {
     return this.api.post<void>('/auth/change-password', request);
   }
 
-  /**
-   * Email-based password reset is not implemented on the API yet.
-   * This method preserves the client contract for when the endpoint is added.
-   */
-  requestPasswordReset(request: ForgotPasswordRequest): Observable<void> {
-    return throwError(
-      () =>
-        new Error(
-          `Password reset email is not configured for ${request.email}. Contact your hospital administrator.`,
-        ),
-    );
+  requestPasswordReset(request: ForgotPasswordRequest): Observable<ForgotPasswordResponse> {
+    return this.api.post<ForgotPasswordResponse>('/auth/forgot-password', request);
+  }
+
+  completePasswordReset(request: CompletePasswordResetRequest): Observable<void> {
+    return this.api.post<void>('/auth/reset-password', request);
   }
 
   getHomeRoute(role?: UserRole | null): string {

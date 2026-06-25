@@ -8,7 +8,10 @@ namespace HAPM.Application.Mapping;
 public static class Projections
 {
     public static readonly Expression<Func<User, UserDto>> User = u =>
-        new UserDto(u.Id, u.Email, u.FullName, u.PhoneNumber, u.Role.ToString(), u.IsActive, u.CreatedAtUtc);
+        new UserDto(
+            u.Id, u.Email, u.FullName, u.PhoneNumber, u.Role.ToString(), u.IsActive, u.CreatedAtUtc,
+            u.DoctorProfile != null ? u.DoctorProfile.Id : null,
+            u.PatientProfile != null ? u.PatientProfile.Id : null);
 
     public static readonly Expression<Func<Doctor, DoctorDto>> Doctor = d =>
         new DoctorDto(

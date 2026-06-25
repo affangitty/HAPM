@@ -9,8 +9,9 @@ import { DashboardWidgetCardComponent } from './dashboard-kpi-grid.component';
   selector: 'app-active-queue-widget',
   standalone: true,
   imports: [UiBadgeComponent, DashboardSectionHeaderComponent, DashboardWidgetCardComponent],
+  host: { class: 'flex min-h-0 min-w-0 flex-col' },
   template: `
-    <app-dashboard-widget-card>
+    <app-dashboard-widget-card class="min-h-0 flex-1">
       <app-dashboard-section-header title="Active Queue">
         <app-ui-badge variant="warning" actions>{{ waitingCount() }} Waiting</app-ui-badge>
       </app-dashboard-section-header>
@@ -45,8 +46,9 @@ export class ActiveQueueWidgetComponent {
   selector: 'app-attention-widget',
   standalone: true,
   imports: [RouterLink, UiBadgeComponent, DashboardSectionHeaderComponent, DashboardWidgetCardComponent],
+  host: { class: 'flex min-h-0 min-w-0 flex-col' },
   template: `
-    <app-dashboard-widget-card>
+    <app-dashboard-widget-card class="min-h-0 flex-1">
       <app-dashboard-section-header title="Requires Attention">
         <app-ui-badge variant="destructive" actions>{{ items().length }} Labs</app-ui-badge>
       </app-dashboard-section-header>

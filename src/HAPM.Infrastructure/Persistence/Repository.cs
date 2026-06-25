@@ -40,6 +40,7 @@ public class UnitOfWork : IUnitOfWork
         _context = context;
         Users = new Repository<User>(context);
         RefreshTokens = new Repository<RefreshToken>(context);
+        PasswordResetTokens = new Repository<PasswordResetToken>(context);
         Doctors = new Repository<Doctor>(context);
         DoctorSchedules = new Repository<DoctorSchedule>(context);
         Patients = new Repository<Patient>(context);
@@ -60,6 +61,7 @@ public class UnitOfWork : IUnitOfWork
 
     public IRepository<User> Users { get; }
     public IRepository<RefreshToken> RefreshTokens { get; }
+    public IRepository<PasswordResetToken> PasswordResetTokens { get; }
     public IRepository<Doctor> Doctors { get; }
     public IRepository<DoctorSchedule> DoctorSchedules { get; }
     public IRepository<Patient> Patients { get; }

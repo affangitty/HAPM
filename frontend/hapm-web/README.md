@@ -12,7 +12,7 @@ Frontend for the Hospital Appointment & Patient Management System.
 ## Prerequisites
 
 - Node.js 20+
-- HAPM API running at `http://localhost:5080`
+- HAPM API running at `http://localhost:5168`
 
 ## Development
 
@@ -22,7 +22,7 @@ npm install
 npm start
 ```
 
-Open [http://localhost:4200](http://localhost:4200). API calls are proxied to port 5080 via `proxy.conf.json`.
+Open [http://localhost:4200](http://localhost:4200). API calls are proxied to port 5168 via `proxy.conf.json`.
 
 ## Demo login
 

@@ -1,7 +1,7 @@
 # Smoke test for the v2 feature set: health checks, vitals, reviews, leave,
 # waitlist, partial payments, CSV export, audit logs, rate limiting.
 $ErrorActionPreference = "Stop"
-$base = "http://localhost:5080"
+$base = "http://localhost:5168"
 
 function Login($email, $password) {
     (Invoke-RestMethod -Method Post -Uri "$base/api/auth/login" -ContentType "application/json" `

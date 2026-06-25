@@ -1,5 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { setPageLoadFailed } from '../../../shared/utils/page-load.util';
 import { Router, RouterLink } from '@angular/router';
 import { DataTableComponent } from '../../../shared/components/data-table/data-table.component';
 import { DataTableColumn } from '../../../shared/components/data-table/data-table.models';
@@ -14,6 +15,7 @@ import { DEFAULT_PAGE_SIZE } from '../../../shared/models/pagination.model';
 import { debounce } from '../../../shared/utils/debounce.util';
 import { WaitlistApiService } from '../data/waitlist-api.service';
 import { WaitlistEntryDto } from '../models/waitlist.models';
+import { getRolePrefix, roleBase, roleRoute } from '../../../shared/utils/role-prefix.util';
 
 @Component({
   selector: 'app-waitlist-list-page',
@@ -74,6 +76,7 @@ export class WaitlistListPageComponent implements OnInit {
   readonly rows = signal<WaitlistEntryDto[]>([]);
   readonly filteredRows = signal<WaitlistEntryDto[]>([]);
   readonly loading = signal(false);
+  readonly loadError = signal<string | null>(null);
   readonly status = signal('');
   readonly preferredDate = signal('');
 
@@ -95,7 +98,7 @@ export class WaitlistListPageComponent implements OnInit {
     { key: 'created', header: 'Joined', cell: (r) => new Date(r.createdAtUtc).toLocaleDateString() },
   ];
 
-  readonly rowLink = (row: WaitlistEntryDto) => `${this.basePath()}/waitlist/${row.id}`;
+  readonly rowLink = (row: WaitlistEntryDto) => roleRoute(this.router, 'waitlist', String(row.id));
 
   private readonly debouncedFilter = debounce(() => this.applyClientFilter(), 200);
 
@@ -141,7 +144,7 @@ export class WaitlistListPageComponent implements OnInit {
           this.applyClientFilter();
           this.loading.set(false);
         },
-        error: () => this.loading.set(false),
+        error: () => setPageLoadFailed(this.loading, this.loadError),
       });
   }
 
@@ -160,8 +163,8 @@ export class WaitlistListPageComponent implements OnInit {
       ),
     );
   }
-
   basePath(): string {
-    return `/${this.router.url.split('/').filter(Boolean)[0]}`;
+    return roleBase(this.router);
   }
+
 }

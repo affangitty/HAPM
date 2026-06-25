@@ -143,6 +143,7 @@ public class PatientService : IPatientService
             .FirstOrDefaultAsync(p => p.Id == id, ct) ?? throw new NotFoundException("Patient", id);
 
         patient.User.IsActive = false;
+        await RefreshTokenRevocation.RevokeAllForUserAsync(_uow, patient.UserId, ct);
         await _uow.SaveChangesAsync(ct);
     }
 

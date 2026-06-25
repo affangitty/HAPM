@@ -21,6 +21,11 @@ public class ReviewsController : ControllerBase
     public async Task<ActionResult<PagedResult<ReviewDto>>> GetAll([FromQuery] ReviewQueryParams query, CancellationToken ct) =>
         Ok(await _reviewService.GetPagedAsync(query, ct));
 
+    [HttpGet("{id:int}")]
+    [AllowAnonymous]
+    public async Task<ActionResult<ReviewDto>> GetById(int id, CancellationToken ct) =>
+        Ok(await _reviewService.GetByIdAsync(id, ct));
+
     /// <summary>Submit a rating (1-5) for one of your completed appointments. One review per appointment.</summary>
     [HttpPost]
     [Authorize(Roles = Roles.Patient)]

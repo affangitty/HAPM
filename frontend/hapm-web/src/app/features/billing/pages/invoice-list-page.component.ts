@@ -1,5 +1,6 @@
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { setPageLoadFailed } from '../../../shared/utils/page-load.util';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
 import { AreaChartComponent } from '../../dashboard/charts/area-chart.component';
@@ -20,6 +21,7 @@ import { DEFAULT_PAGE_SIZE } from '../../../shared/models/pagination.model';
 import { debounce } from '../../../shared/utils/debounce.util';
 import { BillingApiService } from '../data/billing-api.service';
 import { InvoiceDto } from '../models/billing.models';
+import { getRolePrefix, roleBase, roleRoute } from '../../../shared/utils/role-prefix.util';
 
 @Component({
   selector: 'app-invoice-list-page',
@@ -33,6 +35,7 @@ import { InvoiceDto } from '../models/billing.models';
     <app-ui-page-header title="Billing & Invoices" subtitle="Payment management and revenue tracking">
       <div actions class="flex gap-2">
         @if (isStaff()) {
+          <a [routerLink]="basePath() + '/billing/invoices/new'"><app-ui-button size="sm">New invoice</app-ui-button></a>
           <a [routerLink]="basePath() + '/billing/analytics'"><app-ui-button size="sm" variant="outline">Analytics</app-ui-button></a>
           <app-ui-button size="sm" variant="outline" [loading]="exporting()" (pressed)="exportCsv()">Export</app-ui-button>
         }
@@ -46,7 +49,7 @@ import { InvoiceDto } from '../models/billing.models';
       </div>
     } @else {
       <div class="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <app-ui-kpi-card title="Total Collected" [value]="formatMoney(stats().collected)" subtitle="from invoices" trend="up" trendValue="+7%" iconBg="bg-emerald-50" iconColor="text-emerald-600" iconPath="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+        <app-ui-kpi-card title="Total Collected" [value]="formatMoney(stats().collected)" subtitle="all invoices" [trend]="revenueTrend().trend" [trendValue]="revenueTrend().value" iconBg="bg-emerald-50" iconColor="text-emerald-600" iconPath="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
         <app-ui-kpi-card title="Pending Amount" [value]="formatMoney(stats().pending)" [subtitle]="stats().pendingCount + ' invoices'" iconBg="bg-amber-50" iconColor="text-amber-600" iconPath="M12 8v4l3 3" />
         <app-ui-kpi-card title="Overdue" [value]="formatMoney(stats().overdue)" [subtitle]="stats().overdueCount + ' overdue'" iconBg="bg-red-50" iconColor="text-red-600" iconPath="M12 9v4M12 17h.01" />
         <app-ui-kpi-card title="Paid Invoices" [value]="formatCount(stats().paidCount)" subtitle="settled" iconBg="bg-blue-50" iconColor="text-blue-600" iconPath="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
@@ -91,6 +94,7 @@ export class InvoiceListPageComponent implements OnInit {
   readonly rows = signal<InvoiceDto[]>([]);
   readonly filteredRows = signal<InvoiceDto[]>([]);
   readonly loading = signal(false);
+  readonly loadError = signal<string | null>(null);
   readonly exporting = signal(false);
   readonly summaryLoading = signal(true);
   readonly summaryInvoices = signal<InvoiceDto[]>([]);
@@ -113,7 +117,7 @@ export class InvoiceListPageComponent implements OnInit {
     { key: 'status', header: 'Status', cell: (r) => r.status },
   ];
 
-  readonly rowLink = (r: InvoiceDto) => `${this.basePath()}/billing/invoices/${r.id}`;
+  readonly rowLink = (r: InvoiceDto) => roleRoute(this.router, 'billing', 'invoices', String(r.id));
   private readonly debouncedFilter = debounce(() => this.applyFilter(), 200);
 
   readonly revenueSeries = [{ key: 'revenue', label: 'Revenue', color: '#10B981' }];
@@ -142,6 +146,26 @@ export class InvoiceListPageComponent implements OnInit {
       buckets.set(month, (buckets.get(month) ?? 0) + inv.amountPaid);
     }
     return Array.from(buckets.entries()).map(([label, revenue]) => ({ label, revenue }));
+  });
+
+  readonly revenueTrend = computed(() => {
+    const now = new Date();
+    const thisMonth = now.getMonth();
+    const thisYear = now.getFullYear();
+    let current = 0;
+    let previous = 0;
+    for (const inv of this.summaryInvoices()) {
+      const d = new Date(inv.createdAtUtc);
+      const paid = inv.amountPaid;
+      if (d.getFullYear() === thisYear && d.getMonth() === thisMonth) current += paid;
+      else if (d.getFullYear() === thisYear && d.getMonth() === thisMonth - 1) previous += paid;
+      else if (thisMonth === 0 && d.getFullYear() === thisYear - 1 && d.getMonth() === 11) previous += paid;
+    }
+    if (previous === 0) return { trend: current > 0 ? 'up' as const : 'neutral' as const, value: current > 0 ? 'new' : '0%' };
+    const pct = ((current - previous) / previous) * 100;
+    return pct >= 0
+      ? { trend: 'up' as const, value: `+${Math.abs(pct).toFixed(1)}%` }
+      : { trend: 'down' as const, value: `-${Math.abs(pct).toFixed(1)}%` };
   });
 
   ngOnInit(): void { this.load(); this.loadSummary(); }
@@ -179,7 +203,7 @@ export class InvoiceListPageComponent implements OnInit {
       fromDate: this.fromDate() || undefined, toDate: this.toDate() || undefined,
     }).subscribe({
       next: (r) => { this.rows.set(r.items); this.totalCount.set(r.totalCount); this.applyFilter(); this.loading.set(false); },
-      error: () => this.loading.set(false),
+      error: () => setPageLoadFailed(this.loading, this.loadError),
     });
   }
 
@@ -188,8 +212,6 @@ export class InvoiceListPageComponent implements OnInit {
     this.filteredRows.set(!q ? this.rows() : this.rows().filter((r) =>
       r.patientName.toLowerCase().includes(q) || r.invoiceNumber.toLowerCase().includes(q)));
   }
-
-  basePath(): string { return `/${this.router.url.split('/').filter(Boolean)[0]}`; }
 
   formatMoney(v: number): string {
     return v >= 1000 ? `$${(v / 1000).toFixed(1)}k` : `$${v.toFixed(0)}`;
@@ -205,4 +227,8 @@ export class InvoiceListPageComponent implements OnInit {
       error: () => this.summaryLoading.set(false),
     });
   }
+  basePath(): string {
+    return roleBase(this.router);
+  }
+
 }

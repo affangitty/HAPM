@@ -1,8 +1,7 @@
 import { Injectable, inject } from '@angular/core';
-import { map, Observable, switchMap, throwError } from 'rxjs';
+import { map, Observable } from 'rxjs';
 import { ApiClientService } from '../../../core/api/api-client.service';
 import { PagedResult } from '../../../core/api/api.models';
-import { AuthService } from '../../../core/auth/auth.service';
 import {
   AvailableSlotDto,
   CreateDoctorLeaveRequest,
@@ -22,7 +21,6 @@ import {
 @Injectable({ providedIn: 'root' })
 export class DoctorsApiService {
   private readonly api = inject(ApiClientService);
-  private readonly auth = inject(AuthService);
 
   list(params: DoctorQueryParams): Observable<PagedResult<DoctorDto>> {
     return this.api.getPaged<DoctorDto>('/doctors', params);
@@ -84,24 +82,11 @@ export class DoctorsApiService {
     return this.api.delete<void>(`/doctors/${id}`);
   }
 
-  resolveCurrentDoctorId(): Observable<number> {
-    const email = this.auth.user()?.email;
-    if (!email) {
-      return throwError(() => new Error('Not authenticated'));
-    }
-
-    return this.list({ search: email, pageSize: 20 }).pipe(
-      map((result) => {
-        const match = result.items.find((d) => d.email.toLowerCase() === email.toLowerCase());
-        if (!match) {
-          throw new Error('Doctor profile not found for the current user.');
-        }
-        return match.id;
-      }),
-    );
+  getCurrentDoctor(): Observable<DoctorDto> {
+    return this.api.get<DoctorDto>('/doctors/me');
   }
 
-  getCurrentDoctor(): Observable<DoctorDto> {
-    return this.resolveCurrentDoctorId().pipe(switchMap((id) => this.getById(id)));
+  resolveCurrentDoctorId(): Observable<number> {
+    return this.getCurrentDoctor().pipe(map((d) => d.id));
   }
 }

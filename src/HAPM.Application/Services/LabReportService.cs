@@ -53,8 +53,8 @@ public class LabReportService : ILabReportService
         }
 
         reports = query.SortDescending
-            ? reports.OrderBy(r => r.CreatedAtUtc)
-            : reports.OrderByDescending(r => r.CreatedAtUtc);
+            ? reports.OrderByDescending(r => r.CreatedAtUtc)
+            : reports.OrderBy(r => r.CreatedAtUtc);
 
         return await reports.Select(Projections.LabReport).ToPagedResultAsync(query.Page, query.PageSize, ct);
     }

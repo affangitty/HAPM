@@ -8,6 +8,8 @@ export interface UserDto {
   role: UserRole;
   isActive: boolean;
   createdAtUtc?: string;
+  doctorId?: number | null;
+  patientId?: number | null;
 }
 
 export interface AuthResponse {
@@ -24,6 +26,16 @@ export interface ChangePasswordRequest {
 
 export interface ForgotPasswordRequest {
   email: string;
+}
+
+export interface ForgotPasswordResponse {
+  message: string;
+  resetToken?: string | null;
+}
+
+export interface CompletePasswordResetRequest {
+  token: string;
+  newPassword: string;
 }
 
 export interface LoginRequest {

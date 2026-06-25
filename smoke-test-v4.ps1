@@ -1,7 +1,7 @@
 # Smoke test for gap-fill features: doctor self-profile, complete notification,
 # invoice update, lab report update, HTTPS redirect (production only).
 $ErrorActionPreference = "Stop"
-$base = "http://localhost:5080"
+$base = "http://localhost:5168"
 
 function Login($email, $password) {
     (Invoke-RestMethod -Method Post -Uri "$base/api/auth/login" -ContentType "application/json" `

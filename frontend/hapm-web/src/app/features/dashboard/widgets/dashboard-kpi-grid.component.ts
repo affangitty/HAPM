@@ -2,13 +2,15 @@ import { Component, input } from '@angular/core';
 import { UiCardComponent } from '../../../shared/components/ui/card/ui-card.component';
 import { UiKpiCardComponent } from '../../../shared/components/ui/kpi-card/ui-kpi-card.component';
 import { DashboardKpi } from '../models/dashboard.models';
+import { DASHBOARD_KPI_GRID_CLASS } from './dashboard-layout.component';
 
 @Component({
   selector: 'app-dashboard-kpi-grid',
   standalone: true,
   imports: [UiKpiCardComponent],
+  host: { class: 'block w-full shrink-0' },
   template: `
-    <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+    <div [class]="DASHBOARD_KPI_GRID_CLASS">
       @for (kpi of kpis(); track kpi.title) {
         <app-ui-kpi-card
           [title]="kpi.title"
@@ -26,15 +28,20 @@ import { DashboardKpi } from '../models/dashboard.models';
 })
 export class DashboardKpiGridComponent {
   readonly kpis = input.required<DashboardKpi[]>();
+  protected readonly DASHBOARD_KPI_GRID_CLASS = DASHBOARD_KPI_GRID_CLASS;
 }
 
 @Component({
   selector: 'app-dashboard-widget-card',
   standalone: true,
   imports: [UiCardComponent],
+  host: {
+    class: 'flex min-h-0 min-w-0 flex-col self-stretch',
+    '[class]': 'className()',
+  },
   template: `
-    <app-ui-card [class]="className()">
-      <div class="p-5">
+    <app-ui-card class="flex min-h-0 flex-1 flex-col gap-0">
+      <div class="flex min-h-0 flex-1 flex-col p-5">
         <ng-content />
       </div>
     </app-ui-card>

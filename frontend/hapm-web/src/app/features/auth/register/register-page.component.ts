@@ -5,6 +5,7 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { FormFieldComponent } from '../../../shared/components/forms/form-field/form-field.component';
 import { UiButtonComponent } from '../../../shared/components/ui/button/ui-button.component';
 import { UiInputComponent } from '../../../shared/components/ui/input/ui-input.component';
+import { UiPasswordInputComponent } from '../../../shared/components/ui/input/ui-password-input.component';
 import { UiSelectComponent } from '../../../shared/components/ui/select/ui-select.component';
 import {
   UiCardComponent,
@@ -13,6 +14,9 @@ import {
   UiCardHeaderComponent,
   UiCardTitleComponent,
 } from '../../../shared/components/ui/card/ui-card.component';
+import { getFormControlError, guardFormSubmit } from '../../../shared/utils/form-errors.util';
+import { ApiErrorService } from '../../../core/api/api-error.service';
+import { STRONG_PASSWORD_MESSAGE, strongPasswordValidator } from '../validators/password.validators';
 
 @Component({
   selector: 'app-register-page',
@@ -23,6 +27,7 @@ import {
     FormFieldComponent,
     UiButtonComponent,
     UiInputComponent,
+    UiPasswordInputComponent,
     UiSelectComponent,
     UiCardComponent,
     UiCardHeaderComponent,
@@ -55,7 +60,7 @@ import {
               <app-ui-select formControlName="gender" [options]="genderOptions" placeholder="Select gender" />
             </app-form-field>
             <app-form-field class="sm:col-span-2" label="Password" [error]="fieldError('password')">
-              <app-ui-input type="password" formControlName="password" />
+              <app-ui-password-input formControlName="password" />
             </app-form-field>
             @if (errorMessage()) {
               <p class="sm:col-span-2 text-sm text-destructive">{{ errorMessage() }}</p>
@@ -74,6 +79,7 @@ export class RegisterPageComponent {
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly toasts = inject(ApiErrorService);
 
   readonly loading = signal(false);
   readonly errorMessage = signal<string | null>(null);
@@ -89,20 +95,20 @@ export class RegisterPageComponent {
     phoneNumber: ['', Validators.required],
     dateOfBirth: ['', Validators.required],
     gender: ['', Validators.required],
-    password: ['', [Validators.required, Validators.minLength(8)]],
+    password: ['', [Validators.required, strongPasswordValidator()]],
   });
 
   fieldError(name: keyof typeof this.form.controls): string | null {
-    const control = this.form.controls[name];
-    if (!control.touched || !control.errors) return null;
-    return 'This field is required.';
+    return getFormControlError(this.form, name, {
+      strongPassword: STRONG_PASSWORD_MESSAGE,
+    });
   }
 
   submit(): void {
-    if (this.form.invalid) {
-      this.form.markAllAsTouched();
-      return;
-    }
+    if (!guardFormSubmit(this.form, this.toasts, {
+      fullName: 'Full name', email: 'Email', phoneNumber: 'Phone',
+      dateOfBirth: 'Date of birth', gender: 'Gender', password: 'Password',
+    })) return;
 
     this.loading.set(true);
     this.errorMessage.set(null);
@@ -114,7 +120,9 @@ export class RegisterPageComponent {
       },
       error: (err) => {
         this.loading.set(false);
-        this.errorMessage.set(err?.error?.detail ?? 'Registration failed.');
+        const msg = (err as { error?: { detail?: string } })?.error?.detail ?? 'Registration failed.';
+        this.errorMessage.set(msg);
+        this.toasts.showFromError(err, 'Registration failed.');
       },
     });
   }

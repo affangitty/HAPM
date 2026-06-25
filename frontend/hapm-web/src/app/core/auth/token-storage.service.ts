@@ -61,7 +61,7 @@ export class TokenStorageService {
 
   private readRememberMePreference(): boolean {
     const stored = localStorage.getItem(APP_CONFIG.rememberMeKey);
-    return stored !== '0';
+    return stored === '1';
   }
 
   private getActiveStorage(): Storage {

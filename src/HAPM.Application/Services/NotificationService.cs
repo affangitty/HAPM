@@ -60,6 +60,16 @@ public class NotificationService : INotificationService
             .ToPagedResultAsync(query.Page, query.PageSize, ct);
     }
 
+    public async Task<NotificationDto> GetByIdAsync(int id, CancellationToken ct = default)
+    {
+        var userId = _currentUser.UserId ?? throw new UnauthorizedException();
+
+        return await _uow.Notifications.Query()
+            .Where(n => n.Id == id && n.UserId == userId)
+            .Select(Projections.Notification)
+            .FirstOrDefaultAsync(ct) ?? throw new NotFoundException("Notification", id);
+    }
+
     public async Task<int> GetUnreadCountAsync(CancellationToken ct = default)
     {
         var userId = _currentUser.UserId ?? throw new UnauthorizedException();

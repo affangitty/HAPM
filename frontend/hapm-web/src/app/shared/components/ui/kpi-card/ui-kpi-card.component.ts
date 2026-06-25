@@ -6,8 +6,9 @@ import { cn } from '../../../utils/cn';
   selector: 'app-ui-kpi-card',
   standalone: true,
   imports: [UiCardComponent, UiCardContentComponent],
+  host: { class: 'block h-full min-w-0' },
   template: `
-    <app-ui-card [class]="cn('gap-0', className())">
+    <app-ui-card [class]="cn('h-full gap-0', className())">
       <app-ui-card-content class="p-5">
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0 flex-1">

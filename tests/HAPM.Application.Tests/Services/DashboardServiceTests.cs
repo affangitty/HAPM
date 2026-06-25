@@ -9,7 +9,7 @@ namespace HAPM.Application.Tests.Services;
 
 public class DashboardServiceTests : ServiceTestBase
 {
-    private DashboardService CreateSut() => new(Uow);
+    private DashboardService CreateSut() => new(Uow, CurrentUser);
 
     [Fact]
     public async Task GetStatsAsync_returns_aggregated_counts()

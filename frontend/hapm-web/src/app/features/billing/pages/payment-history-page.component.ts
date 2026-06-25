@@ -1,5 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import { setPageLoadFailed } from '../../../shared/utils/page-load.util';
 import { DataTableComponent } from '../../../shared/components/data-table/data-table.component';
 import { DataTableColumn } from '../../../shared/components/data-table/data-table.models';
 import { UiButtonComponent } from '../../../shared/components/ui/button/ui-button.component';
@@ -7,6 +8,7 @@ import { UiPageHeaderComponent } from '../../../shared/components/ui/page-header
 import { DEFAULT_PAGE_SIZE } from '../../../shared/models/pagination.model';
 import { BillingApiService } from '../data/billing-api.service';
 import { InvoiceDto, PaymentDto } from '../models/billing.models';
+import { getRolePrefix, roleBase, roleRoute } from '../../../shared/utils/role-prefix.util';
 
 interface PaymentRow extends PaymentDto {
   invoiceNumber: string;
@@ -36,6 +38,7 @@ export class PaymentHistoryPageComponent implements OnInit {
   readonly totalCount = signal(0);
   readonly rows = signal<PaymentRow[]>([]);
   readonly loading = signal(false);
+  readonly loadError = signal<string | null>(null);
 
   readonly columns: DataTableColumn<PaymentRow>[] = [
     { key: 'receipt', header: 'Receipt', cell: (r) => r.receiptNumber },
@@ -63,9 +66,11 @@ export class PaymentHistoryPageComponent implements OnInit {
         this.totalCount.set(payments.length);
         this.loading.set(false);
       },
-      error: () => this.loading.set(false),
+      error: () => setPageLoadFailed(this.loading, this.loadError),
     });
   }
+  basePath(): string {
+    return roleBase(this.router);
+  }
 
-  basePath(): string { return `/${this.router.url.split('/').filter(Boolean)[0]}`; }
 }

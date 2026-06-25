@@ -1,5 +1,6 @@
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import { setPageLoadFailed } from '../../../shared/utils/page-load.util';
 import { DataTableComponent } from '../../../shared/components/data-table/data-table.component';
 import { DataTableColumn } from '../../../shared/components/data-table/data-table.models';
 import { UiButtonComponent } from '../../../shared/components/ui/button/ui-button.component';
@@ -9,6 +10,7 @@ import { DEFAULT_PAGE_SIZE } from '../../../shared/models/pagination.model';
 import { debounce } from '../../../shared/utils/debounce.util';
 import { PrescriptionTemplatesApiService } from '../data/prescription-templates-api.service';
 import { PrescriptionTemplateDto } from '../models/prescription-template.models';
+import { getRolePrefix, roleBase, roleRoute } from '../../../shared/utils/role-prefix.util';
 
 @Component({
   selector: 'app-template-list-page',
@@ -52,6 +54,7 @@ export class TemplateListPageComponent implements OnInit {
   readonly allRows = signal<PrescriptionTemplateDto[]>([]);
   readonly filteredRows = signal<PrescriptionTemplateDto[]>([]);
   readonly loading = signal(false);
+  readonly loadError = signal<string | null>(null);
 
   search = '';
 
@@ -67,7 +70,7 @@ export class TemplateListPageComponent implements OnInit {
     { key: 'updated', header: 'Updated', cell: (r) => (r.updatedAtUtc ? new Date(r.updatedAtUtc).toLocaleDateString() : '—') },
   ];
 
-  readonly rowLink = (row: PrescriptionTemplateDto) => `${this.basePath()}/templates/${row.id}`;
+  readonly rowLink = (row: PrescriptionTemplateDto) => roleRoute(this.router, 'templates', String(row.id));
 
   private readonly debouncedFilter = debounce(() => this.applyFilter(), 200);
 
@@ -93,7 +96,7 @@ export class TemplateListPageComponent implements OnInit {
         this.applyFilter();
         this.loading.set(false);
       },
-      error: () => this.loading.set(false),
+      error: () => setPageLoadFailed(this.loading, this.loadError),
     });
   }
 
@@ -109,8 +112,8 @@ export class TemplateListPageComponent implements OnInit {
       ),
     );
   }
-
   basePath(): string {
-    return `/${this.router.url.split('/').filter(Boolean)[0]}`;
+    return roleBase(this.router);
   }
+
 }

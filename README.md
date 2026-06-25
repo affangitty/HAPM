@@ -75,10 +75,20 @@ For a complete capability list, see **[docs/FEATURES.md](docs/FEATURES.md)**.
 2. Start the API (migrations + seed data are applied automatically):
 
 ```bash
-dotnet run --project src/HAPM.API --urls http://localhost:5080
+dotnet run --project src/HAPM.API --urls http://localhost:5168
 ```
 
-3. Open Swagger: http://localhost:5080/swagger
+3. Open Swagger: http://localhost:5168/swagger
+
+4. **Frontend** (optional):
+
+```bash
+cd frontend/hapm-web
+npm install
+npm start
+```
+
+Open http://localhost:4200/auth/login — use the role shortcuts in demo mode and the **show password** toggle on the password field. Seeded passwords are listed on the login screen in development.
 
 ### Seeded accounts
 
@@ -88,7 +98,10 @@ dotnet run --project src/HAPM.API --urls http://localhost:5080
 | Receptionist | `reception@hapm.local` | `Reception@12345` |
 | Doctor (Cardiology) | `dr.sharma@hapm.local` | `Doctor@12345` |
 | Doctor (Dermatology) | `dr.iyer@hapm.local` | `Doctor@12345` |
+| Doctor (Orthopedics) | `dr.khan@hapm.local` | `Doctor@12345` |
 | Patient | `patient@hapm.local` | `Patient@12345` |
+
+Additional demo patients (e.g. `priya.nair@demo.local`) use **`Patient@12345`**.
 
 ### Unit tests
 

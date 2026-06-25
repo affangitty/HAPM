@@ -1,44 +1,73 @@
 import { Component, inject } from '@angular/core';
-import { ApiErrorService } from '../../../core/api/api-error.service';
+import { ApiErrorService, ApiToastTone } from '../../../core/api/api-error.service';
 
 @Component({
   selector: 'app-api-toast-host',
   standalone: true,
   template: `
-  <div class="pointer-events-none fixed bottom-4 right-4 z-[100] flex max-w-sm flex-col gap-2" aria-live="polite" aria-atomic="true">
-    @for (toast of errorService.toasts(); track toast.id) {
-      <div
-        role="alert"
-        class="pointer-events-auto rounded-lg border px-4 py-3 text-sm shadow-lg"
-        [class]="toneClass(toast.tone)"
-      >
-        <div class="flex items-start justify-between gap-3">
-          <p>{{ toast.message }}</p>
-          <button
-            type="button"
-            class="shrink-0 text-xs underline opacity-80"
-            (click)="errorService.dismiss(toast.id)"
-            aria-label="Dismiss notification"
-          >Dismiss</button>
+    <div
+      class="pointer-events-none fixed bottom-4 right-4 z-[100] flex w-full max-w-md flex-col gap-2 px-4 sm:px-0"
+      aria-live="polite"
+      aria-atomic="false"
+    >
+      @for (toast of errorService.toasts(); track toast.id) {
+        <div
+          role="alert"
+          class="pointer-events-auto rounded-xl border px-4 py-3 text-sm shadow-lg backdrop-blur-sm"
+          [class]="toneClass(toast.tone)"
+        >
+          <div class="flex items-start gap-3">
+            <span class="mt-0.5 shrink-0 text-base" aria-hidden="true">{{ icon(toast.tone) }}</span>
+            <div class="min-w-0 flex-1">
+              <p class="font-medium">{{ toast.message }}</p>
+              @if (toast.items?.length) {
+                <ul class="mt-2 list-inside list-disc space-y-1 text-xs opacity-90">
+                  @for (item of toast.items; track item) {
+                    <li>{{ item }}</li>
+                  }
+                </ul>
+              }
+            </div>
+            <button
+              type="button"
+              class="shrink-0 rounded p-1 text-xs opacity-70 hover:opacity-100"
+              (click)="errorService.dismiss(toast.id)"
+              aria-label="Dismiss notification"
+            >
+              ✕
+            </button>
+          </div>
         </div>
-      </div>
-    }
-  </div>
+      }
+    </div>
   `,
 })
 export class ApiToastHostComponent {
   readonly errorService = inject(ApiErrorService);
 
-  toneClass(tone: string): string {
+  icon(tone: ApiToastTone): string {
     switch (tone) {
       case 'success':
-        return 'border-emerald-200 bg-emerald-50 text-emerald-900';
+        return '✓';
       case 'warning':
-        return 'border-amber-200 bg-amber-50 text-amber-900';
+        return '⚠';
       case 'info':
-        return 'border-sky-200 bg-sky-50 text-sky-900';
+        return 'ℹ';
       default:
-        return 'border-red-200 bg-red-50 text-red-900';
+        return '✕';
+    }
+  }
+
+  toneClass(tone: ApiToastTone): string {
+    switch (tone) {
+      case 'success':
+        return 'border-emerald-300/80 bg-emerald-50/95 text-emerald-950';
+      case 'warning':
+        return 'border-amber-300/80 bg-amber-50/95 text-amber-950';
+      case 'info':
+        return 'border-sky-300/80 bg-sky-50/95 text-sky-950';
+      default:
+        return 'border-red-300/80 bg-red-50/95 text-red-950';
     }
   }
 }

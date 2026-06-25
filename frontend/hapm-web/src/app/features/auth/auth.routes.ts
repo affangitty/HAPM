@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { devOnlyGuard } from '../../core/auth/dev-only.guard';
 
 export const AUTH_ROUTES: Routes = [
   { path: '', redirectTo: 'login', pathMatch: 'full' },
@@ -8,6 +9,7 @@ export const AUTH_ROUTES: Routes = [
   },
   {
     path: 'register',
+    canActivate: [devOnlyGuard],
     loadComponent: () => import('./register/register-page.component').then((m) => m.RegisterPageComponent),
   },
   {

@@ -1,5 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { setPageLoadFailed } from '../../../shared/utils/page-load.util';
 import { Router, RouterLink } from '@angular/router';
 import { DataTableComponent } from '../../../shared/components/data-table/data-table.component';
 import { DataTableColumn } from '../../../shared/components/data-table/data-table.models';
@@ -12,6 +13,7 @@ import { DEFAULT_PAGE_SIZE } from '../../../shared/models/pagination.model';
 import { debounce } from '../../../shared/utils/debounce.util';
 import { PatientsApiService } from '../data/patients-api.service';
 import { Gender, PatientDto } from '../models/patient.models';
+import { getRolePrefix, roleBase, roleRoute } from '../../../shared/utils/role-prefix.util';
 
 @Component({
   selector: 'app-patient-list-page',
@@ -65,6 +67,7 @@ export class PatientListPageComponent implements OnInit {
   readonly totalCount = signal(0);
   readonly rows = signal<PatientDto[]>([]);
   readonly loading = signal(false);
+  readonly loadError = signal<string | null>(null);
   readonly gender = signal('');
   readonly bloodGroup = signal('');
   search = '';
@@ -97,7 +100,7 @@ export class PatientListPageComponent implements OnInit {
     { key: 'age', header: 'Age', cell: (r) => r.age },
   ];
 
-  readonly rowLink = (row: PatientDto) => `${this.basePath()}/patients/${row.id}`;
+  readonly rowLink = (row: PatientDto) => roleRoute(this.router, 'patients', String(row.id));
 
   private readonly debouncedLoad = debounce(() => this.load(), 300);
 
@@ -106,7 +109,7 @@ export class PatientListPageComponent implements OnInit {
   }
 
   title(): string {
-    return this.basePath() === '/reception' ? 'Patient Search' : 'Patient Directory';
+    return getRolePrefix(this.router) === 'reception' ? 'Patient Search' : 'Patient Directory';
   }
 
   subtitle(): string {
@@ -114,12 +117,12 @@ export class PatientListPageComponent implements OnInit {
   }
 
   canRegister(): boolean {
-    const base = this.basePath();
+    const base = roleBase(this.router);
     return base === '/admin' || base === '/reception';
   }
 
   registerLink(): string {
-    return `${this.basePath()}/patients/new`;
+    return roleRoute(this.router, 'patients', 'new');
   }
 
   onSearch(value: string): void {
@@ -163,11 +166,7 @@ export class PatientListPageComponent implements OnInit {
           this.totalCount.set(result.totalCount);
           this.loading.set(false);
         },
-        error: () => this.loading.set(false),
+        error: () => setPageLoadFailed(this.loading, this.loadError),
       });
-  }
-
-  private basePath(): string {
-    return `/${this.router.url.split('/').filter(Boolean)[0]}`;
   }
 }

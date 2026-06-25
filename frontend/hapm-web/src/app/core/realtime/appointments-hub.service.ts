@@ -1,5 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { Subject } from 'rxjs';
+import { Subject, firstValueFrom } from 'rxjs';
 import { APP_CONFIG } from '../config/app-config';
 import { AuthService } from '../auth/auth.service';
 import { AppointmentDto } from '../../features/appointments/models/appointment.models';
@@ -36,10 +36,12 @@ export class AppointmentsHubService extends SignalRBaseService {
     }
 
     if (role === 'Doctor') {
-      this.doctorsApi.resolveCurrentDoctorId().subscribe({
-        next: (doctorId) => void this.invoke('JoinDoctorQueue', doctorId),
-        error: () => undefined,
-      });
+      try {
+        const doctorId = await firstValueFrom(this.doctorsApi.resolveCurrentDoctorId());
+        await this.invoke('JoinDoctorQueue', doctorId);
+      } catch {
+        // Doctor profile may not exist yet; queue updates are optional.
+      }
     }
   }
 

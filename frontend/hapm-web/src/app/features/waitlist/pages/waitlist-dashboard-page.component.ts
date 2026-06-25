@@ -1,5 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import { setPageLoadFailed } from '../../../shared/utils/page-load.util';
 import { UiButtonComponent } from '../../../shared/components/ui/button/ui-button.component';
 import { UiEmptyStateComponent } from '../../../shared/components/ui/empty-state/ui-empty-state.component';
 import { UiKpiCardComponent } from '../../../shared/components/ui/kpi-card/ui-kpi-card.component';
@@ -8,6 +9,7 @@ import { UiSkeletonComponent } from '../../../shared/components/ui/skeleton/ui-s
 import { WaitlistStatusBadgeComponent } from '../components/waitlist-status-badge.component';
 import { WaitlistApiService } from '../data/waitlist-api.service';
 import { WaitlistEntryDto } from '../models/waitlist.models';
+import { getRolePrefix, roleBase, roleRoute } from '../../../shared/utils/role-prefix.util';
 
 @Component({
   selector: 'app-waitlist-dashboard-page',
@@ -40,6 +42,8 @@ import { WaitlistEntryDto } from '../models/waitlist.models';
         }
       </div>
       <app-ui-skeleton class="h-64" />
+    } @else if (loadError()) {
+      <app-ui-empty-state class="mt-6 block" [title]="loadError()!" />
     } @else {
       <div class="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <app-ui-kpi-card title="Active" [value]="formatCount(stats().active)" subtitle="Waiting for slots" iconBg="bg-blue-50" iconColor="text-blue-600" iconPath="M12 6v6l4 2" />
@@ -85,6 +89,7 @@ export class WaitlistDashboardPageComponent implements OnInit {
   private readonly router = inject(Router);
 
   readonly loading = signal(true);
+  readonly loadError = signal<string | null>(null);
   readonly recent = signal<WaitlistEntryDto[]>([]);
   readonly stats = signal({ active: 0, notified: 0, cancelled: 0, total: 0 });
 
@@ -101,23 +106,23 @@ export class WaitlistDashboardPageComponent implements OnInit {
         });
         this.loading.set(false);
       },
-      error: () => this.loading.set(false),
+      error: () => setPageLoadFailed(this.loading, this.loadError),
     });
   }
 
-  basePath(): string {
-    return `/${this.router.url.split('/').filter(Boolean)[0]}`;
-  }
-
   detailLink(id: number): string {
-    return `${this.basePath()}/waitlist/${id}`;
+    return roleRoute(this.router, 'waitlist', String(id));
   }
 
   goJoin(): void {
-    void this.router.navigate([`${this.basePath()}/waitlist/join`]);
+    void this.router.navigate([roleRoute(this.router, 'waitlist', 'join')]);
   }
 
   formatCount(value: number): string {
     return String(value);
   }
+  basePath(): string {
+    return roleBase(this.router);
+  }
+
 }

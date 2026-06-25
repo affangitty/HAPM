@@ -1,12 +1,17 @@
 import { DatePipe } from '@angular/common';
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { ApiErrorService } from '../../../core/api/api-error.service';
+import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { extractApiErrorMessage } from '../../../core/auth/utils/api-error.util';
 import { AuthService } from '../../../core/auth/auth.service';
 import { UiButtonComponent } from '../../../shared/components/ui/button/ui-button.component';
 import { UiCardComponent, UiCardContentComponent } from '../../../shared/components/ui/card/ui-card.component';
+import { UiEmptyStateComponent } from '../../../shared/components/ui/empty-state/ui-empty-state.component';
 import { UiSkeletonComponent } from '../../../shared/components/ui/skeleton/ui-skeleton.component';
+import { initDetailRouteLoader } from '../../../shared/utils/detail-route.util';
+import { roleRoute } from '../../../shared/utils/role-prefix.util';
+import { getFormControlError, markFormGroupTouched, guardFormSubmit } from '../../../shared/utils/form-errors.util';
 import { MedicationTableComponent } from '../components/medication-table.component';
 import { PrescriptionFormComponent } from '../components/prescription-form.component';
 import { PrescriptionPdfPanelComponent } from '../components/prescription-pdf-panel.component';
@@ -25,15 +30,18 @@ import { PrescriptionDto } from '../models/prescription.models';
     UiCardContentComponent,
     UiButtonComponent,
     UiSkeletonComponent,
+    UiEmptyStateComponent,
     MedicationTableComponent,
     PrescriptionFormComponent,
     PrescriptionPdfPanelComponent,
   ],
   template: `
-    <a [routerLink]="basePath() + '/prescriptions'" class="text-xs text-primary hover:underline">← Back to prescriptions</a>
+    <a [routerLink]="listLink()" class="text-xs text-primary hover:underline">← Back to prescriptions</a>
 
     @if (loading()) {
       <app-ui-skeleton class="mt-4 h-64" />
+    } @else if (notFound()) {
+      <app-ui-empty-state class="mt-6 block" title="Prescription not found" message="This prescription may have been removed or you may not have access." />
     } @else {
       @if (prescription(); as rx) {
       <div class="mt-2 mb-4 flex flex-wrap items-start justify-between gap-3">
@@ -112,18 +120,22 @@ import { PrescriptionDto } from '../models/prescription.models';
     }
   `,
 })
-export class PrescriptionDetailPageComponent implements OnInit {
+export class PrescriptionDetailPageComponent {
+  private readonly toasts = inject(ApiErrorService);
+
   private readonly api = inject(PrescriptionsApiService);
   private readonly auth = inject(AuthService);
   private readonly fb = inject(FormBuilder);
-  private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly routeState = initDetailRouteLoader('id', (id) => this.api.getById(id), this.destroyRef);
 
-  readonly loading = signal(true);
+  readonly loading = this.routeState.loading;
+  readonly notFound = this.routeState.notFound;
+  readonly prescription = this.routeState.data;
   readonly saving = signal(false);
   readonly editing = signal(false);
   readonly error = signal<string | null>(null);
-  readonly prescription = signal<PrescriptionDto | null>(null);
 
   readonly form = this.fb.nonNullable.group({
     diagnosis: ['', [Validators.required, Validators.maxLength(1000)]],
@@ -131,17 +143,6 @@ export class PrescriptionDetailPageComponent implements OnInit {
     followUpDate: [''],
     items: this.fb.array([createMedicationGroup(this.fb)]),
   });
-
-  ngOnInit(): void {
-    const id = Number(this.route.snapshot.paramMap.get('id'));
-    this.api.getById(id).subscribe({
-      next: (rx) => {
-        this.prescription.set(rx);
-        this.loading.set(false);
-      },
-      error: () => this.loading.set(false),
-    });
-  }
 
   isDoctor(): boolean {
     return this.auth.role() === 'Doctor';
@@ -171,8 +172,7 @@ export class PrescriptionDetailPageComponent implements OnInit {
   save(): void {
     const rx = this.prescription();
     if (!rx) return;
-    this.form.markAllAsTouched();
-    if (this.form.invalid) return;
+    if (!guardFormSubmit(this.form, this.toasts)) return;
 
     this.saving.set(true);
     this.error.set(null);
@@ -199,7 +199,7 @@ export class PrescriptionDetailPageComponent implements OnInit {
       });
   }
 
-  basePath(): string {
-    return `/${this.router.url.split('/').filter(Boolean)[0]}`;
+  listLink(): string {
+    return roleRoute(this.router, 'prescriptions');
   }
 }

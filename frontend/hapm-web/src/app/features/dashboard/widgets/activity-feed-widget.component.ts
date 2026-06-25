@@ -9,8 +9,12 @@ import { DashboardWidgetCardComponent } from './dashboard-kpi-grid.component';
   selector: 'app-activity-feed-widget',
   standalone: true,
   imports: [RouterLink, UiAvatarComponent, DashboardSectionHeaderComponent, DashboardWidgetCardComponent],
+  host: {
+    class: 'flex min-h-0 min-w-0 flex-col self-stretch',
+    '[class]': 'className()',
+  },
   template: `
-    <app-dashboard-widget-card>
+    <app-dashboard-widget-card class="min-h-0 flex-1">
       <app-dashboard-section-header [title]="title()" [subtitle]="subtitle()">
         @if (viewAllRoute()) {
           <a
@@ -52,6 +56,7 @@ export class ActivityFeedWidgetComponent {
   readonly subtitle = input('System events and actions');
   readonly items = input.required<DashboardActivityItem[]>();
   readonly viewAllRoute = input<string | null>(null);
+  readonly className = input('', { alias: 'class' });
 
   categoryClass(category: DashboardActivityItem['category']): string {
     const map: Record<DashboardActivityItem['category'], string> = {

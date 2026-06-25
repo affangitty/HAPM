@@ -1,10 +1,13 @@
 import { DatePipe } from '@angular/common';
-import { Component, inject, OnInit, signal } from '@angular/core';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
+import { Router, RouterLink } from '@angular/router';
 import { extractApiErrorMessage } from '../../../core/auth/utils/api-error.util';
+import { loadByRouteParam } from '../../../shared/utils/route-param.util';
 import { UiButtonComponent } from '../../../shared/components/ui/button/ui-button.component';
 import { UiCardComponent, UiCardContentComponent } from '../../../shared/components/ui/card/ui-card.component';
 import { UiSkeletonComponent } from '../../../shared/components/ui/skeleton/ui-skeleton.component';
+import { UiEmptyStateComponent } from '../../../shared/components/ui/empty-state/ui-empty-state.component';
+import { roleRoute } from '../../../shared/utils/role-prefix.util';
 import { WaitlistStatusBadgeComponent } from '../components/waitlist-status-badge.component';
 import { WaitlistApiService } from '../data/waitlist-api.service';
 import { WaitlistEntryDto } from '../models/waitlist.models';
@@ -18,13 +21,16 @@ import { WaitlistEntryDto } from '../models/waitlist.models';
     UiCardContentComponent,
     UiButtonComponent,
     UiSkeletonComponent,
+    UiEmptyStateComponent,
     WaitlistStatusBadgeComponent,
   ],
   template: `
-    <a [routerLink]="basePath() + '/waitlist/list'" class="text-xs text-primary hover:underline">← Back to waitlist</a>
+    <a [routerLink]="listLink()" class="text-xs text-primary hover:underline">← Back to waitlist</a>
 
     @if (loading()) {
       <app-ui-skeleton class="mt-4 h-48" />
+    } @else if (notFound()) {
+      <app-ui-empty-state class="mt-6 block" title="Waitlist entry not found" message="This entry may have been removed or promoted." />
     } @else {
       @if (entry(); as e) {
       <div class="mt-2 mb-4 flex flex-wrap items-start justify-between gap-3">
@@ -81,7 +87,7 @@ import { WaitlistEntryDto } from '../models/waitlist.models';
       </div>
 
       @if (error()) {
-        <p class="mt-3 text-sm text-destructive">{{ error() }}</p>
+        <p class="mt-3 text-sm text-destructive" role="alert">{{ error() }}</p>
       }
       }
     }
@@ -89,26 +95,29 @@ import { WaitlistEntryDto } from '../models/waitlist.models';
 })
 export class WaitlistDetailPageComponent implements OnInit {
   private readonly api = inject(WaitlistApiService);
-  private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly loading = signal(true);
+  readonly notFound = signal(false);
   readonly cancelling = signal(false);
   readonly error = signal<string | null>(null);
   readonly entry = signal<WaitlistEntryDto | null>(null);
 
   ngOnInit(): void {
-    const id = Number(this.route.snapshot.paramMap.get('id'));
-    this.api.getById(id).subscribe({
-      next: (entry) => {
-        this.entry.set(entry);
-        this.loading.set(false);
+    loadByRouteParam(
+      'id',
+      (id) => this.api.getById(id),
+      {
+        onStart: () => { this.loading.set(true); this.error.set(null); },
+        onData: (entry) => { this.entry.set(entry); this.loading.set(false); },
+        onError: () => {
+          this.notFound.set(true);
+          this.loading.set(false);
+        },
       },
-      error: () => {
-        this.error.set('Waitlist entry not found.');
-        this.loading.set(false);
-      },
-    });
+      { destroyRef: this.destroyRef },
+    );
   }
 
   cancel(): void {
@@ -128,11 +137,11 @@ export class WaitlistDetailPageComponent implements OnInit {
     });
   }
 
-  basePath(): string {
-    return `/${this.router.url.split('/').filter(Boolean)[0]}`;
+  listLink(): string {
+    return roleRoute(this.router, 'waitlist', 'list');
   }
 
   promotionLink(id: number): string {
-    return `${this.basePath()}/waitlist/${id}/promotion`;
+    return roleRoute(this.router, 'waitlist', String(id), 'promotion');
   }
 }

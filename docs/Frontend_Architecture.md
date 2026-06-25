@@ -29,7 +29,7 @@ This document defines the frontend architecture for the Hospital Appointment & P
 - **Role-based `NAV_CONFIG`** — proven IA for Admin, Doctor, Patient, Receptionist
 - **Design tokens:** `src/styles/theme.css` — CSS variables mapped to Tailwind `@theme`
 - **Component vocabulary:** shadcn-style primitives (Button, Card, Badge, Input, Table, Dialog, Tabs, etc.)
-- **Auth UX:** split-panel login, forgot-password flow (Stitch lacks this)
+- **Auth UX:** split-panel login with role shortcuts (demo), show/hide password toggle, forgot/reset password flow
 - **Visual identity:** Inter 15px base, slate backgrounds (`#F1F5F9`), primary blue (`#1D4ED8`), accent teal (`#0D9488`), ghost-bordered cards, `rounded-xl`, focus rings, hover row states
 
 ### Merge strategy
@@ -304,7 +304,7 @@ frontend/hapm-web/
 ├── package.json
 ├── tailwind.config.ts
 ├── tsconfig.json
-├── proxy.conf.json                    # dev proxy → http://localhost:5080
+├── proxy.conf.json                    # dev proxy → http://localhost:5168
 ├── public/
 │   ├── favicon.ico
 │   └── assets/
@@ -726,7 +726,7 @@ JWT passed as `?access_token=` on hub connect (per `docs/SignalR.md`).
 
 ### API integration patterns
 
-- Base URL: `environment.apiUrl` (default `http://localhost:5080`)
+- Base URL: `environment.apiUrl` (default `http://localhost:5168`)
 - Auth: `Authorization: Bearer` on all except public routes
 - Refresh: interceptor calls `/api/auth/refresh` on 401, retry once
 - Lists: `?page=&pageSize=&search=&sortBy=&sortDescending=`

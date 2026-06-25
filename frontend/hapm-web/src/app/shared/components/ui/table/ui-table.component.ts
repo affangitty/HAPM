@@ -5,7 +5,7 @@ import { Component } from '@angular/core';
   standalone: true,
   template: `
     <div class="relative w-full overflow-x-auto rounded-xl border bg-card">
-      <table class="w-full caption-bottom text-sm">
+      <table class="w-full min-w-[720px] border-collapse text-left text-sm">
         <ng-content />
       </table>
     </div>
@@ -14,40 +14,52 @@ import { Component } from '@angular/core';
 export class UiTableComponent {}
 
 @Component({
-  selector: 'app-ui-table-header',
+  selector: 'thead[appUiTableHeader]',
   standalone: true,
-  template: `<thead class="[&_tr]:border-b bg-muted/50"><ng-content /></thead>`,
+  template: `<ng-content />`,
+  host: {
+    class: 'border-b bg-muted/50 [&_tr]:border-b',
+  },
 })
 export class UiTableHeaderComponent {}
 
 @Component({
-  selector: 'app-ui-table-body',
+  selector: 'tbody[appUiTableBody]',
   standalone: true,
-  template: `<tbody class="[&_tr:last-child]:border-0"><ng-content /></tbody>`,
+  template: `<ng-content />`,
+  host: {
+    class: '[&_tr:last-child]:border-0',
+  },
 })
 export class UiTableBodyComponent {}
 
 @Component({
-  selector: 'app-ui-table-row',
+  selector: 'tr[appUiTableRow]',
   standalone: true,
-  template: `<tr class="border-b transition-colors hover:bg-muted/50"><ng-content /></tr>`,
+  template: `<ng-content />`,
+  host: {
+    class: 'border-b border-border/70 transition-colors hover:bg-muted/40',
+  },
 })
 export class UiTableRowComponent {}
 
 @Component({
-  selector: 'app-ui-table-head',
+  selector: 'th[appUiTableHead]',
   standalone: true,
-  template: `
-    <th class="h-12 px-4 text-left align-middle text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-      <ng-content />
-    </th>
-  `,
+  template: `<ng-content />`,
+  host: {
+    class:
+      'h-12 whitespace-nowrap px-4 text-left align-middle text-xs font-semibold uppercase tracking-wide text-muted-foreground',
+  },
 })
 export class UiTableHeadComponent {}
 
 @Component({
-  selector: 'app-ui-table-cell',
+  selector: 'td[appUiTableCell]',
   standalone: true,
-  template: `<td class="h-12 px-4 align-middle text-sm tabular-nums"><ng-content /></td>`,
+  template: `<ng-content />`,
+  host: {
+    class: 'h-12 px-4 align-middle text-sm',
+  },
 })
 export class UiTableCellComponent {}

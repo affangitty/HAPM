@@ -20,6 +20,7 @@ import { debounce } from '../../../shared/utils/debounce.util';
 import { AppointmentCalendarComponent } from '../components/appointment-calendar.component';
 import { AppointmentsApiService } from '../data/appointments-api.service';
 import { AppointmentDto, AppointmentViewMode } from '../models/appointment.models';
+import { getRolePrefix, roleBase, roleRoute } from '../../../shared/utils/role-prefix.util';
 
 @Component({
   selector: 'app-appointment-list-page',
@@ -139,7 +140,7 @@ export class AppointmentListPageComponent implements OnInit {
     { key: 'status', header: 'Status', cell: (r) => r.status },
   ];
 
-  readonly rowLink = (row: AppointmentDto) => `${this.basePath()}/appointments/${row.id}`;
+  readonly rowLink = (row: AppointmentDto) => roleRoute(this.router, 'appointments', String(row.id));
 
   private readonly debouncedLoad = debounce(() => this.load(), 300);
 
@@ -154,7 +155,7 @@ export class AppointmentListPageComponent implements OnInit {
     const role = this.auth.role();
     if (!role || role === 'Patient') return;
 
-    this.appointmentsHub.received$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((updated) => {
+    this.appointmentsHub.received$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((updated: AppointmentDto) => {
       this.rows.update((list) => {
         const index = list.findIndex((a) => a.id === updated.id);
         if (index === -1) return list;
@@ -173,14 +174,14 @@ export class AppointmentListPageComponent implements OnInit {
   }
 
   title(): string {
-    const base = this.basePath();
+    const base = roleBase(this.router);
     if (base === '/doctor') return 'My Schedule';
     if (base === '/patient') return 'Appointments';
     return 'Appointment Management';
   }
 
   bookLink(): string {
-    return `${this.basePath()}/appointments/book`;
+    return roleRoute(this.router, 'appointments', 'book');
   }
 
   onSearch(value: string): void {
@@ -284,9 +285,5 @@ export class AppointmentListPageComponent implements OnInit {
 
   private formatDate(date: Date): string {
     return date.toISOString().slice(0, 10);
-  }
-
-  private basePath(): string {
-    return `/${this.router.url.split('/').filter(Boolean)[0]}`;
   }
 }

@@ -51,6 +51,7 @@ export const NAV_CONFIG: Record<AppRoleKey, NavGroup[]> = {
       items: [
         { label: 'Appointments', route: '/admin/appointments', icon: 'appointments' },
         { label: 'Billing', route: '/admin/billing', icon: 'billing' },
+        { label: 'Payments', route: '/admin/billing/payments', icon: 'billing' },
         { label: 'Lab Reports', route: '/admin/lab-reports', icon: 'lab-reports' },
       ],
     },
@@ -144,6 +145,7 @@ export const NAV_CONFIG: Record<AppRoleKey, NavGroup[]> = {
         { label: 'Doctors', route: '/reception/doctors', icon: 'doctors' },
         { label: 'Waitlist', route: '/reception/waitlist', icon: 'waitlist' },
         { label: 'Billing', route: '/reception/billing', icon: 'billing' },
+        { label: 'Payments', route: '/reception/billing/payments', icon: 'billing' },
         { label: 'Lab Reports', route: '/reception/lab-reports', icon: 'lab-reports' },
       ],
     },

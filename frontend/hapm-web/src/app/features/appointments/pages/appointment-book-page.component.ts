@@ -1,7 +1,10 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { getControlError, getFormControlError, guardFormSubmit } from '../../../shared/utils/form-errors.util';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { extractApiErrorMessage } from '../../../core/auth/utils/api-error.util';
+import { ApiErrorService } from '../../../core/api/api-error.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { FormFieldComponent } from '../../../shared/components/forms/form-field/form-field.component';
 import { UiButtonComponent } from '../../../shared/components/ui/button/ui-button.component';
@@ -15,6 +18,7 @@ import { AvailableSlotDto } from '../../doctors/models/doctor.models';
 import { PatientsApiService } from '../../patients/data/patients-api.service';
 import { SlotPickerComponent } from '../components/slot-picker.component';
 import { AppointmentsApiService } from '../data/appointments-api.service';
+import { getRolePrefix, roleBase, roleRoute } from '../../../shared/utils/role-prefix.util';
 
 @Component({
   selector: 'app-appointment-book-page',
@@ -85,6 +89,8 @@ export class AppointmentBookPageComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly toasts = inject(ApiErrorService);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly doctorOptions = signal<{ label: string; value: string }[]>([]);
   readonly patientOptions = signal<{ label: string; value: string }[]>([]);
@@ -115,8 +121,8 @@ export class AppointmentBookPageComponent implements OnInit {
       });
     }
 
-    this.form.controls.doctorId.valueChanges.subscribe(() => this.loadSlots());
-    this.form.controls.appointmentDate.valueChanges.subscribe(() => this.loadSlots());
+    this.form.controls.doctorId.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.loadSlots());
+    this.form.controls.appointmentDate.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.loadSlots());
 
     const doctorId = this.route.snapshot.queryParamMap.get('doctorId');
     const date = this.route.snapshot.queryParamMap.get('date');
@@ -132,18 +138,14 @@ export class AppointmentBookPageComponent implements OnInit {
   }
 
   err(name: 'doctorId' | 'patientId' | 'appointmentDate' | 'startTime' | 'reason'): string | null {
-    const c = this.form.controls[name];
-    if (!c.touched || !c.errors) return null;
-    if (c.errors['required']) return 'Required.';
-    if (c.errors['maxlength']) return 'Max 500 characters.';
-    return null;
+    return getControlError(this.form.controls[name]);
   }
 
   submit(): void {
-    if (this.form.invalid) {
-      this.form.markAllAsTouched();
-      return;
-    }
+    if (!guardFormSubmit(this.form, this.toasts, {
+      doctorId: 'Doctor', patientId: 'Patient', appointmentDate: 'Date',
+      startTime: 'Time slot', reason: 'Reason',
+    })) return;
     const raw = this.form.getRawValue();
     this.saving.set(true);
     this.error.set(null);
@@ -159,7 +161,8 @@ export class AppointmentBookPageComponent implements OnInit {
       .subscribe({
         next: (apt) => {
           this.saving.set(false);
-          void this.router.navigateByUrl(`${this.basePath()}/appointments/${apt.id}`);
+          this.toasts.showSuccess('Appointment booked successfully.');
+          void this.router.navigateByUrl(roleRoute(this.router, 'appointments', String(apt.id)));
         },
         error: (err) => {
           this.saving.set(false);
@@ -169,7 +172,7 @@ export class AppointmentBookPageComponent implements OnInit {
   }
 
   listLink(): string {
-    return `${this.basePath()}/appointments`;
+    return roleRoute(this.router, 'appointments');
   }
 
   private loadSlots(): void {
@@ -187,9 +190,5 @@ export class AppointmentBookPageComponent implements OnInit {
       },
       error: () => this.slotsLoading.set(false),
     });
-  }
-
-  private basePath(): string {
-    return `/${this.router.url.split('/').filter(Boolean)[0]}`;
   }
 }

@@ -1,5 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import { setPageLoadFailed } from '../../../shared/utils/page-load.util';
 import { DataTableComponent } from '../../../shared/components/data-table/data-table.component';
 import { DataTableColumn } from '../../../shared/components/data-table/data-table.models';
 import { UiButtonComponent } from '../../../shared/components/ui/button/ui-button.component';
@@ -7,6 +8,7 @@ import { UiPageHeaderComponent } from '../../../shared/components/ui/page-header
 import { DEFAULT_PAGE_SIZE } from '../../../shared/models/pagination.model';
 import { LabReportsApiService } from '../data/lab-reports-api.service';
 import { LabReportDto } from '../models/lab-report.models';
+import { getRolePrefix, roleBase, roleRoute } from '../../../shared/utils/role-prefix.util';
 
 @Component({
   selector: 'app-lab-report-history-page',
@@ -32,6 +34,7 @@ export class LabReportHistoryPageComponent implements OnInit {
   readonly totalCount = signal(0);
   readonly rows = signal<LabReportDto[]>([]);
   readonly loading = signal(false);
+  readonly loadError = signal<string | null>(null);
 
   readonly columns: DataTableColumn<LabReportDto>[] = [
     { key: 'date', header: 'Uploaded', cell: (r) => new Date(r.uploadedAtUtc).toLocaleDateString() },
@@ -41,7 +44,7 @@ export class LabReportHistoryPageComponent implements OnInit {
     { key: 'status', header: 'Status', cell: (r) => r.status },
   ];
 
-  readonly rowLink = (r: LabReportDto) => `${this.basePath()}/lab-reports/${r.id}`;
+  readonly rowLink = (r: LabReportDto) => roleRoute(this.router, 'lab-reports', String(r.id));
 
   ngOnInit(): void { this.load(); }
   onPageChange(p: number): void { this.page.set(p); this.load(); }
@@ -54,9 +57,11 @@ export class LabReportHistoryPageComponent implements OnInit {
         this.totalCount.set(r.totalCount);
         this.loading.set(false);
       },
-      error: () => this.loading.set(false),
+      error: () => setPageLoadFailed(this.loading, this.loadError),
     });
   }
+  basePath(): string {
+    return roleBase(this.router);
+  }
 
-  basePath(): string { return `/${this.router.url.split('/').filter(Boolean)[0]}`; }
 }

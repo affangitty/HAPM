@@ -3,6 +3,7 @@ import { FormArray, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { FormFieldComponent } from '../../../shared/components/forms/form-field/form-field.component';
 import { UiInputComponent } from '../../../shared/components/ui/input/ui-input.component';
 import { UiTextareaComponent } from '../../../shared/components/ui/textarea/ui-textarea.component';
+import { getControlError } from '../../../shared/utils/form-errors.util';
 import { MedicationFormRowsComponent } from '../../prescriptions/components/medication-form-rows.component';
 
 @Component({
@@ -44,10 +45,6 @@ export class TemplateFormComponent {
   }
 
   err(field: string): string | null {
-    const ctrl = this.form().get(field);
-    if (!ctrl || !ctrl.touched || !ctrl.invalid) return null;
-    if (ctrl.errors?.['required']) return 'Required';
-    if (ctrl.errors?.['maxlength']) return 'Too long';
-    return 'Invalid';
+    return getControlError(this.form().get(field));
   }
 }

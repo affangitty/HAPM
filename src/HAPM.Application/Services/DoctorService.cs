@@ -64,6 +64,15 @@ public class DoctorService : IDoctorService
             .FirstOrDefaultAsync(ct) ?? throw new NotFoundException("Doctor", id);
     }
 
+    public async Task<DoctorDto> GetCurrentAsync(CancellationToken ct = default)
+    {
+        var userId = _currentUser.UserId ?? throw new UnauthorizedException();
+        return await _uow.Doctors.Query()
+            .Where(d => d.UserId == userId)
+            .Select(Projections.Doctor)
+            .FirstOrDefaultAsync(ct) ?? throw new NotFoundException("No doctor profile exists for the current user.");
+    }
+
     public async Task<DoctorDto> CreateAsync(CreateDoctorRequest request, CancellationToken ct = default)
     {
         var email = request.Email.Trim().ToLowerInvariant();
@@ -155,6 +164,7 @@ public class DoctorService : IDoctorService
 
         doctor.IsAvailable = false;
         doctor.User.IsActive = false;
+        await RefreshTokenRevocation.RevokeAllForUserAsync(_uow, doctor.UserId, ct);
         await _uow.SaveChangesAsync(ct);
     }
 

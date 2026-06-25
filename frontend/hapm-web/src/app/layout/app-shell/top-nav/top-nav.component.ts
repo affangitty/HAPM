@@ -1,12 +1,13 @@
 import { Component, DestroyRef, inject, input, OnInit, output, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router, RouterLink } from '@angular/router';
+import { Subject, debounceTime, distinctUntilChanged, of, switchMap } from 'rxjs';
 import { GlobalSearchResult, GlobalSearchService } from '../../../core/search/global-search.service';
 import { NotificationsApiService } from '../../../features/notifications/data/notifications-api.service';
+import { NotificationsHubService } from '../../../core/realtime/notifications-hub.service';
 import { NotificationDto } from '../../../features/notifications/models/notification.models';
 import { NotificationDrawerComponent } from '../../../features/notifications/components/notification-drawer.component';
 import { UiSearchInputComponent } from '../../../shared/components/ui/search-input/ui-search-input.component';
-import { debounce } from '../../../shared/utils/debounce.util';
 import { PAGE_TITLES } from '../sidebar/nav-config';
 
 @Component({
@@ -34,11 +35,33 @@ import { PAGE_TITLES } from '../sidebar/nav-config';
 
       <div class="relative mx-auto hidden max-w-md flex-1 md:block">
         <app-ui-search-input
-          placeholder="Search patients, doctors, appointments..."
+          placeholder="Search patients, doctors, appointments, billing..."
           (searchChange)="onSearch($event)"
         />
         @if (searchOpen() && searchResults().length) {
           <div class="absolute left-0 right-0 top-full z-50 mt-1 max-h-72 overflow-y-auto rounded-lg border bg-card shadow-lg">
+            @for (result of searchResults(); track result.type + result.id) {
+              <button
+                type="button"
+                class="flex w-full flex-col gap-0.5 border-b px-3 py-2 text-left text-sm last:border-b-0 hover:bg-muted"
+                (click)="openResult(result)"
+                [attr.aria-label]="result.label + ', ' + result.subtitle"
+              >
+                <span class="font-medium">{{ result.label }}</span>
+                <span class="text-xs text-muted-foreground">{{ result.subtitle }}</span>
+              </button>
+            }
+          </div>
+        }
+      </div>
+
+      <div class="relative flex-1 md:hidden">
+        <app-ui-search-input
+          placeholder="Search..."
+          (searchChange)="onSearch($event)"
+        />
+        @if (searchOpen() && searchResults().length) {
+          <div class="absolute left-0 right-0 top-full z-50 mt-1 max-h-60 overflow-y-auto rounded-lg border bg-card shadow-lg">
             @for (result of searchResults(); track result.type + result.id) {
               <button
                 type="button"
@@ -73,7 +96,7 @@ import { PAGE_TITLES } from '../sidebar/nav-config';
     <app-notification-drawer
       [open]="drawerOpen()"
       [rolePrefix]="rolePrefix()"
-      (close)="drawerOpen.set(false)"
+      (close)="onDrawerClose()"
       (selectNotification)="openNotification($event)"
     />
   `,
@@ -81,6 +104,7 @@ import { PAGE_TITLES } from '../sidebar/nav-config';
 export class TopNavComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly notificationsApi = inject(NotificationsApiService);
+  private readonly notificationsHub = inject(NotificationsHubService);
   private readonly searchService = inject(GlobalSearchService);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -92,11 +116,31 @@ export class TopNavComponent implements OnInit {
   readonly searchOpen = signal(false);
   readonly searchResults = signal<GlobalSearchResult[]>([]);
 
-  private searchQuery = '';
-  private readonly debouncedSearch = debounce(() => this.runSearch(), 300);
+  private readonly searchInput$ = new Subject<string>();
 
   ngOnInit(): void {
     this.refreshUnread();
+    this.notificationsHub.received$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      this.unreadCount.update((c) => c + 1);
+    });
+    this.searchInput$.pipe(
+      debounceTime(300),
+      distinctUntilChanged(),
+      switchMap((query) => {
+        if (query.trim().length < 2) return of<GlobalSearchResult[]>([]);
+        return this.searchService.search(query, this.rolePrefix());
+      }),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe({
+      next: (results) => {
+        this.searchResults.set(results);
+        this.searchOpen.set(results.length > 0);
+      },
+      error: () => {
+        this.searchResults.set([]);
+        this.searchOpen.set(false);
+      },
+    });
   }
 
   readonly pageTitle = () => {
@@ -106,13 +150,11 @@ export class TopNavComponent implements OnInit {
   };
 
   onSearch(query: string): void {
-    this.searchQuery = query;
     if (query.trim().length < 2) {
       this.searchOpen.set(false);
       this.searchResults.set([]);
-      return;
     }
-    this.debouncedSearch();
+    this.searchInput$.next(query);
   }
 
   openResult(result: GlobalSearchResult): void {
@@ -126,17 +168,9 @@ export class TopNavComponent implements OnInit {
     void this.router.navigate([`/${this.rolePrefix()}/notifications/${n.id}`]);
   }
 
-  private runSearch(): void {
-    this.searchService.search(this.searchQuery, this.rolePrefix()).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: (results) => {
-        this.searchResults.set(results);
-        this.searchOpen.set(results.length > 0);
-      },
-      error: () => {
-        this.searchResults.set([]);
-        this.searchOpen.set(false);
-      },
-    });
+  onDrawerClose(): void {
+    this.drawerOpen.set(false);
+    this.refreshUnread();
   }
 
   private refreshUnread(): void {

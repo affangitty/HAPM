@@ -13,6 +13,7 @@ import { DashboardWidgetCardComponent } from './dashboard-kpi-grid.component';
   selector: 'app-audit-log-table-widget',
   standalone: true,
   imports: [RouterLink, UiAvatarComponent, UiStatusBadgeComponent, DashboardSectionHeaderComponent, DashboardWidgetCardComponent],
+  host: { class: 'block w-full shrink-0' },
   template: `
     <app-dashboard-widget-card>
       <app-dashboard-section-header title="Recent Audit Logs" subtitle="System activity and compliance events">
@@ -20,34 +21,34 @@ import { DashboardWidgetCardComponent } from './dashboard-kpi-grid.component';
       </app-dashboard-section-header>
 
       <div class="overflow-x-auto">
-        <table class="w-full min-w-[640px] text-left text-sm">
-          <thead>
-            <tr class="border-b text-xs uppercase tracking-wide text-muted-foreground">
-              <th class="px-2 py-3 font-medium">Timestamp</th>
-              <th class="px-2 py-3 font-medium">User</th>
-              <th class="px-2 py-3 font-medium">Action</th>
-              <th class="px-2 py-3 font-medium">Resource</th>
-              <th class="px-2 py-3 font-medium">Status</th>
+        <table class="w-full min-w-[720px] border-collapse text-left text-sm">
+          <thead class="border-b bg-muted/50">
+            <tr class="text-xs uppercase tracking-wide text-muted-foreground">
+              <th class="h-12 whitespace-nowrap px-4 text-left font-semibold">Timestamp</th>
+              <th class="h-12 whitespace-nowrap px-4 text-left font-semibold">User</th>
+              <th class="h-12 whitespace-nowrap px-4 text-left font-semibold">Action</th>
+              <th class="h-12 whitespace-nowrap px-4 text-left font-semibold">Resource</th>
+              <th class="h-12 whitespace-nowrap px-4 text-left font-semibold">Status</th>
             </tr>
           </thead>
           <tbody>
             @for (row of rows(); track row.id) {
               <tr class="border-b border-border/70 hover:bg-muted/40">
-                <td class="px-2 py-3 text-xs text-muted-foreground">{{ formatTime(row.timestampUtc) }}</td>
-                <td class="px-2 py-3">
+                <td class="h-12 whitespace-nowrap px-4 align-middle text-xs tabular-nums text-muted-foreground">{{ formatTime(row.timestampUtc) }}</td>
+                <td class="h-12 px-4 align-middle">
                   <div class="flex items-center gap-2">
                     <app-ui-avatar [name]="row.userEmail ?? 'System'" size="sm" class="!size-7 !text-[10px]" />
                     <span class="font-medium">{{ row.userEmail ?? 'System' }}</span>
                   </div>
                 </td>
-                <td class="px-2 py-3">{{ row.action }}</td>
-                <td class="px-2 py-3 text-muted-foreground">{{ row.entityName }} #{{ row.entityId }}</td>
-                <td class="px-2 py-3">
+                <td class="h-12 px-4 align-middle">{{ row.action }}</td>
+                <td class="h-12 px-4 align-middle text-muted-foreground">{{ row.entityName }} #{{ row.entityId }}</td>
+                <td class="h-12 px-4 align-middle">
                   <app-ui-status-badge [label]="row.action === 'Deleted' ? 'Failed' : 'Success'" [tone]="row.action === 'Deleted' ? 'destructive' : 'success'" />
                 </td>
               </tr>
             } @empty {
-              <tr><td colspan="5" class="px-2 py-8 text-center text-muted-foreground">No audit activity yet.</td></tr>
+              <tr><td colspan="5" class="px-4 py-8 text-center text-muted-foreground">No audit activity yet.</td></tr>
             }
           </tbody>
         </table>
@@ -67,38 +68,39 @@ export class AuditLogTableWidgetComponent {
   selector: 'app-schedule-table-widget',
   standalone: true,
   imports: [RouterLink, UiAvatarComponent, UiStatusBadgeComponent, UiButtonComponent, DashboardSectionHeaderComponent, DashboardWidgetCardComponent],
+  host: { class: 'flex min-h-0 min-w-0 flex-col self-stretch lg:col-span-3' },
   template: `
-    <app-dashboard-widget-card [class]="className()">
+    <app-dashboard-widget-card class="min-h-0 flex-1">
       <app-dashboard-section-header [title]="title()" subtitle="Today's clinical queue">
         <a actions [routerLink]="viewAllRoute()" class="text-xs font-medium text-primary hover:underline">View calendar</a>
       </app-dashboard-section-header>
 
       <div class="overflow-x-auto">
-        <table class="w-full min-w-[640px] text-left text-sm">
-          <thead>
-            <tr class="border-b text-xs uppercase tracking-wide text-muted-foreground">
-              <th class="px-2 py-3 font-medium">Time</th>
-              <th class="px-2 py-3 font-medium">Patient</th>
-              <th class="px-2 py-3 font-medium">Reason</th>
-              <th class="px-2 py-3 font-medium">Status</th>
-              <th class="px-2 py-3 font-medium">Action</th>
+        <table class="w-full min-w-[720px] border-collapse text-left text-sm">
+          <thead class="border-b bg-muted/50">
+            <tr class="text-xs uppercase tracking-wide text-muted-foreground">
+              <th class="h-12 whitespace-nowrap px-4 text-left font-semibold">Time</th>
+              <th class="h-12 whitespace-nowrap px-4 text-left font-semibold">Patient</th>
+              <th class="h-12 whitespace-nowrap px-4 text-left font-semibold">Reason</th>
+              <th class="h-12 whitespace-nowrap px-4 text-left font-semibold">Status</th>
+              <th class="h-12 whitespace-nowrap px-4 text-left font-semibold">Action</th>
             </tr>
           </thead>
           <tbody>
             @for (item of items(); track item.id) {
               <tr class="border-b border-border/70" [class.bg-teal-50]="item.highlight">
-                <td class="px-2 py-3 font-medium">{{ item.time }}</td>
-                <td class="px-2 py-3">
+                <td class="h-12 whitespace-nowrap px-4 align-middle font-medium">{{ item.time }}</td>
+                <td class="h-12 px-4 align-middle">
                   <div class="flex items-center gap-2">
                     <app-ui-avatar [name]="item.patient" size="sm" class="!size-7 !text-[10px]" />
                     {{ item.patient }}
                   </div>
                 </td>
-                <td class="px-2 py-3 text-muted-foreground">{{ item.type }}</td>
-                <td class="px-2 py-3">
+                <td class="h-12 px-4 align-middle text-muted-foreground">{{ item.type }}</td>
+                <td class="h-12 px-4 align-middle">
                   <app-ui-status-badge [label]="item.status" [tone]="statusTone(item.status)" />
                 </td>
-                <td class="px-2 py-3">
+                <td class="h-12 px-4 align-middle">
                   @if (item.highlight) {
                     <app-ui-button size="sm">Start Visit</app-ui-button>
                   } @else {
@@ -117,7 +119,6 @@ export class ScheduleTableWidgetComponent {
   readonly title = input("Today's Schedule");
   readonly items = input.required<DashboardScheduleItem[]>();
   readonly viewAllRoute = input('/doctor/appointments');
-  readonly className = input('lg:col-span-2', { alias: 'class' });
 
   statusTone(status: string) {
     return APPOINTMENT_STATUS_TONE[status as AppointmentStatus] ?? 'default';

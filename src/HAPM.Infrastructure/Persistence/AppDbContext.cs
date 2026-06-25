@@ -10,6 +10,7 @@ public class AppDbContext : DbContext
 
     public DbSet<User> Users => Set<User>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
     public DbSet<Doctor> Doctors => Set<Doctor>();
     public DbSet<DoctorSchedule> DoctorSchedules => Set<DoctorSchedule>();
     public DbSet<Patient> Patients => Set<Patient>();
@@ -48,6 +49,13 @@ public class AppDbContext : DbContext
             b.Property(t => t.Token).HasMaxLength(200).IsRequired();
             b.HasIndex(t => t.Token).IsUnique();
             b.HasOne(t => t.User).WithMany(u => u.RefreshTokens).HasForeignKey(t => t.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<PasswordResetToken>(b =>
+        {
+            b.Property(t => t.Token).HasMaxLength(200).IsRequired();
+            b.HasIndex(t => t.Token).IsUnique();
+            b.HasOne(t => t.User).WithMany(u => u.PasswordResetTokens).HasForeignKey(t => t.UserId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<Doctor>(b =>

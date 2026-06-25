@@ -1,5 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { setPageLoadFailed } from '../../../shared/utils/page-load.util';
 import { Router, RouterLink } from '@angular/router';
 import { DataTableComponent } from '../../../shared/components/data-table/data-table.component';
 import { DataTableColumn } from '../../../shared/components/data-table/data-table.models';
@@ -12,6 +13,7 @@ import { DEFAULT_PAGE_SIZE } from '../../../shared/models/pagination.model';
 import { debounce } from '../../../shared/utils/debounce.util';
 import { DoctorsApiService } from '../data/doctors-api.service';
 import { DoctorDto } from '../models/doctor.models';
+import { getRolePrefix, roleBase, roleRoute } from '../../../shared/utils/role-prefix.util';
 
 @Component({
   selector: 'app-doctor-list-page',
@@ -29,7 +31,7 @@ import { DoctorDto } from '../models/doctor.models';
   template: `
     <app-ui-page-header title="Medical Staff" subtitle="Search doctors by name, specialization, or qualification">
       @if (isAdmin()) {
-        <a actions routerLink="/admin/doctors/new">
+        <a actions [routerLink]="newDoctorLink()">
           <app-ui-button size="sm">Add Doctor</app-ui-button>
         </a>
       }
@@ -73,6 +75,7 @@ export class DoctorListPageComponent implements OnInit {
   readonly totalCount = signal(0);
   readonly rows = signal<DoctorDto[]>([]);
   readonly loading = signal(false);
+  readonly loadError = signal<string | null>(null);
   readonly specializationOptions = signal<{ label: string; value: string }[]>([{ label: 'All', value: '' }]);
   readonly specialization = signal('');
   readonly availability = signal('');
@@ -93,7 +96,7 @@ export class DoctorListPageComponent implements OnInit {
     { key: 'status', header: 'Status', cell: (r) => (r.isAvailable ? 'Available' : 'Unavailable') },
   ];
 
-  readonly rowLink = (row: DoctorDto) => `${this.basePath()}/doctors/${row.id}`;
+  readonly rowLink = (row: DoctorDto) => roleRoute(this.router, 'doctors', String(row.id));
 
   private readonly debouncedLoad = debounce(() => this.load(), 300);
 
@@ -109,7 +112,11 @@ export class DoctorListPageComponent implements OnInit {
   }
 
   isAdmin(): boolean {
-    return this.basePath() === '/admin';
+    return getRolePrefix(this.router) === 'admin';
+  }
+
+  newDoctorLink(): string {
+    return roleRoute(this.router, 'doctors', 'new');
   }
 
   onSearch(value: string): void {
@@ -152,11 +159,7 @@ export class DoctorListPageComponent implements OnInit {
           this.totalCount.set(result.totalCount);
           this.loading.set(false);
         },
-        error: () => this.loading.set(false),
+        error: () => setPageLoadFailed(this.loading, this.loadError),
       });
-  }
-
-  private basePath(): string {
-    return `/${this.router.url.split('/').filter(Boolean)[0]}`;
   }
 }

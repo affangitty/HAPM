@@ -19,6 +19,9 @@ public sealed class FakeNotificationService : INotificationService
         PaginationParams query, bool unreadOnly, CancellationToken ct = default) =>
         Task.FromResult(new PagedResult<NotificationDto>());
 
+    public Task<NotificationDto> GetByIdAsync(int id, CancellationToken ct = default) =>
+        Task.FromResult(new NotificationDto(id, NotificationType.General, "Test", "Test", false, DateTime.UtcNow, null));
+
     public Task<int> GetUnreadCountAsync(CancellationToken ct = default) =>
         Task.FromResult(0);
 

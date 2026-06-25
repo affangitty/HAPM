@@ -11,8 +11,9 @@ import { DashboardWidgetCardComponent } from './dashboard-kpi-grid.component';
   selector: 'app-checkin-table-widget',
   standalone: true,
   imports: [RouterLink, UiButtonComponent, UiStatusBadgeComponent, DashboardSectionHeaderComponent, DashboardWidgetCardComponent],
+  host: { class: 'flex min-h-0 min-w-0 flex-col self-stretch lg:col-span-3' },
   template: `
-    <app-dashboard-widget-card [class]="className()">
+    <app-dashboard-widget-card class="min-h-0 flex-1">
       <app-dashboard-section-header title="Patient Check-in">
         <a actions routerLink="/reception/appointments" class="text-xs font-medium text-primary hover:underline">View All</a>
       </app-dashboard-section-header>
@@ -41,7 +42,6 @@ import { DashboardWidgetCardComponent } from './dashboard-kpi-grid.component';
 })
 export class CheckinTableWidgetComponent {
   readonly items = input.required<DashboardQueueItem[]>();
-  readonly className = input('lg:col-span-2', { alias: 'class' });
 
   statusTone(status: string) {
     return APPOINTMENT_STATUS_TONE[status as AppointmentStatus] ?? 'default';
@@ -52,8 +52,9 @@ export class CheckinTableWidgetComponent {
   selector: 'app-room-allocation-widget',
   standalone: true,
   imports: [DashboardSectionHeaderComponent, DashboardWidgetCardComponent],
+  host: { class: 'flex min-h-0 min-w-0 flex-col self-stretch lg:col-span-1' },
   template: `
-    <app-dashboard-widget-card>
+    <app-dashboard-widget-card class="min-h-0 flex-1">
       <app-dashboard-section-header title="Room Allocation" />
       <div class="space-y-3">
         @for (room of rooms(); track room.id) {
@@ -77,6 +78,7 @@ export class RoomAllocationWidgetComponent {
   selector: 'app-reception-billing-widget',
   standalone: true,
   imports: [RouterLink, DashboardSectionHeaderComponent, DashboardWidgetCardComponent],
+  host: { class: 'block w-full shrink-0' },
   template: `
     <app-dashboard-widget-card>
       <app-dashboard-section-header title="Billing & Invoicing Overview">

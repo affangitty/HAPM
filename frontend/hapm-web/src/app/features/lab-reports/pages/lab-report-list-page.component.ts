@@ -1,5 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { setPageLoadFailed } from '../../../shared/utils/page-load.util';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
 import { DataTableComponent } from '../../../shared/components/data-table/data-table.component';
@@ -15,6 +16,7 @@ import { DEFAULT_PAGE_SIZE } from '../../../shared/models/pagination.model';
 import { debounce } from '../../../shared/utils/debounce.util';
 import { LabReportsApiService } from '../data/lab-reports-api.service';
 import { LabReportDto } from '../models/lab-report.models';
+import { getRolePrefix, roleBase, roleRoute } from '../../../shared/utils/role-prefix.util';
 
 @Component({
   selector: 'app-lab-report-list-page',
@@ -70,6 +72,7 @@ export class LabReportListPageComponent implements OnInit {
   readonly rows = signal<LabReportDto[]>([]);
   readonly filteredRows = signal<LabReportDto[]>([]);
   readonly loading = signal(false);
+  readonly loadError = signal<string | null>(null);
   readonly status = signal('');
   readonly reportType = signal('');
   readonly statusStats = signal<{ label: string; value: number; color: string }[]>([]);
@@ -94,7 +97,7 @@ export class LabReportListPageComponent implements OnInit {
     { key: 'status', header: 'Status', cell: (r) => r.status },
   ];
 
-  readonly rowLink = (r: LabReportDto) => `${this.basePath()}/lab-reports/${r.id}`;
+  readonly rowLink = (r: LabReportDto) => roleRoute(this.router, 'lab-reports', String(r.id));
   private readonly debouncedFilter = debounce(() => this.applyFilter(), 200);
 
   ngOnInit(): void { this.load(); }
@@ -128,7 +131,7 @@ export class LabReportListPageComponent implements OnInit {
         this.applyFilter();
         this.loading.set(false);
       },
-      error: () => this.loading.set(false),
+      error: () => setPageLoadFailed(this.loading, this.loadError),
     });
   }
 
@@ -138,6 +141,8 @@ export class LabReportListPageComponent implements OnInit {
       r.patientName.toLowerCase().includes(q) || r.title.toLowerCase().includes(q) ||
       (r.doctorName?.toLowerCase().includes(q) ?? false)));
   }
+  basePath(): string {
+    return roleBase(this.router);
+  }
 
-  basePath(): string { return `/${this.router.url.split('/').filter(Boolean)[0]}`; }
 }

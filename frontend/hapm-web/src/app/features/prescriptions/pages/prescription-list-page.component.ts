@@ -1,5 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { setPageLoadFailed } from '../../../shared/utils/page-load.util';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
 import { DataTableComponent } from '../../../shared/components/data-table/data-table.component';
@@ -13,6 +14,7 @@ import { DEFAULT_PAGE_SIZE } from '../../../shared/models/pagination.model';
 import { debounce } from '../../../shared/utils/debounce.util';
 import { PrescriptionsApiService } from '../data/prescriptions-api.service';
 import { PrescriptionDto } from '../models/prescription.models';
+import { getRolePrefix, roleBase, roleRoute } from '../../../shared/utils/role-prefix.util';
 
 @Component({
   selector: 'app-prescription-list-page',
@@ -75,6 +77,7 @@ export class PrescriptionListPageComponent implements OnInit {
   readonly rows = signal<PrescriptionDto[]>([]);
   readonly filteredRows = signal<PrescriptionDto[]>([]);
   readonly loading = signal(false);
+  readonly loadError = signal<string | null>(null);
   readonly fromDate = signal('');
   readonly toDate = signal('');
 
@@ -88,7 +91,7 @@ export class PrescriptionListPageComponent implements OnInit {
     { key: 'items', header: 'Medicines', cell: (r) => String(r.items.length) },
   ];
 
-  readonly rowLink = (row: PrescriptionDto) => `${this.basePath()}/prescriptions/${row.id}`;
+  readonly rowLink = (row: PrescriptionDto) => roleRoute(this.router, 'prescriptions', String(row.id));
 
   private readonly debouncedFilter = debounce(() => this.applyClientFilter(), 200);
 
@@ -142,7 +145,7 @@ export class PrescriptionListPageComponent implements OnInit {
           this.applyClientFilter();
           this.loading.set(false);
         },
-        error: () => this.loading.set(false),
+        error: () => setPageLoadFailed(this.loading, this.loadError),
       });
   }
 
@@ -162,8 +165,8 @@ export class PrescriptionListPageComponent implements OnInit {
       ),
     );
   }
-
   basePath(): string {
-    return `/${this.router.url.split('/').filter(Boolean)[0]}`;
+    return roleBase(this.router);
   }
+
 }

@@ -20,4 +20,8 @@ public class AuditLogsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<PagedResult<AuditLogDto>>> GetAll([FromQuery] AuditLogQueryParams query, CancellationToken ct) =>
         Ok(await _auditLogService.GetPagedAsync(query, ct));
+
+    [HttpGet("{id:int}")]
+    public async Task<ActionResult<AuditLogDto>> GetById(int id, CancellationToken ct) =>
+        Ok(await _auditLogService.GetByIdAsync(id, ct));
 }

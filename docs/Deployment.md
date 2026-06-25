@@ -54,7 +54,7 @@ dotnet tool restore        # installs dotnet-ef 8.0.11 from dotnet-tools.json
 ### 5. Run the API
 
 ```bash
-dotnet run --project src/HAPM.API --urls http://localhost:5080
+dotnet run --project src/HAPM.API --urls http://localhost:5168
 ```
 
 On startup the app automatically:
@@ -64,34 +64,35 @@ On startup the app automatically:
 
 Useful locations:
 
-- Swagger UI: `http://localhost:5080/swagger`
-- Health check: `http://localhost:5080/health`
+- Swagger UI: `http://localhost:5168/swagger`
+- Health check: `http://localhost:5168/health`
 - Logs: `src/HAPM.API/logs/hapm-YYYYMMDD.txt`
 - Lab report files: `src/HAPM.API/uploads/lab-reports/`
 
 ### 6. Verify
 
 ```bash
-curl http://localhost:5080/health
+curl http://localhost:5168/health
 
-curl -X POST http://localhost:5080/api/auth/login \
+curl -X POST http://localhost:5168/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"admin@hapm.local","password":"Admin@12345"}'
 ```
 
-Seeded accounts:
+Seeded accounts (login at http://localhost:4200/auth/login in development — use **show password** or the table below):
 
 | Role | Email | Password |
 |------|-------|----------|
 | Admin | `admin@hapm.local` | `Admin@12345` |
 | Receptionist | `reception@hapm.local` | `Reception@12345` |
-| Doctor | `dr.sharma@hapm.local` | `Doctor@12345` |
-| Doctor | `dr.iyer@hapm.local` | `Doctor@12345` |
+| Doctor (Cardiology) | `dr.sharma@hapm.local` | `Doctor@12345` |
+| Doctor (Dermatology) | `dr.iyer@hapm.local` | `Doctor@12345` |
+| Doctor (Orthopedics) | `dr.khan@hapm.local` | `Doctor@12345` |
 | Patient | `patient@hapm.local` | `Patient@12345` |
 
 ### 7. Run the smoke tests (optional)
 
-With the API running on `http://localhost:5080`:
+With the API running on `http://localhost:5168`:
 
 ```powershell
 ./smoke-test.ps1       # core flows: auth, booking, prescriptions, billing, dashboard

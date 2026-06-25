@@ -20,6 +20,10 @@ public class NotificationsController : ControllerBase
     public async Task<ActionResult<PagedResult<NotificationDto>>> GetMine([FromQuery] PaginationParams query, [FromQuery] bool unreadOnly, CancellationToken ct) =>
         Ok(await _notificationService.GetMyNotificationsAsync(query, unreadOnly, ct));
 
+    [HttpGet("{id:int}")]
+    public async Task<ActionResult<NotificationDto>> GetById(int id, CancellationToken ct) =>
+        Ok(await _notificationService.GetByIdAsync(id, ct));
+
     [HttpGet("unread-count")]
     public async Task<ActionResult<int>> GetUnreadCount(CancellationToken ct) =>
         Ok(await _notificationService.GetUnreadCountAsync(ct));

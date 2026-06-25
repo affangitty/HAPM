@@ -1,14 +1,19 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Router, RouterLink } from '@angular/router';
+import { ApiErrorService } from '../../../core/api/api-error.service';
 import { extractApiErrorMessage } from '../../../core/auth/utils/api-error.util';
 import { AuthService } from '../../../core/auth/auth.service';
 import { FormFieldComponent } from '../../../shared/components/forms/form-field/form-field.component';
 import { UiButtonComponent } from '../../../shared/components/ui/button/ui-button.component';
 import { UiCardComponent, UiCardContentComponent } from '../../../shared/components/ui/card/ui-card.component';
+import { UiEmptyStateComponent } from '../../../shared/components/ui/empty-state/ui-empty-state.component';
 import { UiInputComponent } from '../../../shared/components/ui/input/ui-input.component';
 import { UiSelectComponent } from '../../../shared/components/ui/select/ui-select.component';
 import { UiSkeletonComponent } from '../../../shared/components/ui/skeleton/ui-skeleton.component';
+import { UiTextareaComponent } from '../../../shared/components/ui/textarea/ui-textarea.component';
+import { initDetailRouteLoader } from '../../../shared/utils/detail-route.util';
+import { roleRoute } from '../../../shared/utils/role-prefix.util';
 import { PaymentMethod } from '../../../shared/models/enums';
 import { InvoiceItemsTableComponent } from '../components/invoice-items-table.component';
 import { InvoiceSummaryCardComponent } from '../components/invoice-summary-card.component';
@@ -21,13 +26,17 @@ import { InvoiceDto } from '../models/billing.models';
   standalone: true,
   imports: [
     RouterLink, ReactiveFormsModule, UiCardComponent, UiCardContentComponent,
-    UiButtonComponent, UiSkeletonComponent, InvoiceSummaryCardComponent, InvoiceItemsTableComponent,
-    PaymentHistoryTableComponent, FormFieldComponent, UiInputComponent, UiSelectComponent,
+    UiButtonComponent, UiSkeletonComponent, UiEmptyStateComponent, InvoiceSummaryCardComponent, InvoiceItemsTableComponent,
+    PaymentHistoryTableComponent, FormFieldComponent, UiInputComponent, UiSelectComponent, UiTextareaComponent,
   ],
   template: `
-    <a [routerLink]="basePath() + '/billing'" class="text-xs text-primary hover:underline">← Back to invoices</a>
+    <a [routerLink]="listLink()" class="text-xs text-primary hover:underline">← Back to invoices</a>
 
-    @if (loading()) { <app-ui-skeleton class="mt-4 h-64" /> } @else {
+    @if (loading()) {
+      <app-ui-skeleton class="mt-4 h-64" />
+    } @else if (notFound()) {
+      <app-ui-empty-state class="mt-6 block" title="Invoice not found" message="This invoice may have been removed or you may not have access." />
+    } @else {
       @if (invoice(); as inv) {
         <app-invoice-summary-card class="mt-4 block" [invoice]="inv" />
 
@@ -48,34 +57,83 @@ import { InvoiceDto } from '../models/billing.models';
           </div>
         </div>
 
-        @if (isStaff() && inv.balanceDue > 0 && inv.status !== 'Cancelled') {
-          <app-ui-card class="mt-6 max-w-md">
+        @if (isStaff() && inv.status === 'Pending') {
+          <app-ui-card class="mt-6">
             <app-ui-card-content class="space-y-4 p-5">
-              <h3 class="font-semibold">Record payment</h3>
-              <form [formGroup]="paymentForm" (ngSubmit)="pay()">
-                <app-form-field label="Amount"><app-ui-input type="number" formControlName="amount" /></app-form-field>
-                <app-form-field label="Method"><app-ui-select formControlName="paymentMethod" [options]="methodOptions" /></app-form-field>
-                @if (error()) { <p class="text-sm text-destructive">{{ error() }}</p> }
-                <app-ui-button type="submit" [loading]="paying()">Apply payment</app-ui-button>
+              <h3 class="font-semibold">Edit invoice</h3>
+              <form [formGroup]="editForm" (ngSubmit)="saveEdit()">
+                <div class="grid gap-4 sm:grid-cols-2">
+                  <app-form-field label="Tax %"><app-ui-input type="number" formControlName="taxPercent" step="0.01" /></app-form-field>
+                  <app-form-field label="Discount"><app-ui-input type="number" formControlName="discountAmount" step="0.01" /></app-form-field>
+                  <app-form-field label="Notes" class="sm:col-span-2"><app-ui-textarea formControlName="notes" [rows]="2" /></app-form-field>
+                </div>
+                <div class="mt-4 space-y-3" formArrayName="items">
+                  @for (group of editItemControls; track $index; let i = $index) {
+                    <div class="grid gap-3 rounded-lg border p-3 sm:grid-cols-4" [formGroupName]="i">
+                      <app-form-field label="Description" class="sm:col-span-2"><app-ui-input formControlName="description" /></app-form-field>
+                      <app-form-field label="Qty"><app-ui-input type="number" formControlName="quantity" /></app-form-field>
+                      <app-form-field label="Unit price"><app-ui-input type="number" formControlName="unitPrice" step="0.01" /></app-form-field>
+                    </div>
+                  }
+                </div>
+                <app-ui-button type="submit" class="mt-4" [loading]="editing()">Save changes</app-ui-button>
               </form>
             </app-ui-card-content>
           </app-ui-card>
+        }
+
+        @if (isStaff() && inv.status !== 'Cancelled') {
+          <div class="mt-6 flex flex-wrap gap-2">
+            @if (inv.balanceDue > 0) {
+              <app-ui-card class="max-w-md flex-1">
+                <app-ui-card-content class="space-y-4 p-5">
+                  <h3 class="font-semibold">Record payment</h3>
+                  <form [formGroup]="paymentForm" (ngSubmit)="pay()">
+                    <app-form-field label="Amount"><app-ui-input type="number" formControlName="amount" /></app-form-field>
+                    <app-form-field label="Method"><app-ui-select formControlName="paymentMethod" [options]="methodOptions" /></app-form-field>
+                    @if (error()) { <p class="text-sm text-destructive">{{ error() }}</p> }
+                    <app-ui-button type="submit" [loading]="paying()">Apply payment</app-ui-button>
+                  </form>
+                </app-ui-card-content>
+              </app-ui-card>
+            }
+            <app-ui-card class="max-w-xs">
+              <app-ui-card-content class="p-5">
+                <h3 class="mb-2 font-semibold">Cancel invoice</h3>
+                <p class="mb-3 text-sm text-muted-foreground">Void this invoice if it was issued in error.</p>
+                <app-ui-button variant="destructive" [loading]="cancelling()" (pressed)="cancelInvoice()">Cancel invoice</app-ui-button>
+              </app-ui-card-content>
+            </app-ui-card>
+          </div>
         }
       }
     }
   `,
 })
-export class InvoiceDetailPageComponent implements OnInit {
+export class InvoiceDetailPageComponent {
   private readonly api = inject(BillingApiService);
   private readonly auth = inject(AuthService);
+  private readonly toasts = inject(ApiErrorService);
   private readonly fb = inject(FormBuilder);
-  private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly routeState = initDetailRouteLoader(
+    'id',
+    (id) => this.api.getById(id),
+    this.destroyRef,
+    { onLoaded: (inv) => {
+        this.paymentForm.patchValue({ amount: inv.balanceDue });
+        this.patchEditForm(inv);
+      } },
+  );
 
-  readonly loading = signal(true);
+  readonly loading = this.routeState.loading;
+  readonly notFound = this.routeState.notFound;
+  readonly invoice = this.routeState.data;
   readonly paying = signal(false);
+  readonly cancelling = signal(false);
+  readonly editing = signal(false);
   readonly error = signal<string | null>(null);
-  readonly invoice = signal<InvoiceDto | null>(null);
 
   readonly methodOptions = [
     { label: 'Cash', value: 'Cash' }, { label: 'Card', value: 'Card' },
@@ -88,16 +146,15 @@ export class InvoiceDetailPageComponent implements OnInit {
     paymentMethod: ['Cash' as PaymentMethod, Validators.required],
   });
 
-  ngOnInit(): void {
-    const id = Number(this.route.snapshot.paramMap.get('id'));
-    this.api.getById(id).subscribe({
-      next: (inv) => {
-        this.invoice.set(inv);
-        this.paymentForm.patchValue({ amount: inv.balanceDue });
-        this.loading.set(false);
-      },
-      error: () => this.loading.set(false),
-    });
+  readonly editForm = this.fb.nonNullable.group({
+    taxPercent: [5, [Validators.required, Validators.min(0)]],
+    discountAmount: [0, [Validators.required, Validators.min(0)]],
+    notes: [''],
+    items: this.fb.nonNullable.array([] as ReturnType<typeof this.editItemGroup>[]),
+  });
+
+  get editItemControls() {
+    return this.editForm.controls.items.controls;
   }
 
   isStaff(): boolean {
@@ -116,5 +173,68 @@ export class InvoiceDetailPageComponent implements OnInit {
     });
   }
 
-  basePath(): string { return `/${this.router.url.split('/').filter(Boolean)[0]}`; }
+  saveEdit(): void {
+    const inv = this.invoice();
+    if (!inv || this.editForm.invalid) return;
+    this.editing.set(true);
+    const v = this.editForm.getRawValue();
+    this.api.update(inv.id, {
+      taxPercent: v.taxPercent,
+      discountAmount: v.discountAmount,
+      notes: v.notes || undefined,
+      items: v.items.map((i) => ({ description: i.description, quantity: i.quantity, unitPrice: i.unitPrice })),
+    }).subscribe({
+      next: (updated) => {
+        this.editing.set(false);
+        this.invoice.set(updated);
+        this.patchEditForm(updated);
+        this.toasts.show('Invoice updated.', 'success');
+      },
+      error: (err) => {
+        this.editing.set(false);
+        this.toasts.show(extractApiErrorMessage(err, 'Failed to update invoice.'), 'error');
+      },
+    });
+  }
+
+  cancelInvoice(): void {
+    const inv = this.invoice();
+    if (!inv || !confirm(`Cancel invoice ${inv.invoiceNumber}?`)) return;
+    this.cancelling.set(true);
+    this.api.cancel(inv.id).subscribe({
+      next: () => {
+        this.cancelling.set(false);
+        this.toasts.show('Invoice cancelled.', 'success');
+        this.api.getById(inv.id).subscribe({ next: (updated) => this.invoice.set(updated) });
+      },
+      error: (err) => {
+        this.cancelling.set(false);
+        this.toasts.show(extractApiErrorMessage(err, 'Failed to cancel invoice.'), 'error');
+      },
+    });
+  }
+
+  listLink(): string {
+    return roleRoute(this.router, 'billing');
+  }
+
+  private patchEditForm(inv: InvoiceDto): void {
+    this.editForm.patchValue({
+      taxPercent: inv.taxPercent,
+      discountAmount: inv.discountAmount,
+      notes: inv.notes ?? '',
+    });
+    this.editForm.controls.items.clear();
+    for (const item of inv.items) {
+      this.editForm.controls.items.push(this.editItemGroup(item.description, item.quantity, item.unitPrice));
+    }
+  }
+
+  private editItemGroup(description = '', quantity = 1, unitPrice = 0) {
+    return this.fb.nonNullable.group({
+      description: [description, Validators.required],
+      quantity: [quantity, [Validators.required, Validators.min(1)]],
+      unitPrice: [unitPrice, [Validators.required, Validators.min(0)]],
+    });
+  }
 }

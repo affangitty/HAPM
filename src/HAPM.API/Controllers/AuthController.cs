@@ -12,8 +12,13 @@ namespace HAPM.API.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
+    private readonly IWebHostEnvironment _environment;
 
-    public AuthController(IAuthService authService) => _authService = authService;
+    public AuthController(IAuthService authService, IWebHostEnvironment environment)
+    {
+        _authService = authService;
+        _environment = environment;
+    }
 
     /// <summary>Self-service patient registration.</summary>
     [HttpPost("register")]
@@ -53,4 +58,19 @@ public class AuthController : ControllerBase
     [Authorize]
     public async Task<ActionResult<UserDto>> Me(CancellationToken ct) =>
         Ok(await _authService.GetCurrentUserAsync(ct));
+
+    /// <summary>Request a password reset link. In Development, ResetToken is returned for demo flows.</summary>
+    [HttpPost("forgot-password")]
+    [AllowAnonymous]
+    public async Task<ActionResult<ForgotPasswordResponse>> ForgotPassword(ForgotPasswordRequest request, CancellationToken ct) =>
+        Ok(await _authService.ForgotPasswordAsync(request, _environment.IsDevelopment(), ct));
+
+    /// <summary>Reset password using a token from forgot-password.</summary>
+    [HttpPost("reset-password")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ResetPassword(CompletePasswordResetRequest request, CancellationToken ct)
+    {
+        await _authService.ResetPasswordAsync(request, ct);
+        return NoContent();
+    }
 }

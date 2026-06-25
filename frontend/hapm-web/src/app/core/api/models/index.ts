@@ -29,8 +29,15 @@ export interface DashboardStatsDto {
   pendingInvoices: number;
   totalRevenue: number;
   revenueThisMonth: number;
+  revenueLastMonth: number;
+  appointmentsYesterday: number;
+  newPatientsThisMonth: number;
+  newPatientsLastMonth: number;
+  pendingLabReviews: number;
+  activeWaitlistEntries: number;
   appointmentsByStatus: { status: string; count: number }[];
   topSpecializations: { specialization: string; doctorCount: number; appointmentCount: number }[];
+  systemHealth: { label: string; value: string; tone: string; progress?: number | null }[];
 }
 
 export interface PeakHourCellDto {

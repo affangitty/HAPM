@@ -9,29 +9,32 @@ import { DashboardWidgetCardComponent } from './dashboard-kpi-grid.component';
   selector: 'app-department-performance-widget',
   standalone: true,
   imports: [BarChartComponent, DashboardSectionHeaderComponent, DashboardWidgetCardComponent],
+  host: { class: 'flex min-h-0 min-w-0 flex-col self-stretch lg:col-span-3' },
   template: `
-    <app-dashboard-widget-card [class]="className()">
+    <app-dashboard-widget-card class="min-h-0 flex-1">
       <app-dashboard-section-header title="Department Performance" subtitle="Appointment volume by specialization">
         <select actions class="rounded-lg border border-border bg-card px-2 py-1.5 text-xs text-muted-foreground">
           <option>This Week</option>
           <option>Last Week</option>
         </select>
       </app-dashboard-section-header>
-      <app-bar-chart [data]="data()" valueKey="count" color="#1D4ED8" [height]="220" ariaLabel="Department performance" />
+      <div class="flex min-h-0 flex-1 flex-col">
+        <app-bar-chart [data]="data()" valueKey="count" color="#1D4ED8" [height]="220" ariaLabel="Department performance" />
+      </div>
     </app-dashboard-widget-card>
   `,
 })
 export class DepartmentPerformanceWidgetComponent {
   readonly data = input.required<ChartDataPoint[]>();
-  readonly className = input('lg:col-span-2', { alias: 'class' });
 }
 
 @Component({
   selector: 'app-system-health-widget',
   standalone: true,
   imports: [RouterLink, DashboardSectionHeaderComponent, DashboardWidgetCardComponent],
+  host: { class: 'flex min-h-0 min-w-0 flex-col self-stretch lg:col-span-1' },
   template: `
-    <app-dashboard-widget-card>
+    <app-dashboard-widget-card class="min-h-0 flex-1">
       <app-dashboard-section-header title="System Health" subtitle="Infrastructure status">
         <span actions class="inline-flex size-6 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
           <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
@@ -40,17 +43,17 @@ export class DepartmentPerformanceWidgetComponent {
         </span>
       </app-dashboard-section-header>
 
-      <div class="space-y-4">
+      <div class="flex-1 space-y-4">
         @for (item of items(); track item.label) {
           <div>
-            <div class="flex items-center justify-between text-sm">
+            <div class="flex items-center justify-between gap-2 text-sm">
               <span class="font-medium text-foreground">{{ item.label }}</span>
-              <span [class]="item.tone === 'danger' ? 'text-red-600' : item.tone === 'success' ? 'text-emerald-600' : 'text-muted-foreground'">
+              <span class="shrink-0 text-right" [class]="item.tone === 'danger' ? 'text-red-600' : item.tone === 'success' ? 'text-emerald-600' : 'text-muted-foreground'">
                 {{ item.value }}
               </span>
             </div>
             @if (item.progress !== undefined) {
-              <div class="mt-2 h-2 overflow-hidden rounded-full bg-muted">
+              <div class="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
                 <div class="h-full rounded-full" [class]="item.tone === 'danger' ? 'bg-red-500' : 'bg-emerald-500'" [style.width.%]="item.progress"></div>
               </div>
             }
@@ -58,7 +61,7 @@ export class DepartmentPerformanceWidgetComponent {
         }
       </div>
 
-      <a routerLink="/admin/audit-logs" class="mt-5 block w-full rounded-lg border border-border py-2 text-center text-sm font-medium text-foreground hover:bg-muted">
+      <a routerLink="/admin/audit-logs" class="mt-auto block w-full rounded-lg border border-border py-2 text-center text-sm font-medium text-foreground hover:bg-muted">
         View Detailed Logs
       </a>
     </app-dashboard-widget-card>

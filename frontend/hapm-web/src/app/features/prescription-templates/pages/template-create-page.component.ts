@@ -1,5 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
+import { ApiErrorService } from '../../../core/api/api-error.service';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { getFormControlError, markFormGroupTouched, guardFormSubmit } from '../../../shared/utils/form-errors.util';
 import { Router, RouterLink } from '@angular/router';
 import { extractApiErrorMessage } from '../../../core/auth/utils/api-error.util';
 import { UiButtonComponent } from '../../../shared/components/ui/button/ui-button.component';
@@ -8,6 +10,7 @@ import { UiPageHeaderComponent } from '../../../shared/components/ui/page-header
 import { createMedicationGroup, medicationItemsToRequest } from '../../prescriptions/components/medication-form.util';
 import { TemplateFormComponent } from '../components/template-form.component';
 import { PrescriptionTemplatesApiService } from '../data/prescription-templates-api.service';
+import { getRolePrefix, roleBase, roleRoute } from '../../../shared/utils/role-prefix.util';
 
 @Component({
   selector: 'app-template-create-page',
@@ -43,6 +46,8 @@ import { PrescriptionTemplatesApiService } from '../data/prescription-templates-
   `,
 })
 export class TemplateCreatePageComponent {
+  private readonly toasts = inject(ApiErrorService);
+
   private readonly api = inject(PrescriptionTemplatesApiService);
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
@@ -58,8 +63,8 @@ export class TemplateCreatePageComponent {
   });
 
   submit(): void {
-    this.form.markAllAsTouched();
-    if (this.form.invalid) return;
+    markFormGroupTouched(this.form);
+    if (!guardFormSubmit(this.form, this.toasts)) return;
 
     this.saving.set(true);
     this.error.set(null);
@@ -76,7 +81,7 @@ export class TemplateCreatePageComponent {
       .subscribe({
         next: (template) => {
           this.saving.set(false);
-          void this.router.navigate([`${this.basePath()}/templates/${template.id}`]);
+          void this.router.navigate([roleRoute(this.router, 'templates', String(template.id))]);
         },
         error: (err) => {
           this.error.set(extractApiErrorMessage(err, 'Failed to create template.'));
@@ -84,8 +89,8 @@ export class TemplateCreatePageComponent {
         },
       });
   }
-
   basePath(): string {
-    return `/${this.router.url.split('/').filter(Boolean)[0]}`;
+    return roleBase(this.router);
   }
+
 }

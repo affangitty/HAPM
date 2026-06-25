@@ -1,4 +1,6 @@
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, DestroyRef, inject, OnInit, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { setPageLoadFailed } from '../../../shared/utils/page-load.util';
 import { Router, RouterLink } from '@angular/router';
 import { NotificationsHubService } from '../../../core/realtime/notifications-hub.service';
 import { UiButtonComponent } from '../../../shared/components/ui/button/ui-button.component';
@@ -10,6 +12,7 @@ import { UiSkeletonComponent } from '../../../shared/components/ui/skeleton/ui-s
 import { NotificationListItemComponent } from '../components/notification-list-item.component';
 import { NotificationsApiService } from '../data/notifications-api.service';
 import { NotificationDto } from '../models/notification.models';
+import { getRolePrefix, roleBase, roleRoute } from '../../../shared/utils/role-prefix.util';
 
 @Component({
   selector: 'app-notification-center-page',
@@ -23,9 +26,9 @@ import { NotificationDto } from '../models/notification.models';
       <app-ui-button actions size="sm" variant="outline" [loading]="markingAll()" (pressed)="markAllRead()">Mark all as read</app-ui-button>
     </app-ui-page-header>
 
-    <div class="mb-4 flex flex-wrap gap-2">
-      <button type="button" class="rounded-lg px-3 py-1.5 text-sm font-medium" [class]="filter() === 'all' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'" (click)="setFilter('all')">All</button>
-      <button type="button" class="rounded-lg px-3 py-1.5 text-sm font-medium" [class]="filter() === 'unread' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'" (click)="setFilter('unread')">Unread ({{ unreadCount() }})</button>
+    <div class="mb-4 flex flex-wrap gap-2" role="tablist" aria-label="Notification filters">
+      <button type="button" role="tab" [attr.aria-selected]="filter() === 'all'" class="rounded-lg px-3 py-1.5 text-sm font-medium" [class]="filter() === 'all' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'" (click)="setFilter('all')">All</button>
+      <button type="button" role="tab" [attr.aria-selected]="filter() === 'unread'" class="rounded-lg px-3 py-1.5 text-sm font-medium" [class]="filter() === 'unread' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'" (click)="setFilter('unread')">Unread ({{ unreadCount() }})</button>
     </div>
 
     <app-ui-filter-bar searchPlaceholder="Search notifications..." (searchChange)="onSearch($event)" />
@@ -34,6 +37,8 @@ import { NotificationDto } from '../models/notification.models';
       <div class="max-w-2xl space-y-2">@for (i of [1,2,3,4]; track i) { <app-ui-skeleton class="h-20" /> }</div>
     } @else if (!filtered().length) {
       <app-ui-empty-state title="No notifications" message="Alerts will appear here in real time." />
+    } @else if (loadError()) {
+      <app-ui-empty-state class="mt-6 block" [title]="loadError()!" />
     } @else {
       <div class="max-w-2xl space-y-6">
         @for (group of grouped(); track group.label) {
@@ -56,8 +61,10 @@ export class NotificationCenterPageComponent implements OnInit {
   private readonly api = inject(NotificationsApiService);
   private readonly hub = inject(NotificationsHubService);
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly loading = signal(false);
+  readonly loadError = signal<string | null>(null);
   readonly markingAll = signal(false);
   readonly items = signal<NotificationDto[]>([]);
   readonly filtered = signal<NotificationDto[]>([]);
@@ -78,7 +85,7 @@ export class NotificationCenterPageComponent implements OnInit {
 
   ngOnInit(): void {
     this.load();
-    this.hub.received$.subscribe(() => this.load());
+    this.hub.received$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.load());
   }
 
   setFilter(f: 'all' | 'unread'): void { this.filter.set(f); this.load(); }
@@ -93,7 +100,7 @@ export class NotificationCenterPageComponent implements OnInit {
   }
 
   openDetail(n: NotificationDto): void {
-    void this.router.navigate([`${this.basePath()}/notifications/${n.id}`]);
+    void this.router.navigate([roleRoute(this.router, 'notifications', String(n.id))]);
   }
 
   private load(): void {
@@ -101,7 +108,7 @@ export class NotificationCenterPageComponent implements OnInit {
     this.api.getUnreadCount().subscribe({ next: (c) => this.unreadCount.set(c) });
     this.api.list({ page: 1, pageSize: 50, unreadOnly: this.filter() === 'unread' }).subscribe({
       next: (r) => { this.items.set(r.items); this.applyFilter(); this.loading.set(false); },
-      error: () => this.loading.set(false),
+      error: () => setPageLoadFailed(this.loading, this.loadError),
     });
   }
 
@@ -110,6 +117,4 @@ export class NotificationCenterPageComponent implements OnInit {
     this.filtered.set(!q ? this.items() : this.items().filter((n) =>
       n.title.toLowerCase().includes(q) || n.message.toLowerCase().includes(q)));
   }
-
-  basePath(): string { return `/${this.router.url.split('/').filter(Boolean)[0]}`; }
 }

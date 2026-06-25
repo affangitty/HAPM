@@ -1,10 +1,12 @@
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { ApiErrorService } from '../../../core/api/api-error.service';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { getFormControlError, markFormGroupTouched, guardFormSubmit } from '../../../shared/utils/form-errors.util';
 import { AuthService } from '../../../core/auth/auth.service';
 import { extractApiErrorMessage } from '../../../core/auth/utils/api-error.util';
 import { UserDto } from '../../../core/auth/auth.models';
 import { FormFieldComponent } from '../../../shared/components/forms/form-field/form-field.component';
-import { UiInputComponent } from '../../../shared/components/ui/input/ui-input.component';
+import { UiPasswordInputComponent } from '../../../shared/components/ui/input/ui-password-input.component';
 import {
   UiCardComponent,
   UiCardContentComponent,
@@ -23,7 +25,7 @@ type SettingsSection = 'profile' | 'security' | 'notifications' | 'appearance';
   imports: [
     ReactiveFormsModule,
     FormFieldComponent,
-    UiInputComponent,
+    UiPasswordInputComponent,
     UiCardComponent,
     UiCardContentComponent,
   ],
@@ -145,13 +147,13 @@ type SettingsSection = 'profile' | 'security' | 'notifications' | 'appearance';
 
                 <form class="space-y-4" [formGroup]="passwordForm" (ngSubmit)="updatePassword()">
                   <app-form-field label="Current password" [error]="passwordFieldError('currentPassword')">
-                    <app-ui-input type="password" formControlName="currentPassword" class="h-10 rounded-xl" />
+                    <app-ui-password-input formControlName="currentPassword" class="h-10 rounded-xl" />
                   </app-form-field>
                   <app-form-field label="New password" [error]="passwordFieldError('newPassword')">
-                    <app-ui-input type="password" formControlName="newPassword" class="h-10 rounded-xl" />
+                    <app-ui-password-input formControlName="newPassword" class="h-10 rounded-xl" />
                   </app-form-field>
                   <app-form-field label="Confirm new password" [error]="passwordFieldError('confirmNewPassword')">
-                    <app-ui-input type="password" formControlName="confirmNewPassword" class="h-10 rounded-xl" />
+                    <app-ui-password-input formControlName="confirmNewPassword" class="h-10 rounded-xl" />
                   </app-form-field>
 
                   <div class="rounded-xl bg-blue-50 p-3">
@@ -266,6 +268,8 @@ type SettingsSection = 'profile' | 'security' | 'notifications' | 'appearance';
   `,
 })
 export class ProfileSettingsPageComponent implements OnInit {
+  private readonly toasts = inject(ApiErrorService);
+
   private readonly auth = inject(AuthService);
   private readonly fb = inject(FormBuilder);
 
@@ -327,10 +331,7 @@ export class ProfileSettingsPageComponent implements OnInit {
   }
 
   updatePassword(): void {
-    if (this.passwordForm.invalid) {
-      this.passwordForm.markAllAsTouched();
-      return;
-    }
+    if (!guardFormSubmit(this.passwordForm, this.toasts)) return;
 
     const { currentPassword, newPassword } = this.passwordForm.getRawValue();
     this.passwordLoading.set(true);

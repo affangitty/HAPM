@@ -1,16 +1,20 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import { UiEmptyStateComponent } from '../../../shared/components/ui/empty-state/ui-empty-state.component';
+import { setPageLoadFailed } from '../../../shared/utils/page-load.util';
 import { UiButtonComponent } from '../../../shared/components/ui/button/ui-button.component';
 import { UiPageHeaderComponent } from '../../../shared/components/ui/page-header/ui-page-header.component';
 import { UiSkeletonComponent } from '../../../shared/components/ui/skeleton/ui-skeleton.component';
 import { VitalTrendChartComponent } from '../components/vital-trend-chart.component';
 import { VitalsApiService } from '../data/vitals-api.service';
 import { VITAL_METRIC_LABELS, VitalMetricKey, VitalSignDto } from '../models/vital.models';
+import { getRolePrefix, roleBase, roleRoute } from '../../../shared/utils/role-prefix.util';
 
 @Component({
   selector: 'app-vital-trends-page',
   standalone: true,
   imports: [
+    UiEmptyStateComponent,
     RouterLink, UiPageHeaderComponent, UiButtonComponent, UiSkeletonComponent, VitalTrendChartComponent,
   ],
   template: `
@@ -36,6 +40,8 @@ import { VITAL_METRIC_LABELS, VitalMetricKey, VitalSignDto } from '../models/vit
 
     @if (loading()) {
       <app-ui-skeleton class="h-80" />
+    } @else if (loadError()) {
+      <app-ui-empty-state class="mt-6 block" [title]="loadError()!" />
     } @else {
       <div class="grid gap-6 lg:grid-cols-[1fr_320px]">
         <app-vital-trend-chart [readings]="readings()" [metric]="metric()" />
@@ -59,6 +65,7 @@ export class VitalTrendsPageComponent implements OnInit {
   private readonly router = inject(Router);
 
   readonly loading = signal(true);
+  readonly loadError = signal<string | null>(null);
   readonly readings = signal<VitalSignDto[]>([]);
   readonly metric = signal<VitalMetricKey>('systolicBpMmHg');
 
@@ -75,7 +82,7 @@ export class VitalTrendsPageComponent implements OnInit {
         this.readings.set(r.items);
         this.loading.set(false);
       },
-      error: () => this.loading.set(false),
+      error: () => setPageLoadFailed(this.loading, this.loadError),
     });
   }
 
@@ -92,6 +99,8 @@ export class VitalTrendsPageComponent implements OnInit {
   formatDate(iso: string): string {
     return new Date(iso).toLocaleString();
   }
+  basePath(): string {
+    return roleBase(this.router);
+  }
 
-  basePath(): string { return `/${this.router.url.split('/').filter(Boolean)[0]}`; }
 }

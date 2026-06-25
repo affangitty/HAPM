@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using HAPM.Application.Common;
 using HAPM.Application.DTOs;
 using HAPM.Application.Interfaces;
@@ -110,6 +111,55 @@ public class AuthService : IAuthService
             throw new BadRequestException("Current password is incorrect.");
 
         user.PasswordHash = _passwordHasher.Hash(request.NewPassword);
+        await RefreshTokenRevocation.RevokeAllForUserAsync(_uow, userId, ct);
+        await _uow.SaveChangesAsync(ct);
+    }
+
+    public async Task<ForgotPasswordResponse> ForgotPasswordAsync(
+        ForgotPasswordRequest request, bool includeDevToken, CancellationToken ct = default)
+    {
+        const string message = "If an account exists for this email, password reset instructions have been sent.";
+        var email = request.Email.Trim().ToLowerInvariant();
+        var user = await _uow.Users.QueryTracked()
+            .FirstOrDefaultAsync(u => u.Email == email && u.IsActive, ct);
+
+        if (user is null)
+            return new ForgotPasswordResponse(message);
+
+        var activeTokens = await _uow.PasswordResetTokens.QueryTracked()
+            .Where(t => t.UserId == user.Id && t.UsedAtUtc == null)
+            .ToListAsync(ct);
+        foreach (var existing in activeTokens)
+            existing.UsedAtUtc = DateTime.UtcNow;
+
+        var tokenValue = Convert.ToBase64String(RandomNumberGenerator.GetBytes(48))
+            .TrimEnd('=')
+            .Replace('+', '-')
+            .Replace('/', '_');
+
+        await _uow.PasswordResetTokens.AddAsync(new PasswordResetToken
+        {
+            UserId = user.Id,
+            Token = tokenValue,
+            ExpiresAtUtc = DateTime.UtcNow.AddHours(1),
+        }, ct);
+        await _uow.SaveChangesAsync(ct);
+
+        return new ForgotPasswordResponse(message, includeDevToken ? tokenValue : null);
+    }
+
+    public async Task ResetPasswordAsync(CompletePasswordResetRequest request, CancellationToken ct = default)
+    {
+        var reset = await _uow.PasswordResetTokens.QueryTracked()
+            .Include(t => t.User)
+            .FirstOrDefaultAsync(t => t.Token == request.Token, ct);
+
+        if (reset is null || !reset.IsActive)
+            throw new BadRequestException("Invalid or expired reset token.");
+
+        reset.User.PasswordHash = _passwordHasher.Hash(request.NewPassword);
+        reset.UsedAtUtc = DateTime.UtcNow;
+        await RefreshTokenRevocation.RevokeAllForUserAsync(_uow, reset.UserId, ct);
         await _uow.SaveChangesAsync(ct);
     }
 
@@ -139,8 +189,14 @@ public class AuthService : IAuthService
             accessToken,
             refreshToken.Token,
             DateTime.UtcNow.AddMinutes(_tokenService.AccessTokenMinutes),
-            new UserDto(user.Id, user.Email, user.FullName, user.PhoneNumber, user.Role.ToString(), user.IsActive, user.CreatedAtUtc));
+            await MapUserDtoAsync(user.Id, ct));
     }
+
+    private async Task<UserDto> MapUserDtoAsync(int userId, CancellationToken ct) =>
+        await _uow.Users.Query()
+            .Where(u => u.Id == userId)
+            .Select(Projections.User)
+            .FirstAsync(ct);
 
     private async Task<string> GenerateMrnAsync(CancellationToken ct)
     {

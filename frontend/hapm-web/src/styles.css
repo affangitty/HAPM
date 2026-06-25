@@ -5,6 +5,46 @@
 @tailwind utilities;
 
 @layer base {
+  app-ui-input,
+  app-ui-textarea,
+  app-ui-select,
+  .ui-input-host,
+  .ui-textarea-host,
+  .ui-select-host {
+    display: block;
+    width: 100%;
+  }
+
+  app-ui-input input,
+  app-ui-textarea textarea,
+  app-ui-select select,
+  .ui-input-control,
+  .ui-textarea-control,
+  .ui-select-control {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid #cbd5e1;
+    border-radius: 0.75rem;
+    background-color: #ffffff;
+    color: #0f172a;
+    box-shadow: 0 1px 2px rgb(15 23 42 / 0.05);
+  }
+
+  app-ui-input input,
+  .ui-input-control,
+  app-ui-select select,
+  .ui-select-control {
+    min-height: 2.5rem;
+    padding: 0.5rem 0.75rem;
+  }
+
+  app-ui-textarea textarea,
+  .ui-textarea-control {
+    min-height: 5rem;
+    padding: 0.5rem 0.75rem;
+  }
+
   html {
     font-size: var(--font-size);
   }

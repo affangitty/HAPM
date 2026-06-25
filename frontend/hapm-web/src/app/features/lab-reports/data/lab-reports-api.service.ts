@@ -8,6 +8,7 @@ import {
   LabReportDto,
   LabReportQueryParams,
   ReviewLabReportRequest,
+  UpdateLabReportRequest,
   UploadLabReportRequest,
 } from '../models/lab-report.models';
 
@@ -38,6 +39,16 @@ export class LabReportsApiService {
 
   review(id: number, request: ReviewLabReportRequest): Observable<LabReportDto> {
     return this.api.post<LabReportDto>(`/lab-reports/${id}/review`, request);
+  }
+
+  update(id: number, request: UpdateLabReportRequest): Observable<LabReportDto> {
+    const form = new FormData();
+    form.append('reportType', request.reportType);
+    form.append('title', request.title);
+    if (request.doctorId != null) form.append('doctorId', String(request.doctorId));
+    if (request.appointmentId != null) form.append('appointmentId', String(request.appointmentId));
+    if (request.file) form.append('file', request.file);
+    return this.http.put<LabReportDto>(`${this.baseUrl}/lab-reports/${id}`, form);
   }
 
   delete(id: number): Observable<void> {

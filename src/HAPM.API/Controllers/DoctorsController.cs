@@ -32,6 +32,11 @@ public class DoctorsController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<string>>> GetSpecializations(CancellationToken ct) =>
         Ok(await _doctorService.GetSpecializationsAsync(ct));
 
+    [HttpGet("me")]
+    [Authorize(Roles = Roles.Doctor)]
+    public async Task<ActionResult<DoctorDto>> GetCurrent(CancellationToken ct) =>
+        Ok(await _doctorService.GetCurrentAsync(ct));
+
     [HttpGet("{id:int}")]
     [AllowAnonymous]
     public async Task<ActionResult<DoctorDto>> GetById(int id, CancellationToken ct) =>
@@ -92,6 +97,7 @@ public class DoctorsController : ControllerBase
     // ---- leave management ------------------------------------------------
 
     [HttpGet("{id:int}/leaves")]
+    [Authorize(Roles = Roles.Admin + "," + Roles.Doctor + "," + Roles.Receptionist)]
     public async Task<ActionResult<IReadOnlyList<DoctorLeaveDto>>> GetLeaves(int id, CancellationToken ct) =>
         Ok(await _leaveService.GetForDoctorAsync(id, ct));
 

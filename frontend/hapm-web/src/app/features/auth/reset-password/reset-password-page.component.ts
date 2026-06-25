@@ -1,15 +1,19 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
+import { ApiErrorService } from '../../../core/api/api-error.service';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
 import { AuthPageShellComponent } from '../components/auth-page-shell.component';
 import { FormFieldComponent } from '../../../shared/components/forms/form-field/form-field.component';
-import { UiInputComponent } from '../../../shared/components/ui/input/ui-input.component';
+import { UiPasswordInputComponent } from '../../../shared/components/ui/input/ui-password-input.component';
 import {
   passwordMatchValidator,
   STRONG_PASSWORD_MESSAGE,
   strongPasswordValidator,
 } from '../validators/password.validators';
+import { extractApiErrorMessage } from '../../../core/auth/utils/api-error.util';
+import { consumePasswordResetToken, peekPasswordResetToken } from '../utils/password-reset-token.util';
+import { getFormControlError, markFormGroupTouched, guardFormSubmit } from '../../../shared/utils/form-errors.util';
 
 @Component({
   selector: 'app-reset-password-page',
@@ -19,7 +23,7 @@ import {
     RouterLink,
     AuthPageShellComponent,
     FormFieldComponent,
-    UiInputComponent,
+    UiPasswordInputComponent,
   ],
   template: `
     <app-auth-page-shell>
@@ -62,8 +66,7 @@ import {
                 <path d="M7 11V7a5 5 0 0 1 10 0v4" />
               </svg>
             </span>
-            <app-ui-input
-              type="password"
+            <app-ui-password-input
               formControlName="newPassword"
               placeholder="••••••••"
               class="h-10 rounded-xl pl-10"
@@ -79,8 +82,7 @@ import {
                 <path d="M7 11V7a5 5 0 0 1 10 0v4" />
               </svg>
             </span>
-            <app-ui-input
-              type="password"
+            <app-ui-password-input
               formControlName="confirmPassword"
               placeholder="••••••••"
               class="h-10 rounded-xl pl-10"
@@ -116,6 +118,8 @@ import {
   `,
 })
 export class ResetPasswordPageComponent implements OnInit {
+  private readonly toasts = inject(ApiErrorService);
+
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
@@ -123,7 +127,7 @@ export class ResetPasswordPageComponent implements OnInit {
 
   readonly loading = signal(false);
   readonly errorMessage = signal<string | null>(null);
-  readonly token = this.route.snapshot.queryParamMap.get('token');
+  readonly token = peekPasswordResetToken();
   readonly settingsRoute = this.auth.getSettingsRoute();
   readonly isAuthenticated = this.auth.isAuthenticated;
 
@@ -139,19 +143,14 @@ export class ResetPasswordPageComponent implements OnInit {
   }
 
   fieldError(controlName: 'newPassword' | 'confirmPassword'): string | null {
-    const control = this.form.controls[controlName];
-    if (!control.touched || !control.errors) return null;
-    if (control.errors['required']) return 'This field is required.';
-    if (control.errors['strongPassword']) return STRONG_PASSWORD_MESSAGE;
-    if (control.errors['passwordMismatch']) return 'Passwords do not match.';
-    return 'Invalid value.';
+    return getFormControlError(this.form, controlName, {
+      strongPassword: STRONG_PASSWORD_MESSAGE,
+      passwordMismatch: 'Passwords do not match.',
+    });
   }
 
   submit(): void {
-    if (this.form.invalid) {
-      this.form.markAllAsTouched();
-      return;
-    }
+    if (!guardFormSubmit(this.form, this.toasts)) return;
 
     if (!this.token) {
       this.errorMessage.set(
@@ -163,10 +162,17 @@ export class ResetPasswordPageComponent implements OnInit {
     this.loading.set(true);
     this.errorMessage.set(null);
 
-    // Placeholder until POST /api/auth/reset-password is available.
-    this.loading.set(false);
-    this.errorMessage.set(
-      'Token-based password reset is not enabled on the server yet. Sign in and use Profile & Settings → Security to change your password.',
-    );
+    const { newPassword } = this.form.getRawValue();
+    this.auth.completePasswordReset({ token: this.token, newPassword }).subscribe({
+      next: () => {
+        consumePasswordResetToken();
+        this.loading.set(false);
+        void this.router.navigate(['/auth/login'], { queryParams: { passwordReset: 'success' } });
+      },
+      error: (err) => {
+        this.loading.set(false);
+        this.errorMessage.set(extractApiErrorMessage(err, 'Unable to reset password.'));
+      },
+    });
   }
 }

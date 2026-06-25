@@ -1,5 +1,6 @@
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import { setPageLoadFailed } from '../../../shared/utils/page-load.util';
 import { AuthService } from '../../../core/auth/auth.service';
 import { UiButtonComponent } from '../../../shared/components/ui/button/ui-button.component';
 import { UiKpiCardComponent } from '../../../shared/components/ui/kpi-card/ui-kpi-card.component';
@@ -10,6 +11,7 @@ import { VitalReadingCardComponent } from '../components/vital-reading-card.comp
 import { VitalTrendChartComponent } from '../components/vital-trend-chart.component';
 import { VitalsApiService } from '../data/vitals-api.service';
 import { VitalSignDto } from '../models/vital.models';
+import { getRolePrefix, roleBase, roleRoute } from '../../../shared/utils/role-prefix.util';
 
 @Component({
   selector: 'app-vital-health-overview-page',
@@ -33,6 +35,8 @@ import { VitalSignDto } from '../models/vital.models';
       <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><app-ui-skeleton class="h-28" /><app-ui-skeleton class="h-28" /><app-ui-skeleton class="h-28" /><app-ui-skeleton class="h-28" /></div>
     } @else if (!readings().length) {
       <app-ui-empty-state title="No vital readings" message="Record vitals during an appointment to track patient health." />
+    } @else if (loadError()) {
+      <app-ui-empty-state class="mt-6 block" [title]="loadError()!" />
     } @else {
       @if (latest(); as l) {
       <div class="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -58,13 +62,14 @@ export class VitalHealthOverviewPageComponent implements OnInit {
   private readonly router = inject(Router);
 
   readonly loading = signal(true);
+  readonly loadError = signal<string | null>(null);
   readonly readings = signal<VitalSignDto[]>([]);
   readonly latest = computed(() => this.readings()[0] ?? null);
 
   ngOnInit(): void {
     this.api.list({ page: 1, pageSize: 20, sortBy: 'recordedAtUtc', sortDescending: true }).subscribe({
       next: (r) => { this.readings.set(r.items); this.loading.set(false); },
-      error: () => this.loading.set(false),
+      error: () => setPageLoadFailed(this.loading, this.loadError),
     });
   }
 
@@ -83,6 +88,8 @@ export class VitalHealthOverviewPageComponent implements OnInit {
     if (value == null) return '—';
     return suffix ? `${value}${suffix === '%' ? '%' : ' ' + suffix}`.trim() : String(value);
   }
+  basePath(): string {
+    return roleBase(this.router);
+  }
 
-  basePath(): string { return `/${this.router.url.split('/').filter(Boolean)[0]}`; }
 }

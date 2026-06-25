@@ -8,6 +8,10 @@ import { CreateReviewRequest, ReviewDto, ReviewQueryParams } from '../models/rev
 export class ReviewsApiService {
   private readonly api = inject(ApiClientService);
 
+  getById(id: number): Observable<ReviewDto> {
+    return this.api.get<ReviewDto>(`/reviews/${id}`);
+  }
+
   list(params: ReviewQueryParams): Observable<PagedResult<ReviewDto>> {
     return this.api.getPaged<ReviewDto>('/reviews', params);
   }

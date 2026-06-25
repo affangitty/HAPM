@@ -1,16 +1,23 @@
 import { DatePipe } from '@angular/common';
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
+import { ApiErrorService } from '../../../core/api/api-error.service';
 import { extractApiErrorMessage } from '../../../core/auth/utils/api-error.util';
 import { AuthService } from '../../../core/auth/auth.service';
 import { FormFieldComponent } from '../../../shared/components/forms/form-field/form-field.component';
 import { UiButtonComponent } from '../../../shared/components/ui/button/ui-button.component';
 import { UiCardComponent, UiCardContentComponent } from '../../../shared/components/ui/card/ui-card.component';
+import { UiEmptyStateComponent } from '../../../shared/components/ui/empty-state/ui-empty-state.component';
+import { UiInputComponent } from '../../../shared/components/ui/input/ui-input.component';
+import { UiSelectComponent } from '../../../shared/components/ui/select/ui-select.component';
 import { UiSkeletonComponent } from '../../../shared/components/ui/skeleton/ui-skeleton.component';
 import { UiTextareaComponent } from '../../../shared/components/ui/textarea/ui-textarea.component';
+import { initDetailRouteLoader } from '../../../shared/utils/detail-route.util';
+import { roleRoute } from '../../../shared/utils/role-prefix.util';
 import { LabReportStatusBadgeComponent } from '../components/lab-report-status-badge.component';
 import { ReportPreviewModalComponent } from '../components/report-preview-modal.component';
+import { FileUploadZoneComponent } from '../components/file-upload-zone.component';
 import { LabReportsApiService } from '../data/lab-reports-api.service';
 import { LabReportDto } from '../models/lab-report.models';
 
@@ -19,14 +26,17 @@ import { LabReportDto } from '../models/lab-report.models';
   standalone: true,
   imports: [
     DatePipe, RouterLink, ReactiveFormsModule, UiCardComponent, UiCardContentComponent,
-    UiButtonComponent, UiSkeletonComponent, LabReportStatusBadgeComponent,
-    ReportPreviewModalComponent, FormFieldComponent, UiTextareaComponent,
+    UiButtonComponent, UiSkeletonComponent, UiEmptyStateComponent, LabReportStatusBadgeComponent,
+    ReportPreviewModalComponent, FormFieldComponent, UiTextareaComponent, UiInputComponent, UiSelectComponent,
+    FileUploadZoneComponent,
   ],
   template: `
-    <a [routerLink]="basePath() + '/lab-reports'" class="text-xs text-primary hover:underline">← Back to lab reports</a>
+    <a [routerLink]="listLink()" class="text-xs text-primary hover:underline">← Back to lab reports</a>
 
     @if (loading()) {
       <app-ui-skeleton class="mt-4 h-48" />
+    } @else if (notFound()) {
+      <app-ui-empty-state class="mt-6 block" title="Lab report not found" message="This report may have been removed or you may not have access." />
     } @else {
       @if (report(); as r) {
         <div class="mt-2 mb-4 flex flex-wrap items-start justify-between gap-3">
@@ -53,7 +63,29 @@ import { LabReportDto } from '../models/lab-report.models';
           <app-ui-button (pressed)="openPreview()">Preview</app-ui-button>
           <a [routerLink]="viewerLink(r.id)"><app-ui-button variant="outline">Open viewer</app-ui-button></a>
           <app-ui-button variant="outline" [loading]="downloading()" (pressed)="download()">Download</app-ui-button>
+          @if (canEditMetadata()) {
+            <app-ui-button variant="outline" (pressed)="editing.set(!editing())">{{ editing() ? 'Cancel edit' : 'Edit metadata' }}</app-ui-button>
+          }
+          @if (isAdmin()) {
+            <app-ui-button variant="destructive" [loading]="deleting()" (pressed)="deleteReport()">Delete</app-ui-button>
+          }
         </div>
+
+        @if (editing() && canEditMetadata()) {
+          <app-ui-card class="mt-6 max-w-xl">
+            <app-ui-card-content class="space-y-4 p-5">
+              <h3 class="font-semibold">Edit report metadata</h3>
+              <form [formGroup]="editForm" (ngSubmit)="saveMetadata()">
+                <app-form-field label="Test name"><app-ui-input formControlName="title" /></app-form-field>
+                <app-form-field label="Category"><app-ui-select formControlName="reportType" [options]="categoryOptions" /></app-form-field>
+                <app-file-upload-zone [uploading]="updating()" (fileSelected)="replacementFile = $event" />
+                <p class="text-xs text-muted-foreground">Leave file empty to keep the current attachment.</p>
+                @if (editError()) { <p class="text-sm text-destructive">{{ editError() }}</p> }
+                <app-ui-button type="submit" class="mt-2" [loading]="updating()">Save changes</app-ui-button>
+              </form>
+            </app-ui-card-content>
+          </app-ui-card>
+        }
 
         @if (isDoctor() && r.status === 'Uploaded') {
           <app-ui-card class="mt-6 max-w-xl">
@@ -73,31 +105,47 @@ import { LabReportDto } from '../models/lab-report.models';
     }
   `,
 })
-export class LabReportDetailPageComponent implements OnInit {
+export class LabReportDetailPageComponent {
   private readonly api = inject(LabReportsApiService);
   private readonly auth = inject(AuthService);
+  private readonly toasts = inject(ApiErrorService);
   private readonly fb = inject(FormBuilder);
-  private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly routeState = initDetailRouteLoader('id', (id) => this.api.getById(id), this.destroyRef, {
+    onLoaded: (report) => this.editForm.patchValue({ title: report.title, reportType: report.reportType }),
+  });
 
-  readonly loading = signal(true);
+  readonly loading = this.routeState.loading;
+  readonly notFound = this.routeState.notFound;
+  readonly report = this.routeState.data;
   readonly downloading = signal(false);
   readonly reviewing = signal(false);
+  readonly updating = signal(false);
+  readonly deleting = signal(false);
+  readonly editing = signal(false);
+  readonly editError = signal<string | null>(null);
   readonly previewOpen = signal(false);
   readonly previewLoading = signal(false);
   readonly previewUrl = signal<string | null>(null);
-  readonly report = signal<LabReportDto | null>(null);
-  readonly reviewForm = this.fb.nonNullable.group({ remarks: ['', [Validators.required, Validators.maxLength(2000)]] });
+  replacementFile: File | null = null;
 
-  ngOnInit(): void {
-    const id = Number(this.route.snapshot.paramMap.get('id'));
-    this.api.getById(id).subscribe({
-      next: (r) => { this.report.set(r); this.loading.set(false); },
-      error: () => this.loading.set(false),
-    });
-  }
+  readonly categoryOptions = [
+    'Hematology', 'Biochemistry', 'Endocrine', 'Cardiovascular', 'Respiratory', 'Microbiology', 'Radiology',
+  ].map((c) => ({ label: c, value: c }));
+
+  readonly reviewForm = this.fb.nonNullable.group({ remarks: ['', [Validators.required, Validators.maxLength(2000)]] });
+  readonly editForm = this.fb.nonNullable.group({
+    title: ['', [Validators.required, Validators.maxLength(200)]],
+    reportType: ['Hematology', Validators.required],
+  });
 
   isDoctor(): boolean { return this.auth.role() === 'Doctor'; }
+  isAdmin(): boolean { return this.auth.role() === 'Admin'; }
+  canEditMetadata(): boolean {
+    const role = this.auth.role();
+    return role === 'Admin' || role === 'Doctor' || role === 'Receptionist';
+  }
 
   openPreview(): void {
     const r = this.report();
@@ -139,6 +187,49 @@ export class LabReportDetailPageComponent implements OnInit {
     });
   }
 
-  viewerLink(id: number): string { return `${this.basePath()}/lab-reports/${id}/view`; }
-  basePath(): string { return `/${this.router.url.split('/').filter(Boolean)[0]}`; }
+  saveMetadata(): void {
+    const r = this.report();
+    if (!r || this.editForm.invalid) return;
+    this.updating.set(true);
+    this.editError.set(null);
+    const v = this.editForm.getRawValue();
+    this.api.update(r.id, {
+      title: v.title,
+      reportType: v.reportType,
+      doctorId: r.doctorId,
+      appointmentId: r.appointmentId,
+      file: this.replacementFile ?? undefined,
+    }).subscribe({
+      next: (updated) => {
+        this.report.set(updated);
+        this.updating.set(false);
+        this.editing.set(false);
+        this.replacementFile = null;
+        this.toasts.show('Report updated.', 'success');
+      },
+      error: (err) => {
+        this.updating.set(false);
+        this.editError.set(extractApiErrorMessage(err, 'Update failed.'));
+      },
+    });
+  }
+
+  deleteReport(): void {
+    const r = this.report();
+    if (!r || !confirm(`Delete lab report "${r.title}"? This cannot be undone.`)) return;
+    this.deleting.set(true);
+    this.api.delete(r.id).subscribe({
+      next: () => {
+        this.toasts.show('Lab report deleted.', 'success');
+        void this.router.navigate([this.listLink()]);
+      },
+      error: (err) => {
+        this.deleting.set(false);
+        this.toasts.show(extractApiErrorMessage(err, 'Delete failed.'), 'error');
+      },
+    });
+  }
+
+  viewerLink(id: number): string { return `${roleRoute(this.router, 'lab-reports', String(id), 'view')}`; }
+  listLink(): string { return roleRoute(this.router, 'lab-reports'); }
 }

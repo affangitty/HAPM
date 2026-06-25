@@ -15,5 +15,6 @@ public class User : BaseEntity
     public Doctor? DoctorProfile { get; set; }
     public Patient? PatientProfile { get; set; }
     public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
+    public ICollection<PasswordResetToken> PasswordResetTokens { get; set; } = new List<PasswordResetToken>();
     public ICollection<Notification> Notifications { get; set; } = new List<Notification>();
 }

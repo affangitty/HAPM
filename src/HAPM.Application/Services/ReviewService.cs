@@ -32,7 +32,10 @@ public class ReviewService : IReviewService
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
             var term = query.Search.Trim().ToLower();
-            reviews = reviews.Where(r => r.Comment != null && r.Comment.ToLower().Contains(term));
+            reviews = reviews.Where(r =>
+                (r.Comment != null && r.Comment.ToLower().Contains(term)) ||
+                r.Doctor.User.FullName.ToLower().Contains(term) ||
+                r.Patient.User.FullName.ToLower().Contains(term));
         }
 
         reviews = (query.SortBy?.ToLowerInvariant(), query.SortDescending) switch
@@ -44,6 +47,12 @@ public class ReviewService : IReviewService
 
         return await reviews.Select(Projections.Review).ToPagedResultAsync(query.Page, query.PageSize, ct);
     }
+
+    public async Task<ReviewDto> GetByIdAsync(int id, CancellationToken ct = default) =>
+        await _uow.DoctorReviews.Query()
+            .Where(r => r.Id == id)
+            .Select(Projections.Review)
+            .FirstOrDefaultAsync(ct) ?? throw new NotFoundException("Review", id);
 
     public async Task<ReviewDto> CreateAsync(CreateReviewRequest request, CancellationToken ct = default)
     {

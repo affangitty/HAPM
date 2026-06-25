@@ -1,6 +1,8 @@
 import { Component, inject } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { environment } from '../../../../environments/environment';
 import { AuthPageShellComponent } from '../components/auth-page-shell.component';
+import { peekPasswordResetToken } from '../utils/password-reset-token.util';
 
 @Component({
   selector: 'app-reset-password-sent-page',
@@ -26,13 +28,22 @@ import { AuthPageShellComponent } from '../components/auth-page-shell.component'
         </p>
       </div>
 
-      <div class="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3">
-        <p class="text-xs text-amber-800">
-          Email delivery is not configured on this API yet. Use
-          <a routerLink="/auth/reset-password" class="font-medium text-primary hover:underline">Set new password</a>
-          if you already have a reset token, or contact your hospital administrator.
-        </p>
-      </div>
+      @if (devToken) {
+        <div class="mb-4 rounded-xl border border-blue-200 bg-blue-50 p-3">
+          <p class="text-xs text-blue-800">
+            Development mode: use this token on the
+            <a routerLink="/auth/reset-password" class="font-medium text-primary hover:underline">
+              reset password page
+            </a>.
+          </p>
+        </div>
+      } @else if (!isProduction) {
+        <div class="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3">
+          <p class="text-xs text-amber-800">
+            Email delivery is not configured on this API yet. Contact your hospital administrator if you do not receive a link.
+          </p>
+        </div>
+      }
 
       <a
         routerLink="/auth/login"
@@ -46,4 +57,6 @@ import { AuthPageShellComponent } from '../components/auth-page-shell.component'
 export class ResetPasswordSentPageComponent {
   private readonly route = inject(ActivatedRoute);
   readonly email = this.route.snapshot.queryParamMap.get('email');
+  readonly devToken = !environment.production ? peekPasswordResetToken() : null;
+  readonly isProduction = environment.production;
 }

@@ -1,5 +1,7 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
+import { ApiErrorService } from '../../../core/api/api-error.service';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { getFormControlError, markFormGroupTouched, guardFormSubmit } from '../../../shared/utils/form-errors.util';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { extractApiErrorMessage } from '../../../core/auth/utils/api-error.util';
 import { UiButtonComponent } from '../../../shared/components/ui/button/ui-button.component';
@@ -8,6 +10,7 @@ import { UiPageHeaderComponent } from '../../../shared/components/ui/page-header
 import { createMedicationGroup, medicationItemsToRequest } from '../../prescriptions/components/medication-form.util';
 import { TemplateFormComponent } from '../components/template-form.component';
 import { PrescriptionTemplatesApiService } from '../data/prescription-templates-api.service';
+import { getRolePrefix, roleBase, roleRoute } from '../../../shared/utils/role-prefix.util';
 
 @Component({
   selector: 'app-template-edit-page',
@@ -43,6 +46,8 @@ import { PrescriptionTemplatesApiService } from '../data/prescription-templates-
   `,
 })
 export class TemplateEditPageComponent implements OnInit {
+  private readonly toasts = inject(ApiErrorService);
+
   private readonly api = inject(PrescriptionTemplatesApiService);
   private readonly fb = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
@@ -81,8 +86,8 @@ export class TemplateEditPageComponent implements OnInit {
   }
 
   submit(): void {
-    this.form.markAllAsTouched();
-    if (this.form.invalid) return;
+    markFormGroupTouched(this.form);
+    if (!guardFormSubmit(this.form, this.toasts)) return;
 
     this.saving.set(true);
     this.error.set(null);
@@ -109,10 +114,6 @@ export class TemplateEditPageComponent implements OnInit {
   }
 
   detailLink(): string {
-    return `${this.basePath()}/templates/${this.templateId}`;
-  }
-
-  basePath(): string {
-    return `/${this.router.url.split('/').filter(Boolean)[0]}`;
+    return roleRoute(this.router, 'templates', String(this.templateId));
   }
 }

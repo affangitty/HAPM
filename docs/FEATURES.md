@@ -45,6 +45,7 @@ This document describes **what the application can do**, organized by capability
 - **Change password** for the signed-in user
 - **Get current user** (`/api/auth/me`) - profile of the authenticated account
 - **Strong password policy** - minimum length, uppercase, lowercase, digit, and special character
+- **Angular login UX** - show/hide password toggle on all password fields; demo mode lists seeded credentials on the sign-in screen
 
 ### Role-based access control (RBAC)
 

@@ -1,5 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { setPageLoadFailed } from '../../../shared/utils/page-load.util';
 import { Router, RouterLink } from '@angular/router';
 import { DataTableComponent } from '../../../shared/components/data-table/data-table.component';
 import { DataTableColumn } from '../../../shared/components/data-table/data-table.models';
@@ -14,6 +15,7 @@ import { DEFAULT_PAGE_SIZE } from '../../../shared/models/pagination.model';
 import { debounce } from '../../../shared/utils/debounce.util';
 import { AuditLogsApiService } from '../data/audit-logs-api.service';
 import { AuditLogDto } from '../models/audit-log.models';
+import { getRolePrefix, roleBase, roleRoute } from '../../../shared/utils/role-prefix.util';
 
 @Component({
   selector: 'app-audit-log-list-page',
@@ -53,6 +55,7 @@ export class AuditLogListPageComponent implements OnInit {
   readonly rows = signal<AuditLogDto[]>([]);
   readonly filteredRows = signal<AuditLogDto[]>([]);
   readonly loading = signal(false);
+  readonly loadError = signal<string | null>(null);
   readonly entityName = signal('');
   readonly action = signal('');
   readonly fromDate = signal('');
@@ -65,14 +68,14 @@ export class AuditLogListPageComponent implements OnInit {
   ];
 
   readonly columns: DataTableColumn<AuditLogDto>[] = [
-    { key: 'time', header: 'Timestamp', cell: (r) => new Date(r.timestampUtc).toLocaleString() },
-    { key: 'user', header: 'User', cell: (r) => r.userEmail ?? 'System' },
-    { key: 'entity', header: 'Entity', cell: (r) => r.entityName },
-    { key: 'id', header: 'Entity ID', cell: (r) => r.entityId },
-    { key: 'action', header: 'Action', cell: (r) => r.action },
+    { key: 'time', header: 'Timestamp', className: 'whitespace-nowrap text-muted-foreground tabular-nums', cell: (r) => new Date(r.timestampUtc).toLocaleString() },
+    { key: 'user', header: 'User', className: 'min-w-[10rem] font-medium', cell: (r) => r.userEmail ?? 'System' },
+    { key: 'entity', header: 'Entity', className: 'min-w-[8rem]', cell: (r) => r.entityName },
+    { key: 'id', header: 'Entity ID', className: 'font-mono text-xs text-muted-foreground', cell: (r) => r.entityId },
+    { key: 'action', header: 'Action', className: 'whitespace-nowrap', cell: (r) => r.action },
   ];
 
-  readonly rowLink = (r: AuditLogDto) => `${this.basePath()}/audit-logs/${r.id}`;
+  readonly rowLink = (r: AuditLogDto) => roleRoute(this.router, 'audit-logs', String(r.id));
   private readonly debouncedFilter = debounce(() => this.applyFilter(), 200);
 
   ngOnInit(): void { this.load(); }
@@ -106,7 +109,7 @@ export class AuditLogListPageComponent implements OnInit {
       toDate: this.toDate() || undefined,
     }).subscribe({
       next: (r) => { this.rows.set(r.items); this.totalCount.set(r.totalCount); this.applyFilter(); this.loading.set(false); },
-      error: () => this.loading.set(false),
+      error: () => setPageLoadFailed(this.loading, this.loadError),
     });
   }
 
@@ -116,6 +119,8 @@ export class AuditLogListPageComponent implements OnInit {
       r.entityName.toLowerCase().includes(q) || (r.userEmail?.toLowerCase().includes(q) ?? false) ||
       r.entityId.toLowerCase().includes(q)));
   }
+  basePath(): string {
+    return roleBase(this.router);
+  }
 
-  basePath(): string { return `/${this.router.url.split('/').filter(Boolean)[0]}`; }
 }

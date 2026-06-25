@@ -1,6 +1,6 @@
 # HAPM API Documentation
 
-Base URL: `http://localhost:5080/api` (run with `--urls http://localhost:5080`, or see `launchSettings.json`)
+Base URL: `http://localhost:5168/api` (run with `--urls http://localhost:5168`, or see `launchSettings.json`)
 
 Interactive docs: **`/swagger`** (use the **Authorize** button with your access token).
 
@@ -534,10 +534,15 @@ CSV files are UTF-8 with BOM (Excel-friendly) and properly escaped.
 
 ## Seed Data Credentials
 
+Use the **show password** control on the login screen in development, or the values below.
+
 | Role | Email | Password |
 |------|-------|----------|
 | Admin | `admin@hapm.local` | `Admin@12345` |
 | Receptionist | `reception@hapm.local` | `Reception@12345` |
 | Doctor (Cardiology) | `dr.sharma@hapm.local` | `Doctor@12345` |
 | Doctor (Dermatology) | `dr.iyer@hapm.local` | `Doctor@12345` |
+| Doctor (Orthopedics) | `dr.khan@hapm.local` | `Doctor@12345` |
 | Patient | `patient@hapm.local` | `Patient@12345` |
+
+Demo patients (`*@demo.local`) use **`Patient@12345`**.

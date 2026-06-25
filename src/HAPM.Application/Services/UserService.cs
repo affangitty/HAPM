@@ -80,14 +80,7 @@ public class UserService : IUserService
         user.IsActive = isActive;
 
         if (!isActive)
-        {
-            // Revoke all active sessions for deactivated accounts.
-            var tokens = await _uow.RefreshTokens.QueryTracked()
-                .Where(t => t.UserId == userId && t.RevokedAtUtc == null)
-                .ToListAsync(ct);
-            foreach (var token in tokens)
-                token.RevokedAtUtc = DateTime.UtcNow;
-        }
+            await RefreshTokenRevocation.RevokeAllForUserAsync(_uow, userId, ct);
 
         await _uow.SaveChangesAsync(ct);
     }
@@ -96,6 +89,7 @@ public class UserService : IUserService
     {
         var user = await _uow.Users.GetByIdAsync(userId, ct) ?? throw new NotFoundException("User", userId);
         user.PasswordHash = _passwordHasher.Hash(request.NewPassword);
+        await RefreshTokenRevocation.RevokeAllForUserAsync(_uow, userId, ct);
         await _uow.SaveChangesAsync(ct);
     }
 }

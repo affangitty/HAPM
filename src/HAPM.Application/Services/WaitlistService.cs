@@ -38,6 +38,15 @@ public class WaitlistService : IWaitlistService
             .ToPagedResultAsync(query.Page, query.PageSize, ct);
     }
 
+    public async Task<WaitlistEntryDto> GetByIdAsync(int id, CancellationToken ct = default)
+    {
+        var scoped = await ScopeToCurrentUserAsync(_uow.WaitlistEntries.Query(), ct);
+        return await scoped
+            .Where(w => w.Id == id)
+            .Select(Projections.Waitlist)
+            .FirstOrDefaultAsync(ct) ?? throw new NotFoundException("Waitlist entry", id);
+    }
+
     public async Task<WaitlistEntryDto> JoinAsync(JoinWaitlistRequest request, CancellationToken ct = default)
     {
         var patientId = await ResolvePatientIdAsync(request.PatientId, ct);

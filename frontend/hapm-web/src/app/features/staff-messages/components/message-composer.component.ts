@@ -1,4 +1,6 @@
 import { Component, input, output, inject } from '@angular/core';
+import { ApiErrorService } from '../../../core/api/api-error.service';
+import { guardFormSubmit } from '../../../shared/utils/form-errors.util';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { UiButtonComponent } from '../../../shared/components/ui/button/ui-button.component';
 import { UiTextareaComponent } from '../../../shared/components/ui/textarea/ui-textarea.component';
@@ -15,6 +17,8 @@ import { UiTextareaComponent } from '../../../shared/components/ui/textarea/ui-t
   `,
 })
 export class MessageComposerComponent {
+  private readonly toasts = inject(ApiErrorService);
+
   private readonly fb = inject(FormBuilder);
 
   readonly sending = input(false);
@@ -25,7 +29,7 @@ export class MessageComposerComponent {
   });
 
   submit(): void {
-    if (this.form.invalid) return;
+    if (!guardFormSubmit(this.form, this.toasts)) return;
     const content = this.form.getRawValue().content.trim();
     if (!content) return;
     this.send.emit(content);

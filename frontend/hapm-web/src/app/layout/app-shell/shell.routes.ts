@@ -18,26 +18,6 @@ import { ANALYTICS_ROUTES } from '../../features/analytics/analytics.routes';
 import { USER_ROUTES } from '../../features/users/users.routes';
 import { EXPORT_ROUTES } from '../../features/exports/exports.routes';
 
-interface PlaceholderRoute {
-  path: string;
-  title: string;
-  subtitle?: string;
-  showKpis?: boolean;
-}
-
-function placeholderRoutes(routes: PlaceholderRoute[]): Routes {
-  return routes.map((route) => ({
-    path: route.path,
-    loadComponent: () =>
-      import('../../shared/pages/placeholder-page.component').then((m) => m.PlaceholderPageComponent),
-    data: {
-      title: route.title,
-      subtitle: route.subtitle,
-      showKpis: route.showKpis,
-    },
-  }));
-}
-
 function dashboardRoute(role: 'admin' | 'doctor' | 'patient' | 'reception'): Routes {
   const loaders = {
     admin: () =>
@@ -72,25 +52,7 @@ const profileSettingsRoute: Routes = [
   },
 ];
 
-function reservedPaths(featureRoutes: Routes, placeholders: PlaceholderRoute[]): Set<string> {
-  const reserved = new Set(['settings', 'dashboard']);
-  for (const route of featureRoutes) {
-    if (route.path) reserved.add(route.path.split('/')[0]);
-  }
-  for (const route of placeholders) {
-    reserved.add(route.path);
-  }
-  return reserved;
-}
-
-function roleShell(
-  prefix: string,
-  roles: UserRole[],
-  placeholders: PlaceholderRoute[],
-  featureRoutes: Routes = [],
-): Routes {
-  const reserved = reservedPaths(featureRoutes, placeholders);
-
+function roleShell(prefix: string, roles: UserRole[], featureRoutes: Routes = []): Routes {
   return [
     {
       path: prefix,
@@ -98,7 +60,6 @@ function roleShell(
       data: { roles },
       children: [
         ...featureRoutes,
-        ...placeholderRoutes(placeholders.filter((p) => !reserved.has(p.path))),
         ...dashboardRoute(prefix as 'admin' | 'doctor' | 'patient' | 'reception'),
         ...profileSettingsRoute,
         { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
@@ -111,13 +72,11 @@ export const SHELL_CHILD_ROUTES: Routes = [
   ...roleShell(
     'admin',
     ['Admin'],
-    [],
     [...DOCTOR_DIRECTORY_ROUTES, ...PATIENT_DIRECTORY_ROUTES, ...APPOINTMENT_ROUTES, ...LAB_REPORT_ROUTES, ...BILLING_ROUTES, ...NOTIFICATION_ROUTES, ...STAFF_MESSAGE_ROUTES, ...AUDIT_LOG_ROUTES, ...USER_ROUTES, ...EXPORT_ROUTES, ...ANALYTICS_ROUTES],
   ),
   ...roleShell(
     'doctor',
     ['Doctor'],
-    [],
     [
       ...DOCTOR_SELF_ROUTES,
       ...PATIENT_DIRECTORY_ROUTES.filter((r) => r.path === 'patients' || r.path === 'patients/:id'),
@@ -134,7 +93,6 @@ export const SHELL_CHILD_ROUTES: Routes = [
   ...roleShell(
     'patient',
     ['Patient'],
-    [],
     [
       ...PATIENT_SELF_ROUTES,
       ...APPOINTMENT_ROUTES,
@@ -151,7 +109,6 @@ export const SHELL_CHILD_ROUTES: Routes = [
   ...roleShell(
     'reception',
     ['Receptionist'],
-    [],
     [...DOCTOR_DIRECTORY_ROUTES, ...PATIENT_DIRECTORY_ROUTES, ...APPOINTMENT_ROUTES, ...WAITLIST_ROUTES, ...LAB_REPORT_ROUTES, ...BILLING_ROUTES, ...NOTIFICATION_ROUTES, ...STAFF_MESSAGE_ROUTES, ...EXPORT_ROUTES],
   ),
 ];

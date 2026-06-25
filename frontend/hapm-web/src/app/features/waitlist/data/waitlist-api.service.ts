@@ -1,8 +1,7 @@
 import { Injectable, inject } from '@angular/core';
-import { Observable, map } from 'rxjs';
+import { Observable } from 'rxjs';
 import { ApiClientService } from '../../../core/api/api-client.service';
 import { PagedResult } from '../../../core/api/api.models';
-import { MAX_PAGE_SIZE } from '../../../shared/models/pagination.model';
 import { JoinWaitlistRequest, WaitlistEntryDto, WaitlistQueryParams } from '../models/waitlist.models';
 
 @Injectable({ providedIn: 'root' })
@@ -14,15 +13,7 @@ export class WaitlistApiService {
   }
 
   getById(id: number): Observable<WaitlistEntryDto> {
-    return this.list({ page: 1, pageSize: MAX_PAGE_SIZE }).pipe(
-      map((result) => {
-        const entry = result.items.find((item) => item.id === id);
-        if (!entry) {
-          throw new Error('Waitlist entry not found');
-        }
-        return entry;
-      }),
-    );
+    return this.api.get<WaitlistEntryDto>(`/waitlist/${id}`);
   }
 
   join(request: JoinWaitlistRequest): Observable<WaitlistEntryDto> {

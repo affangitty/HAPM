@@ -8,6 +8,18 @@ export const DOCTOR_DIRECTORY_ROUTES: Routes = [
     data: { title: 'Medical Staff Directory' },
   },
   {
+    path: 'doctors/new',
+    loadComponent: () =>
+      import('./pages/doctor-register-page.component').then((m) => m.DoctorRegisterPageComponent),
+    data: { title: 'Register Doctor' },
+  },
+  {
+    path: 'doctors/:id/edit',
+    loadComponent: () =>
+      import('./pages/doctor-edit-page.component').then((m) => m.DoctorEditPageComponent),
+    data: { title: 'Edit Doctor' },
+  },
+  {
     path: 'doctors/:id',
     loadComponent: () =>
       import('./pages/doctor-detail-page.component').then((m) => m.DoctorDetailPageComponent),

@@ -3,4 +3,5 @@ export interface DataTableColumn<T> {
   header: string;
   cell: (row: T) => string | number | null | undefined;
   className?: string;
+  headerClassName?: string;
 }

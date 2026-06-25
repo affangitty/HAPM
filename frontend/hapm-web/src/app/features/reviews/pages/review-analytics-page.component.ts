@@ -1,5 +1,7 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import { UiEmptyStateComponent } from '../../../shared/components/ui/empty-state/ui-empty-state.component';
+import { setPageLoadFailed } from '../../../shared/utils/page-load.util';
 import { BarChartComponent } from '../../dashboard/charts/bar-chart.component';
 import { DonutChartComponent } from '../../dashboard/charts/donut-chart.component';
 import { ChartDataPoint, DonutSegment } from '../../dashboard/charts/chart.models';
@@ -10,11 +12,13 @@ import { UiCardComponent, UiCardContentComponent } from '../../../shared/compone
 import { UiSkeletonComponent } from '../../../shared/components/ui/skeleton/ui-skeleton.component';
 import { ReviewsApiService } from '../data/reviews-api.service';
 import { ReviewDto } from '../models/review.models';
+import { getRolePrefix, roleBase, roleRoute } from '../../../shared/utils/role-prefix.util';
 
 @Component({
   selector: 'app-review-analytics-page',
   standalone: true,
   imports: [
+    UiEmptyStateComponent,
     RouterLink, UiPageHeaderComponent, UiButtonComponent, UiCardComponent, UiCardContentComponent,
     BarChartComponent, DonutChartComponent, UiSkeletonComponent,
   ],
@@ -23,7 +27,9 @@ import { ReviewDto } from '../models/review.models';
       <a actions [routerLink]="basePath() + '/performance'"><app-ui-button size="sm" variant="outline">Dashboard</app-ui-button></a>
     </app-ui-page-header>
 
-    @if (loading()) { <app-ui-skeleton class="h-64" /> } @else {
+    @if (loading()) { <app-ui-skeleton class="h-64" /> } @else if (loadError()) {
+      <app-ui-empty-state class="mt-6 block" [title]="loadError()!" />
+    } @else {
       <div class="grid gap-6 lg:grid-cols-2">
         <app-ui-card>
           <app-ui-card-content class="p-5">
@@ -47,6 +53,7 @@ export class ReviewAnalyticsPageComponent implements OnInit {
   private readonly router = inject(Router);
 
   readonly loading = signal(true);
+  readonly loadError = signal<string | null>(null);
   readonly barData = signal<ChartDataPoint[]>([]);
   readonly donutData = signal<DonutSegment[]>([]);
 
@@ -55,10 +62,10 @@ export class ReviewAnalyticsPageComponent implements OnInit {
       next: (doctor) => {
         this.reviewsApi.list({ doctorId: doctor.id, page: 1, pageSize: 100 }).subscribe({
           next: (r) => { this.buildCharts(r.items); this.loading.set(false); },
-          error: () => this.loading.set(false),
+          error: () => setPageLoadFailed(this.loading, this.loadError),
         });
       },
-      error: () => this.loading.set(false),
+      error: () => setPageLoadFailed(this.loading, this.loadError),
     });
   }
 
@@ -72,6 +79,8 @@ export class ReviewAnalyticsPageComponent implements OnInit {
       label: `${label} stars`, value, color: colors[i],
     })));
   }
+  basePath(): string {
+    return roleBase(this.router);
+  }
 
-  basePath(): string { return `/${this.router.url.split('/').filter(Boolean)[0]}`; }
 }

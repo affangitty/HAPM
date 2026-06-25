@@ -1,5 +1,6 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { AuthService } from '../../../core/auth/auth.service';
 import { UiButtonComponent } from '../../../shared/components/ui/button/ui-button.component';
 
 @Component({
@@ -11,8 +12,15 @@ import { UiButtonComponent } from '../../../shared/components/ui/button/ui-butto
       <p class="text-6xl font-bold text-destructive">403</p>
       <h1 class="mt-4 text-2xl font-semibold">Access denied</h1>
       <p class="mt-2 max-w-md text-muted-foreground">You do not have permission to view this page.</p>
-      <a routerLink="/" class="mt-6"><app-ui-button>Go home</app-ui-button></a>
+      <a [routerLink]="homeRoute" class="mt-6"><app-ui-button>Go to dashboard</app-ui-button></a>
     </div>
   `,
 })
-export class UnauthorizedPageComponent {}
+export class UnauthorizedPageComponent {
+  private readonly auth = inject(AuthService);
+
+  readonly homeRoute = (() => {
+    const role = this.auth.role();
+    return this.auth.isAuthenticated() && role ? this.auth.getHomeRoute(role) : '/auth/login';
+  })();
+}

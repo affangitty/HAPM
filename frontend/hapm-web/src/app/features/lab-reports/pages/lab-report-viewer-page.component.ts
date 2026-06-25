@@ -1,19 +1,24 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { UiEmptyStateComponent } from '../../../shared/components/ui/empty-state/ui-empty-state.component';
+import { setPageLoadFailed } from '../../../shared/utils/page-load.util';
 import { UiButtonComponent } from '../../../shared/components/ui/button/ui-button.component';
 import { UiSkeletonComponent } from '../../../shared/components/ui/skeleton/ui-skeleton.component';
 import { LabReportsApiService } from '../data/lab-reports-api.service';
 import { LabReportDto } from '../models/lab-report.models';
+import { getRolePrefix, roleBase, roleRoute } from '../../../shared/utils/role-prefix.util';
 
 @Component({
   selector: 'app-lab-report-viewer-page',
   standalone: true,
-  imports: [RouterLink, UiButtonComponent, UiSkeletonComponent],
+  imports: [RouterLink, UiButtonComponent, UiSkeletonComponent, UiEmptyStateComponent],
   template: `
     <a [routerLink]="detailLink()" class="text-xs text-primary hover:underline">← Back to report</a>
 
     @if (loading()) {
       <app-ui-skeleton class="mt-4 h-[70vh]" />
+    } @else if (loadError()) {
+      <app-ui-empty-state class="mt-6 block" [title]="loadError()!" />
     } @else {
       @if (report(); as r) {
         <div class="mt-2 mb-4 flex items-center justify-between gap-3">
@@ -42,6 +47,7 @@ export class LabReportViewerPageComponent implements OnInit {
   private readonly router = inject(Router);
 
   readonly loading = signal(true);
+  readonly loadError = signal<string | null>(null);
   readonly downloading = signal(false);
   readonly previewUrl = signal<string | null>(null);
   readonly report = signal<LabReportDto | null>(null);
@@ -53,10 +59,10 @@ export class LabReportViewerPageComponent implements OnInit {
         this.report.set(r);
         this.api.download(id).subscribe({
           next: (blob) => { this.previewUrl.set(URL.createObjectURL(blob)); this.loading.set(false); },
-          error: () => this.loading.set(false),
+          error: () => setPageLoadFailed(this.loading, this.loadError),
         });
       },
-      error: () => this.loading.set(false),
+      error: () => setPageLoadFailed(this.loading, this.loadError),
     });
   }
 
@@ -81,8 +87,6 @@ export class LabReportViewerPageComponent implements OnInit {
 
   detailLink(): string {
     const id = this.route.snapshot.paramMap.get('id');
-    return `${this.basePath()}/lab-reports/${id}`;
+    return roleRoute(this.router, 'lab-reports', String(id));
   }
-
-  basePath(): string { return `/${this.router.url.split('/').filter(Boolean)[0]}`; }
 }

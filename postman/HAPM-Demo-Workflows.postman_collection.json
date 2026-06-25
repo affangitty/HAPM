@@ -1,0 +1,980 @@
+{
+  "info": {
+    "_postman_id": "hapm-demo-workflows",
+    "name": "HAPM Demo Workflows",
+    "description": "Evaluator-facing demo collection. No login/register.\n\n**Before demo:**\n1. Run **HAPM Setup (Private)** collection (with 1500ms delay in Runner)\n2. Run folder **00 - Initialize IDs** here\n3. Follow **docs/Demo_Plan.md** folders **01** through **09** (folder **10** optional extras)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "00 - Initialize IDs (run once after Setup)",
+      "description": "Pulls IDs from seeded demo data into environment variables. Run after prepare-evaluator-demo.ps1 and Setup logins.",
+      "item": [
+        {
+          "name": "Set Available Slot",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('OK', () => pm.response.to.have.status(200));",
+                "const slots = pm.response.json();",
+                "if (slots.length) {",
+                "  pm.environment.set('slotStart', slots[0].startTime);",
+                "  pm.test('slotStart set', () => pm.expect(slots[0].startTime).to.be.ok);",
+                "} else {",
+                "  pm.test('No slots - update bookDate in environment', () => false);",
+                "}"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/doctors/{{doctorId}}/available-slots?date={{bookDate}}"
+          }
+        },
+        {
+          "name": "Find Pending Appointment",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "const j = pm.response.json();",
+                "if (j.items && j.items.length) {",
+                "  pm.environment.set('pendingAppointmentId', j.items[0].id);",
+                "  pm.environment.set('appointmentId', j.items[0].id);",
+                "}"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/appointments?status=Pending&pageSize=1"
+          }
+        },
+        {
+          "name": "Find Completed Appointment",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "const j = pm.response.json();",
+                "if (j.items && j.items.length) {",
+                "  pm.environment.set('completedAppointmentId', j.items[0].id);",
+                "}"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/appointments?status=Completed&pageSize=1"
+          }
+        },
+        {
+          "name": "Find Pending Invoice",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "const j = pm.response.json();",
+                "if (j.items && j.items.length) {",
+                "  pm.environment.set('pendingInvoiceId', j.items[0].id);",
+                "  pm.environment.set('invoiceId', j.items[0].id);",
+                "}"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/invoices?status=Pending&pageSize=1"
+          }
+        },
+        {
+          "name": "Find Lab Report",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "const j = pm.response.json();",
+                "if (j.items && j.items.length) pm.environment.set('labReportId', j.items[0].id);"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/lab-reports?pageSize=1"
+          }
+        },
+        {
+          "name": "Find Prescription Template",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "const j = pm.response.json();",
+                "if (j.length) pm.environment.set('templateId', j[0].id);"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{doctorToken}}" }],
+            "url": "{{baseUrl}}/api/prescription-templates"
+          }
+        },
+        {
+          "name": "Find Occupied Slot (409 demo)",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "const j = pm.response.json();",
+                "if (j.items && j.items.length) {",
+                "  pm.environment.set('occupiedSlotStart', j.items[0].startTime);",
+                "}"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/appointments?doctorId=1&fromDate={{bookDate}}&toDate={{bookDate}}&pageSize=1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "01 - Platform Overview",
+      "description": "Health check and admin analytics (~2 min)",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": { "method": "GET", "url": "{{baseUrl}}/health" }
+        },
+        {
+          "name": "Liveness Probe",
+          "request": { "method": "GET", "url": "{{baseUrl}}/health/live" }
+        },
+        {
+          "name": "Dashboard Stats",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/dashboard/stats"
+          }
+        },
+        {
+          "name": "Peak Hours Heatmap",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/dashboard/peak-hours"
+          }
+        },
+        {
+          "name": "Revenue by Specialization",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/dashboard/revenue-by-specialization"
+          }
+        },
+        {
+          "name": "Doctor Performance",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/doctors/{{doctorId}}/performance"
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 - Doctors & Scheduling",
+      "description": "Search, pagination, slots (~2 min)",
+      "item": [
+        {
+          "name": "List Doctors (pagination)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/doctors?page=1&pageSize=5&sortBy=name"
+          }
+        },
+        {
+          "name": "Search Cardiology",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/doctors?search=cardio&pageSize=5"
+          }
+        },
+        {
+          "name": "Doctor Profile",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/doctors/{{doctorId}}" }
+        },
+        {
+          "name": "Doctor Weekly Schedule",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/doctors/{{doctorId}}/schedules" }
+        },
+        {
+          "name": "Specializations List",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/doctors/specializations" }
+        },
+        {
+          "name": "Available Slots",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/doctors/{{doctorId}}/available-slots?date={{bookDate}}"
+          }
+        },
+        {
+          "name": "Appointments - All Statuses",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/appointments?page=1&pageSize=10&sortBy=date"
+          }
+        },
+        {
+          "name": "Appointments - Pending Only",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/appointments?status=Pending&pageSize=5"
+          }
+        },
+        {
+          "name": "Appointments - Completed Only",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/appointments?status=Completed&pageSize=5"
+          }
+        },
+        {
+          "name": "Appointments - Cancelled",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/appointments?status=Cancelled&pageSize=5"
+          }
+        },
+        {
+          "name": "Appointments - NoShow",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/appointments?status=NoShow&pageSize=5"
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 - Patient Management",
+      "description": "Registration, profiles, search, medical record (~2 min). Demo script seeds patient@hapm.local + demo.patient01–15.",
+      "item": [
+        {
+          "name": "List Patients (pagination + search)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/patients?page=1&pageSize=5&search=demo&sortBy=name"
+          }
+        },
+        {
+          "name": "Get Patient by ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/patients/{{patientId}}"
+          }
+        },
+        {
+          "name": "My Profile (patient)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }],
+            "url": "{{baseUrl}}/api/patients/me"
+          }
+        },
+        {
+          "name": "Register Walk-in Patient",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const email = pm.environment.get('walkinEmail');",
+                  "if (!email || String(email).trim() === '') {",
+                  "  pm.environment.set('walkinEmail', 'walkin.demo.' + Date.now() + '@hapm.local');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Created', () => pm.response.to.have.status(201));",
+                  "const p = pm.response.json();",
+                  "const presetId = pm.environment.get('walkinPatientId');",
+                  "if (!presetId || String(presetId).trim() === '') {",
+                  "  pm.environment.set('walkinPatientId', p.id);",
+                  "}",
+                  "pm.test('MRN assigned', () => pm.expect(p.medicalRecordNumber).to.match(/^MRN-/));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{receptionToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{walkinEmail}}\",\n  \"password\": \"Patient@12345\",\n  \"fullName\": \"Walk-in Demo Patient\",\n  \"phoneNumber\": \"+919998887766\",\n  \"dateOfBirth\": \"1988-03-20\",\n  \"gender\": \"Female\",\n  \"bloodGroup\": \"B+\",\n  \"address\": \"99 Clinic Road, Pune\",\n  \"allergies\": \"Penicillin\"\n}"
+            },
+            "url": "{{baseUrl}}/api/patients"
+          }
+        },
+        {
+          "name": "Get Walk-in Patient",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/patients/{{walkinPatientId}}"
+          }
+        },
+        {
+          "name": "Update My Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{patientToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Rahul Verma\",\n  \"phoneNumber\": \"+910000000004\",\n  \"dateOfBirth\": \"1992-04-18\",\n  \"gender\": \"Male\",\n  \"bloodGroup\": \"O+\",\n  \"address\": \"42 Lake View Road, Pune\",\n  \"emergencyContactName\": \"Priya Verma\",\n  \"emergencyContactPhone\": \"+919876543210\"\n}"
+            },
+            "url": "{{baseUrl}}/api/patients/{{patientId}}"
+          }
+        },
+        {
+          "name": "Medical History",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }],
+            "url": "{{baseUrl}}/api/patients/{{patientId}}/medical-history"
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 - Appointment Lifecycle (LIVE)",
+      "description": "Book → confirm → check-in → vitals → prescribe → complete (~5 min). Uses reception/doctor tokens.",
+      "item": [
+        {
+          "name": "Book Appointment",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "pm.test('Created', () => pm.response.to.have.status(200));",
+                "pm.environment.set('appointmentId', pm.response.json().id);"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{receptionToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"doctorId\": {{doctorId}},\n  \"patientId\": {{patientId}},\n  \"appointmentDate\": \"{{bookDate}}\",\n  \"startTime\": \"{{slotStart}}\",\n  \"reason\": \"Evaluator live demo visit\"\n}"
+            },
+            "url": "{{baseUrl}}/api/appointments"
+          }
+        },
+        {
+          "name": "Confirm Appointment",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{doctorToken}}" }],
+            "url": "{{baseUrl}}/api/appointments/{{appointmentId}}/confirm"
+          }
+        },
+        {
+          "name": "Check In",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{receptionToken}}" }],
+            "url": "{{baseUrl}}/api/appointments/{{appointmentId}}/check-in"
+          }
+        },
+        {
+          "name": "Record Vitals (with BMI)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{receptionToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"appointmentId\": {{appointmentId}},\n  \"pulseBpm\": 76,\n  \"systolicBpMmHg\": 118,\n  \"diastolicBpMmHg\": 78,\n  \"temperatureCelsius\": 36.7,\n  \"heightCm\": 175,\n  \"weightKg\": 70\n}"
+            },
+            "url": "{{baseUrl}}/api/vitals"
+          }
+        },
+        {
+          "name": "Issue Prescription",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": ["pm.environment.set('prescriptionId', pm.response.json().id);"],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{doctorToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"appointmentId\": {{appointmentId}},\n  \"diagnosis\": \"Hypertension - controlled\",\n  \"followUpDate\": \"{{tomorrowDate}}\",\n  \"items\": [\n    {\n      \"medicineName\": \"Amlodipine\",\n      \"dosage\": \"5mg\",\n      \"frequency\": \"Once daily\",\n      \"durationDays\": 30\n    }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/api/prescriptions"
+          }
+        },
+        {
+          "name": "Complete Appointment",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{doctorToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"notes\": \"Visit completed successfully - demo\"\n}" },
+            "url": "{{baseUrl}}/api/appointments/{{appointmentId}}/complete"
+          }
+        },
+        {
+          "name": "Get Appointment Detail",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/appointments/{{appointmentId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 - Clinical Records",
+      "description": "Prescriptions, templates, lab reports (~2 min)",
+      "item": [
+        {
+          "name": "List Prescriptions",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/prescriptions?page=1&pageSize=5"
+          }
+        },
+        {
+          "name": "Get Prescription by Appointment",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/prescriptions/by-appointment/{{completedAppointmentId}}"
+          }
+        },
+        {
+          "name": "Get Prescription by ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/prescriptions/{{prescriptionId}}"
+          }
+        },
+        {
+          "name": "List Prescription Templates",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{doctorToken}}" }],
+            "url": "{{baseUrl}}/api/prescription-templates"
+          }
+        },
+        {
+          "name": "Get Template Detail",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{doctorToken}}" }],
+            "url": "{{baseUrl}}/api/prescription-templates/{{templateId}}"
+          }
+        },
+        {
+          "name": "List Lab Reports",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/lab-reports?page=1&pageSize=5"
+          }
+        },
+        {
+          "name": "Get Lab Report",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/lab-reports/{{labReportId}}"
+          }
+        },
+        {
+          "name": "Download Lab Report File",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/lab-reports/{{labReportId}}/download"
+          }
+        },
+        {
+          "name": "List Vitals",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/vitals?patientId={{patientId}}&pageSize=5"
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 - Billing",
+      "description": "Invoices, partial payments (~3 min)",
+      "item": [
+        {
+          "name": "List Invoices (pagination)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/invoices?page=1&pageSize=5"
+          }
+        },
+        {
+          "name": "Invoices - Pending",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/invoices?status=Pending&pageSize=5"
+          }
+        },
+        {
+          "name": "Invoices - Partially Paid",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/invoices?status=PartiallyPaid&pageSize=5"
+          }
+        },
+        {
+          "name": "Invoices - Paid",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/invoices?status=Paid&pageSize=5"
+          }
+        },
+        {
+          "name": "Invoices - Cancelled",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/invoices?status=Cancelled&pageSize=5"
+          }
+        },
+        {
+          "name": "Get Pending Invoice",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/invoices/{{pendingInvoiceId}}"
+          }
+        },
+        {
+          "name": "Create Invoice (with consultation fee)",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": ["pm.environment.set('invoiceId', pm.response.json().id);"],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{receptionToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"patientId\": {{patientId}},\n  \"appointmentId\": {{appointmentId}},\n  \"taxPercent\": 18,\n  \"discountAmount\": 0,\n  \"items\": [\n    { \"description\": \"ECG\", \"quantity\": 1, \"unitPrice\": 450 }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/api/invoices"
+          }
+        },
+        {
+          "name": "Add Partial Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{receptionToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 500,\n  \"paymentMethod\": \"Cash\",\n  \"notes\": \"Partial demo payment\"\n}"
+            },
+            "url": "{{baseUrl}}/api/invoices/{{invoiceId}}/payments"
+          }
+        },
+        {
+          "name": "Get Invoice with Payments",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/invoices/{{invoiceId}}"
+          }
+        },
+        {
+          "name": "List Invoice Payments",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/invoices/{{invoiceId}}/payments"
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 - Patient Experience",
+      "description": "Notifications, reviews, waitlist (~2 min)",
+      "item": [
+        {
+          "name": "Patient Notifications",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }],
+            "url": "{{baseUrl}}/api/notifications?page=1&pageSize=10"
+          }
+        },
+        {
+          "name": "Unread Count",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }],
+            "url": "{{baseUrl}}/api/notifications/unread-count"
+          }
+        },
+        {
+          "name": "Mark All Read",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }],
+            "url": "{{baseUrl}}/api/notifications/read-all"
+          }
+        },
+        {
+          "name": "List Reviews",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/reviews?doctorId={{doctorId}}&pageSize=5"
+          }
+        },
+        {
+          "name": "Submit Review (run after folder 04)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{patientToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"appointmentId\": {{appointmentId}},\n  \"rating\": 5,\n  \"comment\": \"Excellent care during demo visit\"\n}"
+            },
+            "url": "{{baseUrl}}/api/reviews"
+          }
+        },
+        {
+          "name": "Join Waitlist",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "if (pm.response.code === 200) pm.environment.set('waitlistId', pm.response.json().id);"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{patientToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"doctorId\": {{doctorId}},\n  \"preferredDate\": \"{{tomorrowDate}}\",\n  \"notes\": \"Demo waitlist entry\"\n}"
+            },
+            "url": "{{baseUrl}}/api/waitlist"
+          }
+        },
+        {
+          "name": "Waitlist Entries",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/waitlist?page=1&pageSize=10"
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 - Admin, Audit & Exports",
+      "description": "Audit trail, CSV, leave (~2 min)",
+      "item": [
+        {
+          "name": "List Users (admin)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/users?page=1&pageSize=5"
+          }
+        },
+        {
+          "name": "Audit Log",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/audit-logs?page=1&pageSize=10"
+          }
+        },
+        {
+          "name": "Export Appointments CSV",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/exports/appointments"
+          }
+        },
+        {
+          "name": "Export Patients CSV",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/exports/patients"
+          }
+        },
+        {
+          "name": "Export Invoices CSV",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/exports/invoices"
+          }
+        },
+        {
+          "name": "Doctor Leave List",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/doctors/{{doctorId}}/leaves"
+          }
+        },
+        {
+          "name": "Slots on Leave Date (empty)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/doctors/{{doctorId}}/available-slots?date={{leaveDate}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 - Error Handling",
+      "description": "ProblemDetails JSON for 404, 409, 400 (~2 min)",
+      "item": [
+        {
+          "name": "404 Not Found",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/appointments/999999"
+          }
+        },
+        {
+          "name": "409 Double Booking",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"doctorId\": 1,\n  \"patientId\": 1,\n  \"appointmentDate\": \"{{bookDate}}\",\n  \"startTime\": \"{{occupiedSlotStart}}\",\n  \"reason\": \"Duplicate slot demo\"\n}"
+            },
+            "url": "{{baseUrl}}/api/appointments"
+          }
+        },
+        {
+          "name": "400 Invalid Blood Pressure",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{receptionToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"appointmentId\": {{completedAppointmentId}},\n  \"systolicBpMmHg\": 80,\n  \"diastolicBpMmHg\": 120\n}"
+            },
+            "url": "{{baseUrl}}/api/vitals"
+          }
+        },
+        {
+          "name": "403 Patient Cannot Confirm",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }],
+            "url": "{{baseUrl}}/api/appointments/{{pendingAppointmentId}}/confirm"
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 - Extended Features (optional)",
+      "description": "Extra endpoints if time permits or evaluator asks. Run after main demo.",
+      "item": [
+        {
+          "name": "Patient Self-Book Appointment",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": ["if (pm.response.code === 201) pm.environment.set('patientBookedId', pm.response.json().id);"],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{patientToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"doctorId\": {{doctorId2}},\n  \"appointmentDate\": \"{{tomorrowDate}}\",\n  \"startTime\": \"09:00:00\",\n  \"reason\": \"Patient self-booked demo\"\n}"
+            },
+            "url": "{{baseUrl}}/api/appointments"
+          }
+        },
+        {
+          "name": "Reschedule Appointment",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{patientToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"appointmentDate\": \"{{bookDate}}\",\n  \"startTime\": \"{{slotStart}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/appointments/{{patientBookedId}}/reschedule"
+          }
+        },
+        {
+          "name": "Cancel Appointment",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{patientToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Patient cancelled - demo\"\n}"
+            },
+            "url": "{{baseUrl}}/api/appointments/{{patientBookedId}}/cancel"
+          }
+        },
+        {
+          "name": "Review Lab Report (doctor)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{doctorToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"remarks\": \"Results within normal range - demo review\"\n}"
+            },
+            "url": "{{baseUrl}}/api/lab-reports/{{labReportId}}/review"
+          }
+        },
+        {
+          "name": "Get Vital Sign by ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": "{{baseUrl}}/api/vitals/1"
+          }
+        },
+        {
+          "name": "Mark Notification Read",
+          "event": [{
+            "listen": "prerequest",
+            "script": {
+              "exec": [
+                "if (!pm.environment.get('notificationId')) pm.environment.set('notificationId', '1');"
+              ],
+              "type": "text/javascript"
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }],
+            "url": "{{baseUrl}}/api/notifications/{{notificationId}}/read"
+          }
+        },
+        {
+          "name": "Cancel Waitlist Entry",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }],
+            "url": "{{baseUrl}}/api/waitlist/{{waitlistId}}/cancel"
+          }
+        }
+      ]
+    }
+  ]
+}

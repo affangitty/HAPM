@@ -21,6 +21,10 @@ public class WaitlistController : ControllerBase
     public async Task<ActionResult<PagedResult<WaitlistEntryDto>>> GetAll([FromQuery] WaitlistQueryParams query, CancellationToken ct) =>
         Ok(await _waitlistService.GetPagedAsync(query, ct));
 
+    [HttpGet("{id:int}")]
+    public async Task<ActionResult<WaitlistEntryDto>> GetById(int id, CancellationToken ct) =>
+        Ok(await _waitlistService.GetByIdAsync(id, ct));
+
     /// <summary>
     /// Joins the waitlist for a doctor and date. When an appointment for that doctor/date is
     /// cancelled, all active waitlisted patients are notified automatically.

@@ -1,5 +1,7 @@
 import { Component, computed, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { UiEmptyStateComponent } from '../../../shared/components/ui/empty-state/ui-empty-state.component';
+import { setPageLoadFailed } from '../../../shared/utils/page-load.util';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AuthService } from '../../../core/auth/auth.service';
 import { ChatHubService } from '../../../core/realtime/chat-hub.service';
@@ -20,6 +22,7 @@ import { ConversationThread, StaffMessageDto } from '../models/staff-message.mod
   selector: 'app-messaging-dashboard-page',
   standalone: true,
   imports: [
+    UiEmptyStateComponent,
     FormsModule, ReactiveFormsModule, UiPageHeaderComponent, UiSkeletonComponent,
     ConversationSidebarComponent, MessageBubbleComponent, MessageComposerComponent,
     FormFieldComponent, UiSelectComponent, UiButtonComponent,
@@ -40,6 +43,8 @@ import { ConversationThread, StaffMessageDto } from '../models/staff-message.mod
           <div class="flex-1 space-y-3 overflow-y-auto p-4">
             @if (loading()) {
               <app-ui-skeleton class="h-16" /><app-ui-skeleton class="h-16" />
+            } @else if (loadError()) {
+              <app-ui-empty-state [title]="loadError()!" />
             } @else {
               @for (msg of messages(); track msg.id) {
                 <app-message-bubble [message]="msg" [mine]="msg.senderUserId === currentUserId()" />
@@ -79,6 +84,7 @@ export class MessagingDashboardPageComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
 
   readonly loading = signal(false);
+  readonly loadError = signal<string | null>(null);
   readonly sending = signal(false);
   readonly error = signal<string | null>(null);
   readonly messages = signal<StaffMessageDto[]>([]);
@@ -158,7 +164,7 @@ export class MessagingDashboardPageComponent implements OnInit {
         this.buildThreads(r.items);
         this.loading.set(false);
       },
-      error: () => this.loading.set(false),
+      error: () => setPageLoadFailed(this.loading, this.loadError),
     });
   }
 
@@ -170,7 +176,7 @@ export class MessagingDashboardPageComponent implements OnInit {
       doctorId: thread.doctorId,
     }).subscribe({
       next: (r) => { this.messages.set(r.items); this.loading.set(false); },
-      error: () => this.loading.set(false),
+      error: () => setPageLoadFailed(this.loading, this.loadError),
     });
   }
 

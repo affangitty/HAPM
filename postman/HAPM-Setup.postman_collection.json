@@ -1,0 +1,131 @@
+{
+  "info": {
+    "_postman_id": "hapm-setup-private",
+    "name": "HAPM Setup (Private)",
+    "description": "Run BEFORE the evaluator demo. Do not share screen on this collection.\n\nUse Collection Runner with **Delay 1500ms** between requests to avoid auth rate limit (429).\n\nSaves tokens to the **HAPM Evaluator Demo** environment.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Login Admin",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "const j = pm.response.json();",
+              "pm.environment.set('adminToken', j.accessToken);",
+              "pm.test('Token saved', () => pm.expect(j.accessToken).to.be.a('string'));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"admin@hapm.local\",\n  \"password\": \"Admin@12345\"\n}"
+        },
+        "url": "{{baseUrl}}/api/auth/login",
+        "description": "Admin - full system access, dashboard, audit, exports."
+      }
+    },
+    {
+      "name": "2. Login Doctor (Cardiology)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.environment.set('doctorToken', pm.response.json().accessToken);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"dr.sharma@hapm.local\",\n  \"password\": \"Doctor@12345\"\n}"
+        },
+        "url": "{{baseUrl}}/api/auth/login",
+        "description": "Dr Anil Sharma - confirm, complete, prescribe, review labs."
+      }
+    },
+    {
+      "name": "3. Login Patient",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.environment.set('patientToken', pm.response.json().accessToken);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"patient@hapm.local\",\n  \"password\": \"Patient@12345\"\n}"
+        },
+        "url": "{{baseUrl}}/api/auth/login",
+        "description": "Rahul Verma - book, notifications, reviews."
+      }
+    },
+    {
+      "name": "4. Login Receptionist",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.environment.set('receptionToken', pm.response.json().accessToken);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"reception@hapm.local\",\n  \"password\": \"Reception@12345\"\n}"
+        },
+        "url": "{{baseUrl}}/api/auth/login",
+        "description": "Front desk - check-in, vitals, billing, walk-in booking."
+      }
+    },
+    {
+      "name": "5. Verify Health",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('API healthy', () => pm.response.to.have.status(200));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/health",
+        "description": "Quick sanity check after tokens are set."
+      }
+    }
+  ]
+}

@@ -19,7 +19,7 @@ HAPM uses **ASP.NET Core SignalR** for live push delivery alongside the existing
 SignalR uses the same JWT as REST. Pass the access token as a query parameter:
 
 ```
-ws://localhost:5080/hubs/notifications?access_token=<JWT>
+ws://localhost:5168/hubs/notifications?access_token=<JWT>
 ```
 
 CORS is configured with **credentials** enabled for WebSocket connections from configured frontend origins (`Cors:AllowedOrigins` in `appsettings.json`).
@@ -87,7 +87,7 @@ import * as signalR from "@microsoft/signalr";
 const token = "<accessToken from /api/auth/login>";
 
 const notifications = new signalR.HubConnectionBuilder()
-  .withUrl("http://localhost:5080/hubs/notifications", {
+  .withUrl("http://localhost:5168/hubs/notifications", {
     accessTokenFactory: () => token
   })
   .withAutomaticReconnect()
@@ -102,7 +102,7 @@ await notifications.start();
 
 ```javascript
 const board = new signalR.HubConnectionBuilder()
-  .withUrl("http://localhost:5080/hubs/appointments", {
+  .withUrl("http://localhost:5168/hubs/appointments", {
     accessTokenFactory: () => token
   })
   .build();

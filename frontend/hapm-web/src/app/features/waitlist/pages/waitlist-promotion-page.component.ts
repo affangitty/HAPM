@@ -1,16 +1,20 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { UiEmptyStateComponent } from '../../../shared/components/ui/empty-state/ui-empty-state.component';
+import { setPageLoadFailed } from '../../../shared/utils/page-load.util';
 import { UiButtonComponent } from '../../../shared/components/ui/button/ui-button.component';
 import { UiCardComponent, UiCardContentComponent } from '../../../shared/components/ui/card/ui-card.component';
 import { UiSkeletonComponent } from '../../../shared/components/ui/skeleton/ui-skeleton.component';
 import { WaitlistStatusBadgeComponent } from '../components/waitlist-status-badge.component';
 import { WaitlistApiService } from '../data/waitlist-api.service';
 import { WaitlistEntryDto } from '../models/waitlist.models';
+import { getRolePrefix, roleBase, roleRoute } from '../../../shared/utils/role-prefix.util';
 
 @Component({
   selector: 'app-waitlist-promotion-page',
   standalone: true,
   imports: [
+    UiEmptyStateComponent,
     RouterLink,
     UiCardComponent,
     UiCardContentComponent,
@@ -23,6 +27,8 @@ import { WaitlistEntryDto } from '../models/waitlist.models';
 
     @if (loading()) {
       <app-ui-skeleton class="mt-4 h-64" />
+    } @else if (loadError()) {
+      <app-ui-empty-state class="mt-6 block" [title]="loadError()!" />
     } @else {
       @if (entry(); as e) {
       <div class="mt-2 mb-4">
@@ -76,6 +82,7 @@ export class WaitlistPromotionPageComponent implements OnInit {
   private readonly router = inject(Router);
 
   readonly loading = signal(true);
+  readonly loadError = signal<string | null>(null);
   readonly entry = signal<WaitlistEntryDto | null>(null);
 
   readonly steps = [
@@ -92,7 +99,7 @@ export class WaitlistPromotionPageComponent implements OnInit {
         this.entry.set(entry);
         this.loading.set(false);
       },
-      error: () => this.loading.set(false),
+      error: () => setPageLoadFailed(this.loading, this.loadError),
     });
   }
 
@@ -107,15 +114,11 @@ export class WaitlistPromotionPageComponent implements OnInit {
   }
 
   bookLink(e: WaitlistEntryDto): string {
-    return `${this.basePath()}/appointments/book?doctorId=${e.doctorId}&date=${e.preferredDate}`;
+    return roleRoute(this.router, 'appointments', 'book') + `?doctorId=${e.doctorId}&date=${e.preferredDate}`;
   }
 
   detailLink(): string {
     const id = this.route.snapshot.paramMap.get('id');
-    return `${this.basePath()}/waitlist/${id}`;
-  }
-
-  basePath(): string {
-    return `/${this.router.url.split('/').filter(Boolean)[0]}`;
+    return roleRoute(this.router, 'waitlist', String(id));
   }
 }

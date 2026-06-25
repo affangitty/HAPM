@@ -31,6 +31,7 @@ import { NavIconComponent } from './nav-icon.component';
         <button
           type="button"
           class="ml-auto rounded-md p-1 text-muted-foreground hover:bg-muted"
+          [attr.aria-label]="collapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
           (click)="toggleCollapsed.emit()"
         >
           <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

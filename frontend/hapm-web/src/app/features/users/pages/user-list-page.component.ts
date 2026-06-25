@@ -1,15 +1,17 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
+import { DatePipe } from '@angular/common';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { getFormControlError, guardFormSubmit } from '../../../shared/utils/form-errors.util';
 import { ApiErrorService } from '../../../core/api/api-error.service';
 import { extractApiErrorMessage } from '../../../core/auth/utils/api-error.util';
 import { UserDto } from '../../../core/auth/auth.models';
-import { DataTableComponent } from '../../../shared/components/data-table/data-table.component';
-import { DataTableColumn } from '../../../shared/components/data-table/data-table.models';
+import { UiPaginationComponent } from '../../../shared/components/ui/pagination/ui-pagination.component';
 import { FormFieldComponent } from '../../../shared/components/forms/form-field/form-field.component';
 import { UiButtonComponent } from '../../../shared/components/ui/button/ui-button.component';
 import { UiCardComponent, UiCardContentComponent, UiCardHeaderComponent, UiCardTitleComponent } from '../../../shared/components/ui/card/ui-card.component';
 import { UiFilterBarComponent } from '../../../shared/components/ui/filter-bar/ui-filter-bar.component';
 import { UiInputComponent } from '../../../shared/components/ui/input/ui-input.component';
+import { UiPasswordInputComponent } from '../../../shared/components/ui/input/ui-password-input.component';
 import { UiPageHeaderComponent } from '../../../shared/components/ui/page-header/ui-page-header.component';
 import { UiSelectComponent } from '../../../shared/components/ui/select/ui-select.component';
 import { DEFAULT_PAGE_SIZE } from '../../../shared/models/pagination.model';
@@ -20,9 +22,10 @@ import { UsersApiService } from '../data/users-api.service';
   selector: 'app-user-list-page',
   standalone: true,
   imports: [
+    DatePipe,
     FormsModule, ReactiveFormsModule, UiPageHeaderComponent, UiFilterBarComponent, FormFieldComponent,
-    UiSelectComponent, UiInputComponent, UiButtonComponent, UiCardComponent, UiCardHeaderComponent,
-    UiCardTitleComponent, UiCardContentComponent, DataTableComponent,
+    UiSelectComponent, UiInputComponent, UiPasswordInputComponent, UiButtonComponent, UiCardComponent, UiCardHeaderComponent,
+    UiCardTitleComponent, UiCardContentComponent, UiPaginationComponent,
   ],
   template: `
     <app-ui-page-header title="User Management" subtitle="Accounts, roles, and access control">
@@ -41,7 +44,7 @@ import { UsersApiService } from '../data/users-api.service';
             <app-form-field label="Full name"><app-ui-input formControlName="fullName" /></app-form-field>
             <app-form-field label="Email"><app-ui-input type="email" formControlName="email" /></app-form-field>
             <app-form-field label="Phone"><app-ui-input formControlName="phoneNumber" /></app-form-field>
-            <app-form-field label="Temporary password"><app-ui-input type="password" formControlName="password" /></app-form-field>
+            <app-form-field label="Temporary password"><app-ui-password-input formControlName="password" /></app-form-field>
             <div class="sm:col-span-2 flex gap-2">
               <app-ui-button type="submit" [loading]="creating()">Create account</app-ui-button>
             </div>
@@ -65,17 +68,64 @@ import { UsersApiService } from '../data/users-api.service';
       <p class="mb-4 text-sm text-destructive" role="alert">{{ error() }}</p>
     }
 
-    <app-data-table
-      [columns]="columns"
-      [rows]="rows()"
-      [loading]="loading()"
-      [page]="page()"
-      [pageSize]="pageSize"
-      [totalCount]="totalCount()"
-      emptyTitle="No users found"
-      emptyMessage="Adjust filters or create a receptionist account."
-      (pageChange)="onPageChange($event)"
-    />
+    @if (loading()) {
+      <p class="text-sm text-muted-foreground">Loading users…</p>
+    } @else if (!rows().length) {
+      <p class="text-sm text-muted-foreground">No users found. Adjust filters or create a receptionist account.</p>
+    } @else {
+      <div class="overflow-x-auto rounded-xl border border-border">
+        <table class="w-full min-w-[720px] text-left text-sm">
+          <thead class="border-b bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
+            <tr>
+              <th class="px-4 py-3">Name</th>
+              <th class="px-4 py-3">Email</th>
+              <th class="px-4 py-3">Role</th>
+              <th class="px-4 py-3">Status</th>
+              <th class="px-4 py-3">Created</th>
+              <th class="px-4 py-3">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (user of rows(); track user.id) {
+              <tr class="border-b border-border/70 align-top">
+                <td class="px-4 py-3 font-medium">{{ user.fullName }}</td>
+                <td class="px-4 py-3">{{ user.email }}</td>
+                <td class="px-4 py-3">{{ user.role }}</td>
+                <td class="px-4 py-3">{{ user.isActive ? 'Active' : 'Inactive' }}</td>
+                <td class="px-4 py-3">{{ user.createdAtUtc ? (user.createdAtUtc | date: 'mediumDate') : '—' }}</td>
+                <td class="px-4 py-3">
+                  <div class="flex flex-wrap gap-2">
+                    <app-ui-button size="sm" variant="outline" [loading]="togglingId() === user.id" (pressed)="toggleActive(user)">
+                      {{ user.isActive ? 'Deactivate' : 'Activate' }}
+                    </app-ui-button>
+                    <app-ui-button size="sm" variant="outline" (pressed)="openReset(user)">Reset password</app-ui-button>
+                  </div>
+                  @if (resetUserId() === user.id) {
+                    <form class="mt-3 space-y-2" [formGroup]="resetForm" (ngSubmit)="submitReset(user.id)">
+                      <app-form-field label="New password">
+                        <app-ui-password-input formControlName="newPassword" />
+                      </app-form-field>
+                      <div class="flex gap-2">
+                        <app-ui-button size="sm" type="submit" [loading]="resetting()">Save password</app-ui-button>
+                        <app-ui-button size="sm" type="button" variant="outline" (pressed)="resetUserId.set(null)">Cancel</app-ui-button>
+                      </div>
+                    </form>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <app-ui-pagination
+        class="mt-4 block"
+        [page]="page()"
+        [pageSize]="pageSize"
+        [totalCount]="totalCount()"
+        (pageChange)="onPageChange($event)"
+      />
+    }
   `,
 })
 export class UserListPageComponent implements OnInit {
@@ -95,7 +145,14 @@ export class UserListPageComponent implements OnInit {
   readonly showCreate = signal(false);
   readonly role = signal('');
   readonly status = signal('');
+  readonly togglingId = signal<number | null>(null);
+  readonly resetUserId = signal<number | null>(null);
+  readonly resetting = signal(false);
   search = '';
+
+  readonly resetForm = this.fb.nonNullable.group({
+    newPassword: ['', [Validators.required, Validators.minLength(8)]],
+  });
 
   readonly createForm = this.fb.nonNullable.group({
     fullName: ['', Validators.required],
@@ -116,14 +173,6 @@ export class UserListPageComponent implements OnInit {
     { label: 'All statuses', value: '' },
     { label: 'Active', value: 'active' },
     { label: 'Inactive', value: 'inactive' },
-  ];
-
-  readonly columns: DataTableColumn<UserDto>[] = [
-    { key: 'name', header: 'Name', cell: (r) => r.fullName },
-    { key: 'email', header: 'Email', cell: (r) => r.email },
-    { key: 'role', header: 'Role', cell: (r) => r.role },
-    { key: 'status', header: 'Status', cell: (r) => (r.isActive ? 'Active' : 'Inactive') },
-    { key: 'created', header: 'Created', cell: (r) => (r.createdAtUtc ? new Date(r.createdAtUtc).toLocaleDateString() : '—') },
   ];
 
   private readonly debouncedLoad = debounce(() => this.load(), 300);
@@ -156,10 +205,9 @@ export class UserListPageComponent implements OnInit {
   }
 
   createReceptionist(): void {
-    if (this.createForm.invalid) {
-      this.createForm.markAllAsTouched();
-      return;
-    }
+    if (!guardFormSubmit(this.createForm, this.toasts, {
+      fullName: 'Full name', email: 'Email', phoneNumber: 'Phone', password: 'Password',
+    })) return;
     this.creating.set(true);
     this.createError.set(null);
     this.createSuccess.set(null);
@@ -175,6 +223,45 @@ export class UserListPageComponent implements OnInit {
       error: (err) => {
         this.creating.set(false);
         this.createError.set(extractApiErrorMessage(err, 'Failed to create receptionist.'));
+      },
+    });
+  }
+
+  toggleActive(user: UserDto): void {
+    const next = !user.isActive;
+    const verb = next ? 'activate' : 'deactivate';
+    if (!confirm(`${verb.charAt(0).toUpperCase() + verb.slice(1)} ${user.fullName}?`)) return;
+    this.togglingId.set(user.id);
+    this.api.setActive(user.id, { isActive: next }).subscribe({
+      next: () => {
+        this.togglingId.set(null);
+        this.toasts.show(`User ${next ? 'activated' : 'deactivated'}.`, 'success');
+        this.load();
+      },
+      error: (err) => {
+        this.togglingId.set(null);
+        this.toasts.show(extractApiErrorMessage(err, `Failed to ${verb} user.`), 'error');
+      },
+    });
+  }
+
+  openReset(user: UserDto): void {
+    this.resetUserId.set(user.id);
+    this.resetForm.reset();
+  }
+
+  submitReset(userId: number): void {
+    if (!guardFormSubmit(this.resetForm, this.toasts, { newPassword: 'New password' })) return;
+    this.resetting.set(true);
+    this.api.resetPassword(userId, this.resetForm.getRawValue()).subscribe({
+      next: () => {
+        this.resetting.set(false);
+        this.resetUserId.set(null);
+        this.toasts.show('Password reset successfully.', 'success');
+      },
+      error: (err) => {
+        this.resetting.set(false);
+        this.toasts.show(extractApiErrorMessage(err, 'Password reset failed.'), 'error');
       },
     });
   }

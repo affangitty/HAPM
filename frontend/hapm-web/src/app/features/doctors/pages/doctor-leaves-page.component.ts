@@ -1,21 +1,24 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
+import { DatePipe } from '@angular/common';
+import { ApiErrorService } from '../../../core/api/api-error.service';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { setPageLoadFailed } from '../../../shared/utils/page-load.util';
 import { extractApiErrorMessage } from '../../../core/auth/utils/api-error.util';
-import { DataTableComponent } from '../../../shared/components/data-table/data-table.component';
-import { DataTableColumn } from '../../../shared/components/data-table/data-table.models';
+import { getFormControlError, guardFormSubmit } from '../../../shared/utils/form-errors.util';
+import { DoctorsApiService } from '../data/doctors-api.service';
+import { DoctorLeaveDto } from '../models/doctor.models';
 import { FormFieldComponent } from '../../../shared/components/forms/form-field/form-field.component';
 import { UiButtonComponent } from '../../../shared/components/ui/button/ui-button.component';
 import { UiCardComponent, UiCardContentComponent } from '../../../shared/components/ui/card/ui-card.component';
 import { UiInputComponent } from '../../../shared/components/ui/input/ui-input.component';
 import { UiPageHeaderComponent } from '../../../shared/components/ui/page-header/ui-page-header.component';
 import { UiTextareaComponent } from '../../../shared/components/ui/textarea/ui-textarea.component';
-import { DoctorsApiService } from '../data/doctors-api.service';
-import { DoctorLeaveDto } from '../models/doctor.models';
 
 @Component({
   selector: 'app-doctor-leaves-page',
   standalone: true,
   imports: [
+    DatePipe,
     ReactiveFormsModule,
     UiPageHeaderComponent,
     UiCardComponent,
@@ -24,7 +27,6 @@ import { DoctorLeaveDto } from '../models/doctor.models';
     UiInputComponent,
     UiTextareaComponent,
     UiButtonComponent,
-    DataTableComponent,
   ],
   template: `
     <app-ui-page-header title="Leave Management" subtitle="Register and manage your leave periods" />
@@ -52,26 +54,58 @@ import { DoctorLeaveDto } from '../models/doctor.models';
       </app-ui-card>
 
       <div class="lg:col-span-2">
-        <app-data-table
-          [columns]="columns"
-          [rows]="leaves()"
-          [loading]="loading()"
-          [showPagination]="false"
-          emptyTitle="No leave records"
-          emptyMessage="You have no registered leave periods."
-        />
+        @if (loading()) {
+          <p class="text-sm text-muted-foreground">Loading leave records…</p>
+        } @else if (loadError()) {
+          <p class="text-sm text-destructive">{{ loadError() }}</p>
+        } @else if (!leaves().length) {
+          <p class="text-sm text-muted-foreground">You have no registered leave periods.</p>
+        } @else {
+          <div class="overflow-x-auto rounded-xl border border-border">
+            <table class="w-full text-left text-sm">
+              <thead class="border-b bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
+                <tr>
+                  <th class="px-4 py-3">Start</th>
+                  <th class="px-4 py-3">End</th>
+                  <th class="px-4 py-3">Reason</th>
+                  <th class="px-4 py-3">Created</th>
+                  <th class="px-4 py-3">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (leave of leaves(); track leave.id) {
+                  <tr class="border-b border-border/70">
+                    <td class="px-4 py-3">{{ leave.startDate }}</td>
+                    <td class="px-4 py-3">{{ leave.endDate }}</td>
+                    <td class="px-4 py-3">{{ leave.reason }}</td>
+                    <td class="px-4 py-3">{{ leave.createdAtUtc | date: 'mediumDate' }}</td>
+                    <td class="px-4 py-3">
+                      <app-ui-button size="sm" variant="outline" [loading]="deletingId() === leave.id" (pressed)="deleteLeave(leave.id)">
+                        Delete
+                      </app-ui-button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
       </div>
     </div>
   `,
 })
 export class DoctorLeavesPageComponent implements OnInit {
+  private readonly toasts = inject(ApiErrorService);
+
   private readonly api = inject(DoctorsApiService);
   private readonly fb = inject(FormBuilder);
 
   readonly leaves = signal<DoctorLeaveDto[]>([]);
   readonly loading = signal(false);
+  readonly loadError = signal<string | null>(null);
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
+  readonly deletingId = signal<number | null>(null);
   doctorId = 0;
 
   readonly form = this.fb.nonNullable.group({
@@ -80,13 +114,6 @@ export class DoctorLeavesPageComponent implements OnInit {
     reason: ['', [Validators.required, Validators.maxLength(300)]],
   });
 
-  readonly columns: DataTableColumn<DoctorLeaveDto>[] = [
-    { key: 'start', header: 'Start', cell: (r) => r.startDate },
-    { key: 'end', header: 'End', cell: (r) => r.endDate },
-    { key: 'reason', header: 'Reason', cell: (r) => r.reason },
-    { key: 'created', header: 'Created', cell: (r) => new Date(r.createdAtUtc).toLocaleDateString() },
-  ];
-
   ngOnInit(): void {
     this.loading.set(true);
     this.api.resolveCurrentDoctorId().subscribe({
@@ -94,23 +121,16 @@ export class DoctorLeavesPageComponent implements OnInit {
         this.doctorId = id;
         this.loadLeaves();
       },
-      error: () => this.loading.set(false),
+      error: () => setPageLoadFailed(this.loading, this.loadError),
     });
   }
 
   fieldError(name: 'startDate' | 'endDate' | 'reason'): string | null {
-    const c = this.form.controls[name];
-    if (!c.touched || !c.errors) return null;
-    if (c.errors['required']) return 'Required.';
-    if (c.errors['maxlength']) return 'Max 300 characters.';
-    return null;
+    return getFormControlError(this.form, name, { maxlength: 'Max 300 characters.' });
   }
 
   submit(): void {
-    if (this.form.invalid) {
-      this.form.markAllAsTouched();
-      return;
-    }
+    if (!guardFormSubmit(this.form, this.toasts)) return;
     this.saving.set(true);
     this.error.set(null);
     this.api.createLeave(this.doctorId, this.form.getRawValue()).subscribe({
@@ -126,6 +146,22 @@ export class DoctorLeavesPageComponent implements OnInit {
     });
   }
 
+  deleteLeave(leaveId: number): void {
+    if (!confirm('Delete this leave record?')) return;
+    this.deletingId.set(leaveId);
+    this.api.deleteLeave(this.doctorId, leaveId).subscribe({
+      next: () => {
+        this.deletingId.set(null);
+        this.toasts.show('Leave record deleted.', 'success');
+        this.loadLeaves();
+      },
+      error: (err) => {
+        this.deletingId.set(null);
+        this.toasts.show(extractApiErrorMessage(err, 'Failed to delete leave.'), 'error');
+      },
+    });
+  }
+
   private loadLeaves(): void {
     this.loading.set(true);
     this.api.getLeaves(this.doctorId).subscribe({
@@ -133,7 +169,7 @@ export class DoctorLeavesPageComponent implements OnInit {
         this.leaves.set(items);
         this.loading.set(false);
       },
-      error: () => this.loading.set(false),
+      error: () => setPageLoadFailed(this.loading, this.loadError),
     });
   }
 }

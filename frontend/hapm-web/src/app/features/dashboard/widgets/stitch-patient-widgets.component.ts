@@ -12,8 +12,9 @@ import { DashboardWidgetCardComponent } from './dashboard-kpi-grid.component';
   selector: 'app-upcoming-appointments-table-widget',
   standalone: true,
   imports: [RouterLink, UiStatusBadgeComponent, DashboardSectionHeaderComponent, DashboardWidgetCardComponent],
+  host: { class: 'flex min-h-0 min-w-0 flex-col self-stretch lg:col-span-3' },
   template: `
-    <app-dashboard-widget-card [class]="className()">
+    <app-dashboard-widget-card class="min-h-0 flex-1">
       <app-dashboard-section-header title="Upcoming Appointments">
         <a actions routerLink="/patient/appointments" class="text-xs font-medium text-primary hover:underline">View All</a>
       </app-dashboard-section-header>
@@ -41,7 +42,6 @@ import { DashboardWidgetCardComponent } from './dashboard-kpi-grid.component';
 })
 export class UpcomingAppointmentsTableWidgetComponent {
   readonly items = input.required<DashboardAppointmentItem[]>();
-  readonly className = input('lg:col-span-2', { alias: 'class' });
 
   statusTone(status: string) {
     return APPOINTMENT_STATUS_TONE[status as AppointmentStatus] ?? 'default';
@@ -52,8 +52,9 @@ export class UpcomingAppointmentsTableWidgetComponent {
   selector: 'app-patient-prescriptions-widget',
   standalone: true,
   imports: [RouterLink, DashboardSectionHeaderComponent, DashboardWidgetCardComponent],
+  host: { class: 'flex min-h-0 min-w-0 flex-col self-stretch lg:col-span-1' },
   template: `
-    <app-dashboard-widget-card>
+    <app-dashboard-widget-card class="min-h-0 flex-1">
       <app-dashboard-section-header title="Recent Prescriptions" />
       <div class="space-y-3">
         @for (rx of items(); track rx.id) {
@@ -78,8 +79,9 @@ export class PatientPrescriptionsWidgetComponent {
   selector: 'app-health-records-widget',
   standalone: true,
   imports: [RouterLink, DashboardSectionHeaderComponent, DashboardWidgetCardComponent],
+  host: { class: 'flex min-h-0 min-w-0 flex-col self-stretch lg:col-span-1' },
   template: `
-    <app-dashboard-widget-card>
+    <app-dashboard-widget-card class="min-h-0 flex-1">
       <app-dashboard-section-header title="Health Records" />
       <div class="space-y-2">
         <a routerLink="/patient/lab-reports" class="flex items-center justify-between rounded-lg border border-border px-3 py-2 text-sm hover:bg-muted/50">
@@ -101,8 +103,9 @@ export class HealthRecordsWidgetComponent {}
   selector: 'app-billing-overview-widget',
   standalone: true,
   imports: [RouterLink, UiButtonComponent, UiBadgeComponent, DashboardSectionHeaderComponent, DashboardWidgetCardComponent],
+  host: { class: 'flex min-h-0 min-w-0 flex-col self-stretch lg:col-span-3' },
   template: `
-    <app-dashboard-widget-card [class]="className()">
+    <app-dashboard-widget-card class="min-h-0 flex-1">
       <app-dashboard-section-header title="Billing Overview">
         @if (balanceDue() > 0) {
           <app-ui-badge variant="destructive" actions>Action Needed</app-ui-badge>
@@ -126,9 +129,37 @@ export class HealthRecordsWidgetComponent {}
 export class BillingOverviewWidgetComponent {
   readonly balanceDue = input(0);
   readonly dueDate = input<string | null>(null);
-  readonly className = input('lg:col-span-2', { alias: 'class' });
 
   formatMoney(v: number): string {
     return `$${v.toFixed(2)}`;
   }
+}
+
+@Component({
+  selector: 'app-patient-vitals-widget',
+  standalone: true,
+  imports: [RouterLink, DashboardSectionHeaderComponent, DashboardWidgetCardComponent],
+  host: { class: 'block w-full' },
+  template: `
+    <app-dashboard-widget-card>
+      <app-dashboard-section-header title="Latest Vitals">
+        <a actions routerLink="/patient/vitals" class="text-xs font-medium text-primary hover:underline">View trends</a>
+      </app-dashboard-section-header>
+      @if (vitals().length) {
+        <div class="grid gap-3 sm:grid-cols-3">
+          @for (v of vitals(); track v.label) {
+            <div class="rounded-xl border border-border p-3">
+              <p class="text-xs text-muted-foreground">{{ v.label }}</p>
+              <p class="mt-1 text-lg font-semibold tabular-nums">{{ v.value }} <span class="text-sm font-normal text-muted-foreground">{{ v.unit }}</span></p>
+            </div>
+          }
+        </div>
+      } @else {
+        <p class="py-4 text-center text-sm text-muted-foreground">No vitals recorded yet.</p>
+      }
+    </app-dashboard-widget-card>
+  `,
+})
+export class PatientVitalsWidgetComponent {
+  readonly vitals = input<import('../models/dashboard.models').DashboardVitalItem[]>([]);
 }

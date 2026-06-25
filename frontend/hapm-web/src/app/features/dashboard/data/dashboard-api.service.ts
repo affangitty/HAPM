@@ -1,56 +1,45 @@
 import { Injectable, inject } from '@angular/core';
-import { catchError, delay, forkJoin, map, Observable, of, switchMap } from 'rxjs';
+import { catchError, forkJoin, map, Observable, of } from 'rxjs';
 import { ApiClientService } from '../../../core/api/api-client.service';
 import { DashboardStatsDto, PeakHourCellDto, SpecializationRevenueDto } from '../../../core/api/models';
 import { AuthService } from '../../../core/auth/auth.service';
-import { BillingApiService } from '../../billing/data/billing-api.service';
-import { LabReportsApiService } from '../../lab-reports/data/lab-reports-api.service';
 import { AppointmentsApiService } from '../../appointments/data/appointments-api.service';
 import { AppointmentDto } from '../../appointments/models/appointment.models';
-import { DoctorsApiService } from '../../doctors/data/doctors-api.service';
-import { DoctorDto, DoctorPerformanceDto } from '../../doctors/models/doctor.models';
 import { NotificationsApiService } from '../../notifications/data/notifications-api.service';
 import { NotificationDto } from '../../notifications/models/notification.models';
-import { PrescriptionsApiService } from '../../prescriptions/data/prescriptions-api.service';
-import { PrescriptionDto } from '../../prescriptions/models/prescription.models';
-import { VitalsApiService } from '../../vitals/data/vitals-api.service';
-import { VitalSignDto } from '../../vitals/models/vital.models';
-import { WaitlistApiService } from '../../waitlist/data/waitlist-api.service';
-import { WaitlistEntryDto } from '../../waitlist/models/waitlist.models';
 import {
   AdminDashboardData,
+  DashboardKpi,
   DashboardNotification,
-  DashboardPrescriptionItem,
-  DashboardQueueItem,
-  DashboardScheduleItem,
   DoctorDashboardData,
   PatientDashboardData,
   ReceptionistDashboardData,
 } from '../models/dashboard.models';
-import {
-  MOCK_ADMIN_DASHBOARD,
-  MOCK_DOCTOR_DASHBOARD,
-  MOCK_PATIENT_DASHBOARD,
-  MOCK_RECEPTIONIST_DASHBOARD,
-} from './dashboard-mock.data';
 
-/** Backend shape — GET /api/dashboard/stats */
 export type DashboardStatsApiDto = DashboardStatsDto;
+
+const STATUS_COLORS: Record<string, string> = {
+  Pending: '#F59E0B',
+  Confirmed: '#3B82F6',
+  CheckedIn: '#8B5CF6',
+  Completed: '#10B981',
+  Cancelled: '#94A3B8',
+  NoShow: '#EF4444',
+};
+
+const KPI_ICONS = {
+  patients: { iconBg: 'bg-blue-50', iconColor: 'text-blue-600', iconPath: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z' },
+  doctors: { iconBg: 'bg-violet-50', iconColor: 'text-violet-600', iconPath: 'M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M8.5 3a4 4 0 1 0 0 8M18 8v6M21 11h-6' },
+  appointments: { iconBg: 'bg-amber-50', iconColor: 'text-amber-600', iconPath: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2z' },
+  revenue: { iconBg: 'bg-emerald-50', iconColor: 'text-emerald-600', iconPath: 'M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6' },
+};
 
 @Injectable({ providedIn: 'root' })
 export class DashboardApiService {
   private readonly api = inject(ApiClientService);
   private readonly auth = inject(AuthService);
   private readonly appointmentsApi = inject(AppointmentsApiService);
-  private readonly doctorsApi = inject(DoctorsApiService);
-  private readonly prescriptionsApi = inject(PrescriptionsApiService);
   private readonly notificationsApi = inject(NotificationsApiService);
-  private readonly vitalsApi = inject(VitalsApiService);
-  private readonly waitlistApi = inject(WaitlistApiService);
-  private readonly billingApi = inject(BillingApiService);
-  private readonly labReportsApi = inject(LabReportsApiService);
-
-  readonly useLiveApi = true;
 
   getStats(): Observable<DashboardStatsApiDto> {
     return this.api.get<DashboardStatsApiDto>('/dashboard/stats');
@@ -65,83 +54,158 @@ export class DashboardApiService {
   }
 
   getAdminDashboard(): Observable<AdminDashboardData> {
-    if (!this.useLiveApi) {
-      return of(this.personalizeAdmin(MOCK_ADMIN_DASHBOARD)).pipe(delay(250));
-    }
-
-    const today = this.todayIso();
     return forkJoin({
       stats: this.getStats(),
       appointments: this.appointmentsApi.list({ page: 1, pageSize: 6, sortBy: 'date', sortDescending: true }).pipe(catchError(() => of({ items: [] }))),
       notifications: this.notificationsApi.list({ page: 1, pageSize: 5 }).pipe(catchError(() => of({ items: [] }))),
-    }).pipe(
-      map(({ stats, appointments, notifications }) => this.mapAdminFromApi(stats, appointments.items, notifications.items)),
-      catchError(() => of(this.personalizeAdmin(MOCK_ADMIN_DASHBOARD)).pipe(delay(250))),
-    );
+    }).pipe(map(({ stats, appointments, notifications }) => this.mapAdminFromApi(stats, appointments.items, notifications.items)));
   }
 
   getDoctorDashboard(): Observable<DoctorDashboardData> {
-    if (!this.useLiveApi) {
-      return of(this.personalizeDoctor(MOCK_DOCTOR_DASHBOARD)).pipe(delay(250));
-    }
-
-    const today = this.todayIso();
-    return this.doctorsApi.getCurrentDoctor().pipe(
-      switchMap((doctor) =>
-        forkJoin({
-          performance: this.doctorsApi.getPerformance(doctor.id),
-          appointments: this.appointmentsApi.list({ page: 1, pageSize: 8, fromDate: today, sortBy: 'date' }).pipe(catchError(() => of({ items: [] }))),
-          prescriptions: this.prescriptionsApi.list({ page: 1, pageSize: 3, sortDescending: true }).pipe(catchError(() => of({ items: [] }))),
-          labReports: this.labReportsApi.list({ page: 1, pageSize: 3, status: 'PendingReview' as never }).pipe(catchError(() => of({ items: [] }))),
-          notifications: this.notificationsApi.list({ page: 1, pageSize: 5 }).pipe(catchError(() => of({ items: [] }))),
-        }).pipe(
-          map(({ performance, appointments, prescriptions, labReports, notifications }) =>
-            this.mapDoctorFromApi(doctor, performance, appointments.items, prescriptions.items, labReports.items, notifications.items),
-          ),
-        ),
-      ),
-      catchError(() => of(this.personalizeDoctor(MOCK_DOCTOR_DASHBOARD)).pipe(delay(250))),
+    return this.api.get<import('../models/dashboard-role-api.models').DoctorRoleDashboardApi>('/dashboard/doctor').pipe(
+      map((data) => this.mapDoctorRoleDashboard(data)),
     );
   }
 
   getPatientDashboard(): Observable<PatientDashboardData> {
-    if (!this.useLiveApi) {
-      return of(this.personalizePatient(MOCK_PATIENT_DASHBOARD)).pipe(delay(250));
-    }
-
-    const today = this.todayIso();
-    return forkJoin({
-      appointments: this.appointmentsApi.list({ page: 1, pageSize: 10, fromDate: today, sortBy: 'date' }).pipe(catchError(() => of({ items: [] }))),
-      vitals: this.vitalsApi.list({ page: 1, pageSize: 1, sortDescending: true }).pipe(catchError(() => of({ items: [] }))),
-      prescriptions: this.prescriptionsApi.list({ page: 1, pageSize: 3, sortDescending: true }).pipe(catchError(() => of({ items: [] }))),
-      invoices: this.billingApi.list({ page: 1, pageSize: 5 }).pipe(catchError(() => of({ items: [] }))),
-      notifications: this.notificationsApi.list({ page: 1, pageSize: 5 }).pipe(catchError(() => of({ items: [] }))),
-    }).pipe(
-      map(({ appointments, vitals, prescriptions, invoices, notifications }) =>
-        this.mapPatientFromApi(appointments.items, vitals.items[0] ?? null, prescriptions.items, invoices.items, notifications.items),
-      ),
-      catchError(() => of(this.personalizePatient(MOCK_PATIENT_DASHBOARD)).pipe(delay(250))),
+    return this.api.get<import('../models/dashboard-role-api.models').PatientRoleDashboardApi>('/dashboard/patient').pipe(
+      map((data) => this.mapPatientRoleDashboard(data)),
     );
   }
 
   getReceptionistDashboard(): Observable<ReceptionistDashboardData> {
-    if (!this.useLiveApi) {
-      return of(this.personalizeReception(MOCK_RECEPTIONIST_DASHBOARD)).pipe(delay(250));
-    }
-
-    const today = this.todayIso();
-    return forkJoin({
-      appointments: this.appointmentsApi.list({ page: 1, pageSize: 15, fromDate: today, toDate: today, sortBy: 'date' }).pipe(catchError(() => of({ items: [] }))),
-      waitlist: this.waitlistApi.list({ page: 1, pageSize: 10 }).pipe(catchError(() => of({ items: [] }))),
-      doctors: this.doctorsApi.list({ page: 1, pageSize: 12 }).pipe(catchError(() => of({ items: [] }))),
-      invoices: this.billingApi.list({ page: 1, pageSize: 20 }).pipe(catchError(() => of({ items: [] }))),
-      notifications: this.notificationsApi.list({ page: 1, pageSize: 5 }).pipe(catchError(() => of({ items: [] }))),
-    }).pipe(
-      map(({ appointments, waitlist, doctors, invoices, notifications }) =>
-        this.mapReceptionFromApi(appointments.items, waitlist.items, doctors.items, invoices.items, notifications.items),
-      ),
-      catchError(() => of(this.personalizeReception(MOCK_RECEPTIONIST_DASHBOARD)).pipe(delay(250))),
+    return this.api.get<import('../models/dashboard-role-api.models').ReceptionistRoleDashboardApi>('/dashboard/receptionist').pipe(
+      map((data) => this.mapReceptionRoleDashboard(data)),
     );
+  }
+
+  private mapDoctorRoleDashboard(data: import('../models/dashboard-role-api.models').DoctorRoleDashboardApi): DoctorDashboardData {
+    return {
+      ...this.personalizeDoctor(),
+      kpis: data.kpis.map((k, i) => this.roleKpi(k, i)),
+      schedule: data.schedule.map((s) => ({
+        id: String(s.id),
+        time: s.time,
+        duration: s.duration,
+        patient: s.patient,
+        type: s.type,
+        status: s.status,
+        highlight: s.highlight,
+      })),
+      attentionItems: data.attentionItems.map((a) => ({
+        id: String(a.id),
+        title: a.title,
+        subtitle: a.subtitle,
+        status: a.status,
+        tone: (a.tone === 'danger' ? 'danger' : a.tone === 'success' ? 'success' : 'default') as 'success' | 'danger' | 'default',
+      })),
+      notifications: data.notifications.map((n) => this.toRoleNotification(n)),
+      weeklyPatients: [],
+      quickActions: [],
+      prescriptions: [],
+    };
+  }
+
+  private mapPatientRoleDashboard(data: import('../models/dashboard-role-api.models').PatientRoleDashboardApi): PatientDashboardData {
+    return {
+      ...this.personalizePatient(),
+      kpis: data.kpis.map((k, i) => this.roleKpi(k, i)),
+      upcomingAppointments: data.upcomingAppointments.map((a) => ({
+        id: String(a.id),
+        patient: a.patient,
+        doctor: a.doctor,
+        date: a.date,
+        time: a.time,
+        type: a.type,
+        status: a.status,
+      })),
+      prescriptions: data.prescriptions.map((p) => ({
+        id: String(p.id),
+        patient: p.patient,
+        date: p.date,
+        status: p.status,
+        medications: p.medications,
+      })),
+      balanceDue: data.balanceDue,
+      balanceDueDate: data.balanceDueDate,
+      vitals: data.vitals.map((v) => ({
+        label: v.label,
+        value: v.value,
+        unit: v.unit,
+        status: v.status,
+        statusColor: 'text-emerald-600',
+      })),
+      notifications: data.notifications.map((n) => this.toRoleNotification(n)),
+      nextAppointment: data.upcomingAppointments[0]
+        ? {
+            id: String(data.upcomingAppointments[0].id),
+            patient: data.upcomingAppointments[0].patient,
+            doctor: data.upcomingAppointments[0].doctor,
+            date: data.upcomingAppointments[0].date,
+            time: data.upcomingAppointments[0].time,
+            type: data.upcomingAppointments[0].type,
+            status: data.upcomingAppointments[0].status,
+          }
+        : null,
+      quickActions: [],
+    };
+  }
+
+  private mapReceptionRoleDashboard(data: import('../models/dashboard-role-api.models').ReceptionistRoleDashboardApi): ReceptionistDashboardData {
+    return {
+      ...this.personalizeReception(),
+      kpis: data.kpis.map((k, i) => this.roleKpi(k, i)),
+      queue: data.queue.map((q) => ({
+        id: q.id,
+        name: q.name,
+        time: q.time,
+        doctor: q.doctor,
+        status: q.status,
+        waitTime: q.waitTime,
+      })),
+      rooms: data.rooms.map((r) => ({
+        id: r.id,
+        name: r.name,
+        occupied: r.occupied,
+        detail: r.detail ?? undefined,
+      })),
+      billingMetrics: data.billingMetrics.map((m) => ({
+        label: m.label,
+        value: m.value,
+        subtitle: m.subtitle,
+        tone: (m.tone === 'danger' ? 'danger' : m.tone === 'success' ? 'success' : 'default') as 'success' | 'danger' | 'default',
+      })),
+      notifications: data.notifications.map((n) => this.toRoleNotification(n)),
+      doctors: [],
+    };
+  }
+
+  private roleKpi(
+    k: { title: string; value: string; subtitle: string; trend?: string | null; trendValue?: string | null },
+    index: number,
+  ): DashboardKpi {
+    const icons = [KPI_ICONS.appointments, KPI_ICONS.patients, KPI_ICONS.revenue, KPI_ICONS.doctors];
+    const icon = icons[index % icons.length];
+    return {
+      title: k.title,
+      value: k.value,
+      subtitle: k.subtitle,
+      trend: (k.trend as DashboardKpi['trend']) ?? 'neutral',
+      trendValue: k.trendValue ?? undefined,
+      ...icon,
+    };
+  }
+
+  private toRoleNotification(n: import('../models/dashboard-role-api.models').RoleDashboardNotificationApi): DashboardNotification {
+    return {
+      id: n.id,
+      type: n.type,
+      title: n.title,
+      message: n.message,
+      time: this.relativeTime(n.createdAtUtc),
+      read: n.isRead,
+      priority: 'normal',
+    };
   }
 
   private mapAdminFromApi(
@@ -149,145 +213,78 @@ export class DashboardApiService {
     appointments: AppointmentDto[],
     notifications: NotificationDto[],
   ): AdminDashboardData {
-    const base = MOCK_ADMIN_DASHBOARD;
     return {
-      ...this.personalizeAdmin(base),
+      ...this.personalizeAdmin(),
       kpis: [
-        { ...base.kpis[0], title: 'Total Patients', value: stats.totalPatients.toLocaleString(), trendValue: '+4.2%', trend: 'up' as const },
-        { ...base.kpis[3], title: 'Monthly Revenue', value: `$${(stats.revenueThisMonth / 1000000).toFixed(1)}M`, trendValue: '+1.8%', trend: 'up' as const },
-        { ...base.kpis[1], title: 'Active Doctors', value: String(stats.totalDoctors), trendValue: '0%', trend: 'neutral' as const },
-        { ...base.kpis[2], title: 'Appointments Today', value: String(stats.appointmentsToday), trendValue: '+12%', trend: 'up' as const },
+        {
+          title: 'Total Patients',
+          value: stats.totalPatients.toLocaleString(),
+          subtitle: `${stats.newPatientsThisMonth} new this month`,
+          ...this.trend(stats.newPatientsThisMonth, stats.newPatientsLastMonth),
+          ...KPI_ICONS.patients,
+        },
+        {
+          title: 'Active Doctors',
+          value: String(stats.totalDoctors),
+          subtitle: `${stats.upcomingAppointments} upcoming visits`,
+          trend: 'neutral',
+          trendValue: undefined,
+          ...KPI_ICONS.doctors,
+        },
+        {
+          title: 'Appointments Today',
+          value: String(stats.appointmentsToday),
+          subtitle: `${stats.appointmentsYesterday} yesterday`,
+          ...this.trend(stats.appointmentsToday, stats.appointmentsYesterday),
+          ...KPI_ICONS.appointments,
+        },
+        {
+          title: 'Monthly Revenue',
+          value: this.formatRevenue(stats.revenueThisMonth),
+          subtitle: `${this.formatRevenue(stats.revenueLastMonth)} last month`,
+          ...this.trend(stats.revenueThisMonth, stats.revenueLastMonth),
+          ...KPI_ICONS.revenue,
+        },
       ],
-      appointmentStatus: stats.appointmentsByStatus.map((item, index) => ({
+      appointmentStatus: stats.appointmentsByStatus.map((item) => ({
         label: item.status,
         value: item.count,
-        color: base.appointmentStatus[index]?.color ?? '#94A3B8',
+        color: STATUS_COLORS[item.status] ?? '#94A3B8',
       })),
       departmentPerformance: stats.topSpecializations.map((s) => ({
         label: s.specialization,
         count: s.appointmentCount,
       })),
-      systemHealth: [
-        { label: 'EHR Database', value: '99.9% Uptime', tone: 'success' as const },
-        { label: 'API Gateway', value: '124ms latency', tone: 'default' as const },
-        { label: 'Pending Invoices', value: String(stats.pendingInvoices), tone: stats.pendingInvoices > 10 ? 'danger' as const : 'default' as const, progress: Math.min(stats.pendingInvoices, 100) },
-      ],
+      systemHealth: stats.systemHealth.map((h) => ({
+        label: h.label,
+        value: h.value,
+        tone: (h.tone as 'success' | 'danger' | 'default') ?? 'default',
+        progress: h.progress ?? undefined,
+      })),
+      appointmentTrend: [],
+      revenue: [],
+      activity: [],
       recentAppointments: appointments.map((a) => this.toAppointmentItem(a)),
       notifications: notifications.map((n) => this.toNotification(n)),
     };
   }
 
-  private mapDoctorFromApi(
-    doctor: DoctorDto,
-    performance: DoctorPerformanceDto,
-    appointments: AppointmentDto[],
-    prescriptions: PrescriptionDto[],
-    labReports: import('../../lab-reports/models/lab-report.models').LabReportDto[],
-    notifications: NotificationDto[],
-  ): DoctorDashboardData {
-    const base = MOCK_DOCTOR_DASHBOARD;
-    const seen = appointments.filter((a) => a.status === 'Completed').length;
-    const waiting = appointments.filter((a) => a.status === 'CheckedIn').length;
-    const cancelled = appointments.filter((a) => a.status === 'Cancelled').length;
-    return {
-      ...this.personalizeDoctor(base),
-      kpis: [
-        { ...base.kpis[0], title: 'Total Appts', value: String(appointments.length) },
-        { ...base.kpis[1], title: 'Seen', value: String(seen) },
-        { ...base.kpis[2], title: 'Waiting', value: String(waiting) },
-        { ...base.kpis[3], title: 'Cancellations', value: String(cancelled) },
-      ],
-      schedule: appointments.map((a) => this.toScheduleItem(a)),
-      weeklyPatients: [{ label: 'This week', patients: performance.distinctPatients }],
-      prescriptions: prescriptions.map((p) => this.toPrescriptionItem(p)),
-      notifications: notifications.map((n) => this.toNotification(n)),
-      attentionItems: labReports.length
-        ? labReports.map((r) => ({
-            id: String(r.id),
-            title: r.title,
-            subtitle: `${r.patientName} · ${this.relativeTime(r.uploadedAtUtc)}`,
-            status: r.status === 'Reviewed' ? 'NORMAL' : 'REVIEW NEEDED',
-            tone: r.status === 'Reviewed' ? 'success' as const : 'danger' as const,
-          }))
-        : base.attentionItems,
-    };
+  private trend(current: number, previous: number): Pick<DashboardKpi, 'trend' | 'trendValue'> {
+    if (previous === 0) {
+      return current > 0 ? { trend: 'up', trendValue: 'new' } : { trend: 'neutral', trendValue: '0%' };
+    }
+    const pct = ((current - previous) / previous) * 100;
+    const rounded = Math.abs(pct).toFixed(1);
+    if (Math.abs(pct) < 0.5) return { trend: 'neutral', trendValue: '0%' };
+    return pct > 0
+      ? { trend: 'up', trendValue: `+${rounded}%` }
+      : { trend: 'down', trendValue: `-${rounded}%` };
   }
 
-  private mapPatientFromApi(
-    appointments: AppointmentDto[],
-    latestVital: VitalSignDto | null,
-    prescriptions: PrescriptionDto[],
-    invoices: import('../../billing/models/billing.models').InvoiceDto[],
-    notifications: NotificationDto[],
-  ): PatientDashboardData {
-    const base = MOCK_PATIENT_DASHBOARD;
-    const upcoming = appointments.filter((a) => !['Cancelled', 'Completed', 'NoShow'].includes(a.status));
-    const balanceDue = invoices.reduce((sum, inv) => sum + inv.balanceDue, 0);
-    return {
-      ...this.personalizePatient(base),
-      kpis: base.kpis,
-      upcomingAppointments: upcoming.map((a) => this.toAppointmentItem(a)),
-      prescriptions: prescriptions.map((p) => this.toPrescriptionItem(p)),
-      balanceDue,
-      balanceDueDate: balanceDue > 0 ? 'Soon' : null,
-      nextAppointment: upcoming[0] ? this.toAppointmentItem(upcoming[0]) : null,
-      vitals: latestVital ? this.toVitals(latestVital) : base.vitals,
-      notifications: notifications.map((n) => this.toNotification(n)),
-    };
-  }
-
-  private mapReceptionFromApi(
-    appointments: AppointmentDto[],
-    waitlist: WaitlistEntryDto[],
-    doctors: DoctorDto[],
-    invoices: import('../../billing/models/billing.models').InvoiceDto[],
-    notifications: NotificationDto[],
-  ): ReceptionistDashboardData {
-    const base = MOCK_RECEPTIONIST_DASHBOARD;
-    const checkedIn = appointments.filter((a) => a.status === 'CheckedIn').length;
-    return {
-      ...this.personalizeReception(base),
-      kpis: [
-        { ...base.kpis[0], value: String(appointments.length) },
-        { ...base.kpis[1], value: String(checkedIn) },
-        { ...base.kpis[2], value: String(waitlist.length) },
-        { ...base.kpis[3], value: String(doctors.filter((d) => d.isAvailable).length) },
-      ],
-      queue: appointments.slice(0, 8).map((a, i) => this.toQueueItem(a, i)),
-      doctors: doctors.slice(0, 6).map((d) => ({
-        id: String(d.id),
-        name: d.fullName,
-        specialty: d.specialization,
-        status: d.isAvailable ? 'available' as const : 'busy' as const,
-      })),
-      rooms: doctors.slice(0, 4).map((d, i) => ({
-        id: String(i + 1),
-        name: `Consultation ${i + 1}`,
-        occupied: !d.isAvailable,
-        detail: !d.isAvailable ? `Occupied - ${d.fullName}` : undefined,
-      })),
-      billingMetrics: [
-        {
-          label: "Today's Revenue",
-          value: `$${invoices.reduce((s, i) => s + i.amountPaid, 0).toLocaleString()}`,
-          subtitle: `${invoices.length} invoices processed`,
-          tone: 'success' as const,
-        },
-        {
-          label: 'Pending Copays',
-          value: String(invoices.filter((i) => i.balanceDue > 0).length),
-          subtitle: 'Action required before close',
-          tone: 'danger' as const,
-        },
-        {
-          label: 'Insurance Claims',
-          value: String(invoices.filter((i) => i.status === 'Pending').length),
-          subtitle: 'Ready to batch submit',
-          tone: 'default' as const,
-        },
-      ],
-      notifications: notifications.map((n) => this.toNotification(n)),
-    };
+  private formatRevenue(amount: number): string {
+    if (amount >= 1_000_000) return `$${(amount / 1_000_000).toFixed(1)}M`;
+    if (amount >= 1_000) return `$${(amount / 1_000).toFixed(1)}k`;
+    return `$${amount.toFixed(0)}`;
   }
 
   private toAppointmentItem(a: AppointmentDto) {
@@ -299,43 +296,6 @@ export class DashboardApiService {
       time: a.startTime,
       type: a.reason ?? 'Consultation',
       status: a.status,
-    };
-  }
-
-  private toScheduleItem(a: AppointmentDto): DashboardScheduleItem {
-    return {
-      id: String(a.id),
-      time: a.startTime,
-      duration: '30 min',
-      patient: a.patientName,
-      type: a.reason ?? 'Consultation',
-      status: a.status,
-      highlight: a.status === 'CheckedIn',
-    };
-  }
-
-  private toQueueItem(a: AppointmentDto, index: number): DashboardQueueItem {
-    return {
-      id: a.id,
-      name: a.patientName,
-      time: a.startTime,
-      doctor: a.doctorName,
-      status: a.status,
-      waitTime: `${index * 5} min`,
-    };
-  }
-
-  private toPrescriptionItem(p: PrescriptionDto): DashboardPrescriptionItem {
-    return {
-      id: String(p.id),
-      patient: p.patientName,
-      date: p.appointmentDate,
-      status: 'Active',
-      medications: p.items.map((item) => ({
-        name: item.medicineName,
-        dose: item.dosage,
-        freq: item.frequency,
-      })),
     };
   }
 
@@ -351,19 +311,9 @@ export class DashboardApiService {
     };
   }
 
-  private toVitals(v: VitalSignDto) {
-    return [
-      { label: 'Pulse', value: String(v.pulseBpm ?? '—'), unit: 'bpm', status: 'Normal', statusColor: 'text-emerald-600' },
-      { label: 'BP', value: `${v.systolicBpMmHg ?? '—'}/${v.diastolicBpMmHg ?? '—'}`, unit: 'mmHg', status: 'Normal', statusColor: 'text-emerald-600' },
-      { label: 'SpO₂', value: String(v.oxygenSaturationPercent ?? '—'), unit: '%', status: 'Normal', statusColor: 'text-emerald-600' },
-      { label: 'BMI', value: v.bmi?.toFixed(1) ?? '—', unit: '', status: 'Normal', statusColor: 'text-emerald-600' },
-    ];
-  }
-
-  private personalizeAdmin(data: AdminDashboardData): AdminDashboardData {
+  private personalizeAdmin(): Pick<AdminDashboardData, 'greeting' | 'subtitle'> {
     const name = this.firstName();
     return {
-      ...data,
       greeting: 'Dashboard Overview',
       subtitle: name
         ? `Welcome back, ${name}. Here is what's happening today.`
@@ -371,29 +321,24 @@ export class DashboardApiService {
     };
   }
 
-  private personalizeDoctor(data: DoctorDashboardData): DoctorDashboardData {
+  private personalizeDoctor(): Pick<DoctorDashboardData, 'greeting' | 'subtitle'> {
     const name = this.auth.user()?.fullName ?? 'Doctor';
-    const count = data.schedule.filter((s) => s.type !== 'internal').length;
     return {
-      ...data,
       greeting: `Good morning, ${name.split(' ')[0]}`,
-      subtitle: `You have ${count} patients scheduled for today.`,
+      subtitle: 'Your schedule and attention items for today.',
     };
   }
 
-  private personalizePatient(data: PatientDashboardData): PatientDashboardData {
+  private personalizePatient(): Pick<PatientDashboardData, 'greeting' | 'subtitle'> {
     const name = this.firstName() ?? 'there';
     return {
-      ...data,
       greeting: `Welcome back, ${name}`,
       subtitle: 'Here is a summary of your patient portal for today.',
     };
   }
 
-  private personalizeReception(data: ReceptionistDashboardData): ReceptionistDashboardData {
-    const name = this.firstName();
+  private personalizeReception(): Pick<ReceptionistDashboardData, 'greeting' | 'subtitle'> {
     return {
-      ...data,
       greeting: 'Reception Dashboard',
       subtitle: this.todayLabel(),
     };
@@ -410,10 +355,6 @@ export class DashboardApiService {
       day: 'numeric',
       year: 'numeric',
     }).format(new Date());
-  }
-
-  private todayIso(): string {
-    return new Date().toISOString().slice(0, 10);
   }
 
   private relativeTime(iso: string): string {

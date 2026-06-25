@@ -55,7 +55,34 @@ public class ChangePasswordRequest
     public string NewPassword { get; set; } = null!;
 }
 
-public record UserDto(int Id, string Email, string FullName, string? PhoneNumber, string Role, bool IsActive, DateTime CreatedAtUtc);
+public class ForgotPasswordRequest
+{
+    [Required, EmailAddress, MaxLength(256)]
+    public string Email { get; set; } = null!;
+}
+
+public class CompletePasswordResetRequest
+{
+    [Required, MaxLength(200)]
+    public string Token { get; set; } = null!;
+
+    [Required, StrongPassword, MaxLength(100)]
+    public string NewPassword { get; set; } = null!;
+}
+
+/// <summary>Generic response for forgot-password. ResetToken is populated in Development for demo flows.</summary>
+public record ForgotPasswordResponse(string Message, string? ResetToken = null);
+
+public record UserDto(
+    int Id,
+    string Email,
+    string FullName,
+    string? PhoneNumber,
+    string Role,
+    bool IsActive,
+    DateTime CreatedAtUtc,
+    int? DoctorId = null,
+    int? PatientId = null);
 
 public record AuthResponse(
     string AccessToken,

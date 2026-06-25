@@ -2,6 +2,7 @@ using HAPM.Application.Common;
 using HAPM.Application.DTOs;
 using HAPM.Application.Interfaces;
 using HAPM.Application.Mapping;
+using Microsoft.EntityFrameworkCore;
 
 namespace HAPM.Application.Services;
 
@@ -50,4 +51,10 @@ public class AuditLogService : IAuditLogService
             .Select(Projections.AuditLog)
             .ToPagedResultAsync(query.Page, query.PageSize, ct);
     }
+
+    public async Task<AuditLogDto> GetByIdAsync(int id, CancellationToken ct = default) =>
+        await _uow.AuditLogs.Query()
+            .Where(l => l.Id == id)
+            .Select(Projections.AuditLog)
+            .FirstOrDefaultAsync(ct) ?? throw new NotFoundException("Audit log", id);
 }

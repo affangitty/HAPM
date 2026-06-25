@@ -13,6 +13,7 @@ using HAPM.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
@@ -153,19 +154,28 @@ try
 
     var app = builder.Build();
 
-    // Apply migrations and seed initial data
+  // Migrations always run; demo seeding is development-only.
     using (var scope = app.Services.CreateScope())
     {
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+        var isDevelopment = app.Environment.IsDevelopment();
         try
         {
             var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
-            await DbSeeder.SeedAsync(context, hasher, logger);
+            await context.Database.MigrateAsync();
+
+            if (isDevelopment)
+            {
+                var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
+                await DbSeeder.SeedAsync(context, hasher, logger, isDevelopment: true);
+                SeedFileBootstrap.EnsureDemoLabFile(builder.Configuration);
+            }
         }
         catch (Exception ex)
         {
             logger.LogCritical(ex, "Database migration/seeding failed. Verify PostgreSQL is running and the connection string is correct.");
+            if (!isDevelopment)
+                throw;
         }
     }
 
@@ -175,12 +185,15 @@ try
     if (!app.Environment.IsDevelopment())
         app.UseHttpsRedirection();
 
-    app.UseSwagger();
-    app.UseSwaggerUI(options =>
+    if (app.Environment.IsDevelopment())
     {
-        options.SwaggerEndpoint("/swagger/v1/swagger.json", "HAPM API v1");
-        options.DocumentTitle = "HAPM API";
-    });
+        app.UseSwagger();
+        app.UseSwaggerUI(options =>
+        {
+            options.SwaggerEndpoint("/swagger/v1/swagger.json", "HAPM API v1");
+            options.DocumentTitle = "HAPM API";
+        });
+    }
 
     app.UseCors("Frontend");
     app.UseRateLimiter();
@@ -189,7 +202,10 @@ try
 
     app.MapControllers();
     app.MapHapmHubs();
-    app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription();
+    if (app.Environment.IsDevelopment())
+        app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription();
+    else
+        app.MapGet("/", () => Results.Ok(new { name = "HAPM API", health = "/health" })).ExcludeFromDescription();
 
     // /health verifies database connectivity; /health/live only confirms the process is up.
     app.MapHealthChecks("/health").DisableRateLimiting();

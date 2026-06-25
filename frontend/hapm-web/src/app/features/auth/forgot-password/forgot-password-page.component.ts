@@ -1,10 +1,15 @@
 import { Component, inject, signal } from '@angular/core';
+import { ApiErrorService } from '../../../core/api/api-error.service';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
 import { AuthPageShellComponent } from '../components/auth-page-shell.component';
 import { FormFieldComponent } from '../../../shared/components/forms/form-field/form-field.component';
 import { UiInputComponent } from '../../../shared/components/ui/input/ui-input.component';
+import { getFormControlError, markFormGroupTouched, guardFormSubmit } from '../../../shared/utils/form-errors.util';
+import { extractApiErrorMessage } from '../../../core/auth/utils/api-error.util';
+import { environment } from '../../../../environments/environment';
+import { storePasswordResetToken } from '../utils/password-reset-token.util';
 
 @Component({
   selector: 'app-forgot-password-page',
@@ -41,20 +46,11 @@ import { UiInputComponent } from '../../../shared/components/ui/input/ui-input.c
 
       <form class="space-y-4" [formGroup]="form" (ngSubmit)="submit()">
         <app-form-field label="Work email address" [error]="fieldError('email')">
-          <div class="relative">
-            <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-              <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-                <path d="m22 6-10 7L2 6" />
-              </svg>
-            </span>
-            <app-ui-input
-              type="email"
-              formControlName="email"
-              placeholder="your@hapm.local"
-              class="h-10 rounded-xl pl-10"
-            />
-          </div>
+          <app-ui-input
+            type="email"
+            formControlName="email"
+            placeholder="your@hapm.local"
+          />
         </app-form-field>
 
         @if (errorMessage()) {
@@ -83,6 +79,8 @@ import { UiInputComponent } from '../../../shared/components/ui/input/ui-input.c
   `,
 })
 export class ForgotPasswordPageComponent {
+  private readonly toasts = inject(ApiErrorService);
+
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
@@ -95,36 +93,27 @@ export class ForgotPasswordPageComponent {
   });
 
   fieldError(controlName: 'email'): string | null {
-    const control = this.form.controls[controlName];
-    if (!control.touched || !control.errors) return null;
-    if (control.errors['required']) return 'This field is required.';
-    if (control.errors['email']) return 'Enter a valid email address.';
-    return 'Invalid value.';
+    return getFormControlError(this.form, controlName);
   }
 
   submit(): void {
-    if (this.form.invalid) {
-      this.form.markAllAsTouched();
-      return;
-    }
+    if (!guardFormSubmit(this.form, this.toasts)) return;
 
     const email = this.form.controls.email.value;
     this.loading.set(true);
     this.errorMessage.set(null);
 
     this.auth.requestPasswordReset({ email }).subscribe({
-      next: () => {
+      next: (res) => {
         this.loading.set(false);
+        if (res.resetToken && !environment.production) storePasswordResetToken(res.resetToken);
         void this.router.navigate(['/auth/reset-password/sent'], {
           queryParams: { email },
         });
       },
-      error: () => {
-        // API endpoint not available — preserve UX flow for design demo.
+      error: (err) => {
         this.loading.set(false);
-        void this.router.navigate(['/auth/reset-password/sent'], {
-          queryParams: { email },
-        });
+        this.errorMessage.set(extractApiErrorMessage(err, 'Unable to request password reset.'));
       },
     });
   }

@@ -16,24 +16,24 @@ import { InvoiceItemDto } from '../models/billing.models';
     } @else {
       <div class="overflow-x-auto rounded-xl border">
         <app-ui-table>
-          <app-ui-table-header>
-            <app-ui-table-row>
-              <app-ui-table-head>Description</app-ui-table-head>
-              <app-ui-table-head>Qty</app-ui-table-head>
-              <app-ui-table-head>Unit price</app-ui-table-head>
-              <app-ui-table-head>Amount</app-ui-table-head>
-            </app-ui-table-row>
-          </app-ui-table-header>
-          <app-ui-table-body>
+          <thead appUiTableHeader>
+            <tr appUiTableRow>
+              <th appUiTableHead>Description</th>
+              <th appUiTableHead>Qty</th>
+              <th appUiTableHead>Unit price</th>
+              <th appUiTableHead>Amount</th>
+            </tr>
+          </thead>
+          <tbody appUiTableBody>
             @for (item of items(); track item.id) {
-              <app-ui-table-row>
-                <app-ui-table-cell>{{ item.description }}</app-ui-table-cell>
-                <app-ui-table-cell>{{ item.quantity }}</app-ui-table-cell>
-                <app-ui-table-cell>{{ '$' + item.unitPrice.toFixed(2) }}</app-ui-table-cell>
-                <app-ui-table-cell class="font-medium">{{ '$' + item.amount.toFixed(2) }}</app-ui-table-cell>
-              </app-ui-table-row>
+              <tr appUiTableRow>
+                <td appUiTableCell>{{ item.description }}</td>
+                <td appUiTableCell>{{ item.quantity }}</td>
+                <td appUiTableCell>{{ '$' + item.unitPrice.toFixed(2) }}</td>
+                <td appUiTableCell class="font-medium">{{ '$' + item.amount.toFixed(2) }}</td>
+              </tr>
             }
-          </app-ui-table-body>
+          </tbody>
         </app-ui-table>
       </div>
     }

@@ -21,6 +21,7 @@ public interface IUnitOfWork
 {
     IRepository<User> Users { get; }
     IRepository<RefreshToken> RefreshTokens { get; }
+    IRepository<PasswordResetToken> PasswordResetTokens { get; }
     IRepository<Doctor> Doctors { get; }
     IRepository<DoctorSchedule> DoctorSchedules { get; }
     IRepository<Patient> Patients { get; }

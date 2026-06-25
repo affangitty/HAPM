@@ -1,5 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { getFormControlError, guardFormSubmit } from '../../../shared/utils/form-errors.util';
+import { ApiErrorService } from '../../../core/api/api-error.service';
 import { Router, RouterLink } from '@angular/router';
 import { extractApiErrorMessage } from '../../../core/auth/utils/api-error.util';
 import { FormFieldComponent } from '../../../shared/components/forms/form-field/form-field.component';
@@ -15,6 +17,7 @@ import {
 } from '../../auth/validators/password.validators';
 import { PatientsApiService } from '../data/patients-api.service';
 import { Gender } from '../models/patient.models';
+import { getRolePrefix, roleBase, roleRoute } from '../../../shared/utils/role-prefix.util';
 
 @Component({
   selector: 'app-patient-register-page',
@@ -91,6 +94,7 @@ export class PatientRegisterPageComponent {
   private readonly api = inject(PatientsApiService);
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
+  private readonly toasts = inject(ApiErrorService);
 
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
@@ -126,16 +130,17 @@ export class PatientRegisterPageComponent {
   }
 
   submit(): void {
-    if (this.form.invalid) {
-      this.form.markAllAsTouched();
-      return;
-    }
+    if (!guardFormSubmit(this.form, this.toasts, {
+      fullName: 'Full name', email: 'Email', phoneNumber: 'Phone', password: 'Password',
+      dateOfBirth: 'Date of birth', gender: 'Gender',
+    }, { strongPassword: STRONG_PASSWORD_MESSAGE })) return;
     this.saving.set(true);
     this.error.set(null);
     this.api.create(this.form.getRawValue()).subscribe({
       next: (patient) => {
         this.saving.set(false);
-        void this.router.navigateByUrl(`${this.basePath()}/patients/${patient.id}`);
+        this.toasts.showSuccess(`Patient ${patient.fullName} registered successfully.`);
+        void this.router.navigateByUrl(roleRoute(this.router, 'patients', String(patient.id)));
       },
       error: (err) => {
         this.saving.set(false);
@@ -145,10 +150,6 @@ export class PatientRegisterPageComponent {
   }
 
   listLink(): string {
-    return `${this.basePath()}/patients`;
-  }
-
-  private basePath(): string {
-    return `/${this.router.url.split('/').filter(Boolean)[0]}`;
+    return roleRoute(this.router, 'patients');
   }
 }

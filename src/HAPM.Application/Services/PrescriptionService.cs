@@ -48,8 +48,8 @@ public class PrescriptionService : IPrescriptionService
         }
 
         prescriptions = query.SortDescending
-            ? prescriptions.OrderBy(p => p.CreatedAtUtc)
-            : prescriptions.OrderByDescending(p => p.CreatedAtUtc);
+            ? prescriptions.OrderByDescending(p => p.CreatedAtUtc)
+            : prescriptions.OrderBy(p => p.CreatedAtUtc);
 
         return await prescriptions.Select(Projections.Prescription).ToPagedResultAsync(query.Page, query.PageSize, ct);
     }

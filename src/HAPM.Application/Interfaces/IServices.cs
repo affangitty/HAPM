@@ -11,6 +11,8 @@ public interface IAuthService
     Task<AuthResponse> RefreshTokenAsync(RefreshTokenRequest request, CancellationToken ct = default);
     Task LogoutAsync(RefreshTokenRequest request, CancellationToken ct = default);
     Task ChangePasswordAsync(ChangePasswordRequest request, CancellationToken ct = default);
+    Task<ForgotPasswordResponse> ForgotPasswordAsync(ForgotPasswordRequest request, bool includeDevToken, CancellationToken ct = default);
+    Task ResetPasswordAsync(CompletePasswordResetRequest request, CancellationToken ct = default);
     Task<UserDto> GetCurrentUserAsync(CancellationToken ct = default);
 }
 
@@ -26,6 +28,7 @@ public interface IDoctorService
 {
     Task<PagedResult<DoctorDto>> GetPagedAsync(DoctorQueryParams query, CancellationToken ct = default);
     Task<DoctorDto> GetByIdAsync(int id, CancellationToken ct = default);
+    Task<DoctorDto> GetCurrentAsync(CancellationToken ct = default);
     Task<DoctorDto> CreateAsync(CreateDoctorRequest request, CancellationToken ct = default);
     Task<DoctorDto> UpdateAsync(int id, UpdateDoctorRequest request, CancellationToken ct = default);
     Task<DoctorDto> UpdateOwnProfileAsync(int id, UpdateOwnDoctorProfileRequest request, CancellationToken ct = default);
@@ -96,6 +99,7 @@ public interface INotificationService
 {
     Task NotifyAsync(int userId, NotificationType type, string title, string message, CancellationToken ct = default);
     Task<PagedResult<NotificationDto>> GetMyNotificationsAsync(PaginationParams query, bool unreadOnly, CancellationToken ct = default);
+    Task<NotificationDto> GetByIdAsync(int id, CancellationToken ct = default);
     Task<int> GetUnreadCountAsync(CancellationToken ct = default);
     Task MarkAsReadAsync(int id, CancellationToken ct = default);
     Task MarkAllAsReadAsync(CancellationToken ct = default);
@@ -106,6 +110,9 @@ public interface IDashboardService
     Task<DashboardStatsDto> GetStatsAsync(CancellationToken ct = default);
     Task<IReadOnlyList<PeakHourCellDto>> GetPeakHoursAsync(DateOnly? fromDate, DateOnly? toDate, CancellationToken ct = default);
     Task<IReadOnlyList<SpecializationRevenueDto>> GetRevenueBySpecializationAsync(CancellationToken ct = default);
+    Task<DoctorRoleDashboardDto> GetDoctorDashboardAsync(CancellationToken ct = default);
+    Task<PatientRoleDashboardDto> GetPatientDashboardAsync(CancellationToken ct = default);
+    Task<ReceptionistRoleDashboardDto> GetReceptionistDashboardAsync(CancellationToken ct = default);
 }
 
 public interface IVitalSignService
@@ -125,6 +132,7 @@ public interface IDoctorLeaveService
 public interface IReviewService
 {
     Task<PagedResult<ReviewDto>> GetPagedAsync(ReviewQueryParams query, CancellationToken ct = default);
+    Task<ReviewDto> GetByIdAsync(int id, CancellationToken ct = default);
     Task<ReviewDto> CreateAsync(CreateReviewRequest request, CancellationToken ct = default);
     Task DeleteAsync(int id, CancellationToken ct = default);
 }
@@ -132,6 +140,7 @@ public interface IReviewService
 public interface IWaitlistService
 {
     Task<PagedResult<WaitlistEntryDto>> GetPagedAsync(WaitlistQueryParams query, CancellationToken ct = default);
+    Task<WaitlistEntryDto> GetByIdAsync(int id, CancellationToken ct = default);
     Task<WaitlistEntryDto> JoinAsync(JoinWaitlistRequest request, CancellationToken ct = default);
     Task CancelAsync(int id, CancellationToken ct = default);
 }
@@ -148,6 +157,7 @@ public interface IPrescriptionTemplateService
 public interface IAuditLogService
 {
     Task<PagedResult<AuditLogDto>> GetPagedAsync(AuditLogQueryParams query, CancellationToken ct = default);
+    Task<AuditLogDto> GetByIdAsync(int id, CancellationToken ct = default);
 }
 
 public record CsvExport(byte[] Content, string FileName);

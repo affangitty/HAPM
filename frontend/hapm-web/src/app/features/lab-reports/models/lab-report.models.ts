@@ -35,6 +35,14 @@ export interface UploadLabReportRequest {
   file: File;
 }
 
+export interface UpdateLabReportRequest {
+  reportType: string;
+  title: string;
+  doctorId?: number;
+  appointmentId?: number;
+  file?: File;
+}
+
 export interface ReviewLabReportRequest {
   remarks: string;
 }

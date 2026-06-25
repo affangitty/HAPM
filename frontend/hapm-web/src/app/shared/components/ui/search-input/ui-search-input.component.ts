@@ -14,6 +14,7 @@ import { cn } from '../../../utils/cn';
       <input
         type="search"
         [placeholder]="placeholder()"
+        aria-label="Search patients, doctors, appointments, and billing"
         [(ngModel)]="query"
         (ngModelChange)="searchChange.emit($event)"
         class="h-9 w-full rounded-lg border bg-muted pl-9 pr-3 text-sm focus-ring"

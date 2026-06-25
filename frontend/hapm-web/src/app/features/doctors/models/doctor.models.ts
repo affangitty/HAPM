@@ -136,4 +136,4 @@ export interface CreateDoctorLeaveRequest {
   reason: string;
 }
 
-export type DoctorDetailTab = 'overview' | 'schedule' | 'availability' | 'reviews';
+export type DoctorDetailTab = 'overview' | 'schedule' | 'availability' | 'reviews' | 'performance';

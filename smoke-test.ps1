@@ -1,6 +1,6 @@
 # End-to-end smoke test against a locally running HAPM API.
 $ErrorActionPreference = "Stop"
-$base = "http://localhost:5080"
+$base = "http://localhost:5168"
 
 function Login($email, $password) {
     (Invoke-RestMethod -Method Post -Uri "$base/api/auth/login" -ContentType "application/json" `

@@ -9,7 +9,7 @@ export const roleGuard: CanActivateFn = (route) => {
 
   const allowed = (route.data['roles'] as UserRole[] | undefined) ?? [];
   if (allowed.length === 0) {
-    return true;
+    return router.createUrlTree(['/errors/unauthorized']);
   }
 
   if (auth.hasRole(...allowed)) {

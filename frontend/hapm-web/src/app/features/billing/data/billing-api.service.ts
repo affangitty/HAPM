@@ -9,7 +9,6 @@ import {
   CreateInvoiceRequest,
   InvoiceDto,
   InvoiceQueryParams,
-  PaymentDto,
   UpdateInvoiceRequest,
 } from '../models/billing.models';
 
@@ -37,10 +36,6 @@ export class BillingApiService {
 
   addPayment(id: number, request: AddPaymentRequest): Observable<InvoiceDto> {
     return this.api.post<InvoiceDto>(`/invoices/${id}/payments`, request);
-  }
-
-  getPayments(id: number): Observable<PaymentDto[]> {
-    return this.api.get<PaymentDto[]>(`/invoices/${id}/payments`);
   }
 
   cancel(id: number): Observable<void> {

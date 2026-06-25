@@ -11,4 +11,8 @@ export class AuditLogsApiService {
   list(params: AuditLogQueryParams): Observable<PagedResult<AuditLogDto>> {
     return this.api.getPaged<AuditLogDto>('/audit-logs', params);
   }
+
+  getById(id: number): Observable<AuditLogDto> {
+    return this.api.get<AuditLogDto>(`/audit-logs/${id}`);
+  }
 }

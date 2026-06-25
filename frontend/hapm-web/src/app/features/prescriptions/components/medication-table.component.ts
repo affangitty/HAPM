@@ -28,28 +28,28 @@ import { PrescriptionItemDto } from '../models/prescription.models';
     } @else {
       <div class="overflow-x-auto rounded-xl border">
         <app-ui-table>
-          <app-ui-table-header>
-            <app-ui-table-row>
-              <app-ui-table-head>Medicine</app-ui-table-head>
-              <app-ui-table-head>Dosage</app-ui-table-head>
-              <app-ui-table-head>Frequency</app-ui-table-head>
-              <app-ui-table-head>Duration</app-ui-table-head>
-              <app-ui-table-head class="hidden sm:table-cell">Instructions</app-ui-table-head>
-            </app-ui-table-row>
-          </app-ui-table-header>
-          <app-ui-table-body>
+          <thead appUiTableHeader>
+            <tr appUiTableRow>
+              <th appUiTableHead>Medicine</th>
+              <th appUiTableHead>Dosage</th>
+              <th appUiTableHead>Frequency</th>
+              <th appUiTableHead>Duration</th>
+              <th appUiTableHead class="hidden sm:table-cell">Instructions</th>
+            </tr>
+          </thead>
+          <tbody appUiTableBody>
             @for (item of items(); track item.id ?? item.medicineName + $index; let i = $index) {
-              <app-ui-table-row>
-                <app-ui-table-cell class="font-medium">{{ item.medicineName }}</app-ui-table-cell>
-                <app-ui-table-cell>{{ item.dosage }}</app-ui-table-cell>
-                <app-ui-table-cell>{{ item.frequency }}</app-ui-table-cell>
-                <app-ui-table-cell>{{ item.durationDays }} days</app-ui-table-cell>
-                <app-ui-table-cell class="hidden sm:table-cell text-muted-foreground">
+              <tr appUiTableRow>
+                <td appUiTableCell class="font-medium">{{ item.medicineName }}</td>
+                <td appUiTableCell>{{ item.dosage }}</td>
+                <td appUiTableCell>{{ item.frequency }}</td>
+                <td appUiTableCell>{{ item.durationDays }} days</td>
+                <td appUiTableCell class="hidden sm:table-cell text-muted-foreground">
                   {{ item.instructions || '—' }}
-                </app-ui-table-cell>
-              </app-ui-table-row>
+                </td>
+              </tr>
             }
-          </app-ui-table-body>
+          </tbody>
         </app-ui-table>
       </div>
     }

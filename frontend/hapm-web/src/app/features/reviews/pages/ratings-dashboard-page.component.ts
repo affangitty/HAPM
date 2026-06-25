@@ -1,5 +1,7 @@
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import { UiEmptyStateComponent } from '../../../shared/components/ui/empty-state/ui-empty-state.component';
+import { setPageLoadFailed } from '../../../shared/utils/page-load.util';
 import { DoctorsApiService } from '../../doctors/data/doctors-api.service';
 import { DoctorPerformanceDto } from '../../doctors/models/doctor.models';
 import { UiKpiCardComponent } from '../../../shared/components/ui/kpi-card/ui-kpi-card.component';
@@ -10,11 +12,13 @@ import { UiSkeletonComponent } from '../../../shared/components/ui/skeleton/ui-s
 import { StarRatingComponent } from '../components/star-rating.component';
 import { ReviewsApiService } from '../data/reviews-api.service';
 import { ReviewDto } from '../models/review.models';
+import { getRolePrefix, roleBase, roleRoute } from '../../../shared/utils/role-prefix.util';
 
 @Component({
   selector: 'app-ratings-dashboard-page',
   standalone: true,
   imports: [
+    UiEmptyStateComponent,
     RouterLink, UiPageHeaderComponent, UiButtonComponent, UiKpiCardComponent,
     UiCardComponent, UiCardContentComponent, UiSkeletonComponent, StarRatingComponent,
   ],
@@ -28,6 +32,8 @@ import { ReviewDto } from '../models/review.models';
 
     @if (loading()) {
       <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><app-ui-skeleton class="h-28" /><app-ui-skeleton class="h-28" /><app-ui-skeleton class="h-28" /><app-ui-skeleton class="h-28" /></div>
+    } @else if (loadError()) {
+      <app-ui-empty-state class="mt-6 block" [title]="loadError()!" />
     } @else {
       @if (performance(); as p) {
       <div class="mb-6 flex flex-wrap items-center gap-4">
@@ -70,6 +76,7 @@ export class RatingsDashboardPageComponent implements OnInit {
   private readonly router = inject(Router);
 
   readonly loading = signal(true);
+  readonly loadError = signal<string | null>(null);
   readonly performance = signal<DoctorPerformanceDto | null>(null);
   readonly reviews = signal<ReviewDto[]>([]);
   readonly recentReviews = computed(() => this.reviews().slice(0, 5));
@@ -79,16 +86,19 @@ export class RatingsDashboardPageComponent implements OnInit {
       next: (doctor) => {
         this.doctorsApi.getPerformance(doctor.id).subscribe({
           next: (p) => { this.performance.set(p); this.loading.set(false); },
-          error: () => this.loading.set(false),
+          error: () => setPageLoadFailed(this.loading, this.loadError),
         });
         this.reviewsApi.list({ doctorId: doctor.id, page: 1, pageSize: 10 }).subscribe({
           next: (r) => this.reviews.set(r.items),
         });
       },
-      error: () => this.loading.set(false),
+      error: () => setPageLoadFailed(this.loading, this.loadError),
     });
   }
 
   formatCount(v: number): string { return String(v); }
-  basePath(): string { return `/${this.router.url.split('/').filter(Boolean)[0]}`; }
+  basePath(): string {
+    return roleBase(this.router);
+  }
+
 }

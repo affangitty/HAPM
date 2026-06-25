@@ -37,27 +37,30 @@ import { DataTableColumn } from './data-table.models';
     } @else if (!rows().length) {
       <app-ui-empty-state [title]="emptyTitle()" [message]="emptyMessage()" />
     } @else {
+      <div class="-mx-1 overflow-x-auto">
       <app-ui-table>
-        <app-ui-table-header>
-          <app-ui-table-row>
+        <thead appUiTableHeader>
+          <tr appUiTableRow>
             @for (col of columns(); track col.key) {
-              <app-ui-table-head>{{ col.header }}</app-ui-table-head>
+              <th appUiTableHead [class]="col.headerClassName ?? ''">{{ col.header }}</th>
             }
-          </app-ui-table-row>
-        </app-ui-table-header>
-        <app-ui-table-body>
+          </tr>
+        </thead>
+        <tbody appUiTableBody>
           @for (row of rows(); track trackBy(row)) {
-            <app-ui-table-row
+            <tr
+              appUiTableRow
               [class]="rowLink() ? 'cursor-pointer hover:bg-muted/50' : ''"
               (click)="onRowActivate(row)"
             >
               @for (col of columns(); track col.key) {
-                <app-ui-table-cell [class]="col.className ?? ''">{{ col.cell(row) }}</app-ui-table-cell>
+                <td appUiTableCell [class]="col.className ?? ''">{{ col.cell(row) }}</td>
               }
-            </app-ui-table-row>
+            </tr>
           }
-        </app-ui-table-body>
+        </tbody>
       </app-ui-table>
+      </div>
 
       @if (showPagination()) {
         <app-ui-pagination

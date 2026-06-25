@@ -1,6 +1,6 @@
-# Prerequisites: API at http://localhost:5080, PostgreSQL up, base seed applied.
+# Prerequisites: API at http://localhost:5168, PostgreSQL up, base seed applied.
 $ErrorActionPreference = "Stop"
-$base = "http://localhost:5080"
+$base = "http://localhost:5168"
 $pgPassword = "affuraja"
 
 function Login($email, $password) {

@@ -1,5 +1,7 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
+import { ApiErrorService } from '../../../core/api/api-error.service';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { getFormControlError, markFormGroupTouched, guardFormSubmit } from '../../../shared/utils/form-errors.util';
 import { extractApiErrorMessage } from '../../../core/auth/utils/api-error.util';
 import { FormFieldComponent } from '../../../shared/components/forms/form-field/form-field.component';
 import { UiButtonComponent } from '../../../shared/components/ui/button/ui-button.component';
@@ -7,8 +9,11 @@ import { UiCardComponent, UiCardContentComponent } from '../../../shared/compone
 import { UiInputComponent } from '../../../shared/components/ui/input/ui-input.component';
 import { UiPageHeaderComponent } from '../../../shared/components/ui/page-header/ui-page-header.component';
 import { UiTextareaComponent } from '../../../shared/components/ui/textarea/ui-textarea.component';
-import { DoctorsApiService } from '../data/doctors-api.service';
+import { UiEmptyStateComponent } from '../../../shared/components/ui/empty-state/ui-empty-state.component';
+import { UiSkeletonComponent } from '../../../shared/components/ui/skeleton/ui-skeleton.component';
+import { setPageLoadFailed } from '../../../shared/utils/page-load.util';
 import { DoctorDto } from '../models/doctor.models';
+import { DoctorsApiService } from '../data/doctors-api.service';
 
 @Component({
   selector: 'app-doctor-profile-page',
@@ -22,11 +27,18 @@ import { DoctorDto } from '../models/doctor.models';
     UiInputComponent,
     UiTextareaComponent,
     UiButtonComponent,
+    UiEmptyStateComponent,
+    UiSkeletonComponent,
   ],
   template: `
     <app-ui-page-header title="My Profile" subtitle="Update your public doctor profile" />
 
-    @if (doctor(); as d) {
+    @if (loading()) {
+      <app-ui-skeleton class="mt-4 h-64" />
+    } @else if (loadError()) {
+      <app-ui-empty-state class="mt-6 block" [title]="loadError()!" />
+    } @else {
+      @if (doctor(); as d) {
       <app-ui-card>
         <app-ui-card-content class="p-5">
           <form class="grid gap-4 sm:grid-cols-2" [formGroup]="form" (ngSubmit)="save()">
@@ -58,14 +70,19 @@ import { DoctorDto } from '../models/doctor.models';
           </div>
         </app-ui-card-content>
       </app-ui-card>
+      }
     }
   `,
 })
 export class DoctorProfilePageComponent implements OnInit {
+  private readonly toasts = inject(ApiErrorService);
+
   private readonly api = inject(DoctorsApiService);
   private readonly fb = inject(FormBuilder);
 
   readonly doctor = signal<DoctorDto | null>(null);
+  readonly loading = signal(true);
+  readonly loadError = signal<string | null>(null);
   readonly saving = signal(false);
   readonly success = signal(false);
   readonly error = signal<string | null>(null);
@@ -81,6 +98,7 @@ export class DoctorProfilePageComponent implements OnInit {
     this.api.getCurrentDoctor().subscribe({
       next: (doctor) => {
         this.doctor.set(doctor);
+        this.loading.set(false);
         this.form.patchValue({
           fullName: doctor.fullName,
           phoneNumber: doctor.phoneNumber ?? '',
@@ -88,6 +106,7 @@ export class DoctorProfilePageComponent implements OnInit {
           biography: doctor.biography ?? '',
         });
       },
+      error: () => setPageLoadFailed(this.loading, this.loadError, 'Unable to load your profile.'),
     });
   }
 
@@ -99,7 +118,7 @@ export class DoctorProfilePageComponent implements OnInit {
   save(): void {
     const doctor = this.doctor();
     if (!doctor || this.form.invalid) {
-      this.form.markAllAsTouched();
+      markFormGroupTouched(this.form);
       return;
     }
     this.saving.set(true);

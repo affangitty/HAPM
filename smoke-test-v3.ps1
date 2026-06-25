@@ -1,7 +1,7 @@
 # Smoke test for the v3 feature set: prescription templates, follow-up reminders,
 # peak-hours heatmap, revenue by specialization, doctor performance metrics.
 $ErrorActionPreference = "Stop"
-$base = "http://localhost:5080"
+$base = "http://localhost:5168"
 
 function Login($email, $password) {
     (Invoke-RestMethod -Method Post -Uri "$base/api/auth/login" -ContentType "application/json" `

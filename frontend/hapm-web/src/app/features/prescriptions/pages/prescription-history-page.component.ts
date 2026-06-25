@@ -1,5 +1,6 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import { setPageLoadFailed } from '../../../shared/utils/page-load.util';
 import { DataTableComponent } from '../../../shared/components/data-table/data-table.component';
 import { DataTableColumn } from '../../../shared/components/data-table/data-table.models';
 import { UiButtonComponent } from '../../../shared/components/ui/button/ui-button.component';
@@ -7,6 +8,7 @@ import { UiPageHeaderComponent } from '../../../shared/components/ui/page-header
 import { DEFAULT_PAGE_SIZE } from '../../../shared/models/pagination.model';
 import { PrescriptionsApiService } from '../data/prescriptions-api.service';
 import { PrescriptionDto } from '../models/prescription.models';
+import { getRolePrefix, roleBase, roleRoute } from '../../../shared/utils/role-prefix.util';
 
 @Component({
   selector: 'app-prescription-history-page',
@@ -42,6 +44,7 @@ export class PrescriptionHistoryPageComponent implements OnInit {
   readonly totalCount = signal(0);
   readonly rows = signal<PrescriptionDto[]>([]);
   readonly loading = signal(false);
+  readonly loadError = signal<string | null>(null);
 
   readonly columns: DataTableColumn<PrescriptionDto>[] = [
     { key: 'issued', header: 'Issued', cell: (r) => new Date(r.createdAtUtc).toLocaleDateString() },
@@ -51,7 +54,7 @@ export class PrescriptionHistoryPageComponent implements OnInit {
     { key: 'medicines', header: 'Medicines', cell: (r) => String(r.items.length) },
   ];
 
-  readonly rowLink = (row: PrescriptionDto) => `${this.basePath()}/prescriptions/${row.id}`;
+  readonly rowLink = (row: PrescriptionDto) => roleRoute(this.router, 'prescriptions', String(row.id));
 
   ngOnInit(): void {
     this.load();
@@ -70,11 +73,11 @@ export class PrescriptionHistoryPageComponent implements OnInit {
         this.totalCount.set(result.totalCount);
         this.loading.set(false);
       },
-      error: () => this.loading.set(false),
+      error: () => setPageLoadFailed(this.loading, this.loadError),
     });
   }
-
   basePath(): string {
-    return `/${this.router.url.split('/').filter(Boolean)[0]}`;
+    return roleBase(this.router);
   }
+
 }

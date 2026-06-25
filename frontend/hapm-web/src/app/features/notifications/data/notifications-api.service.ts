@@ -8,6 +8,10 @@ import { NotificationDto, NotificationQueryParams } from '../models/notification
 export class NotificationsApiService {
   private readonly api = inject(ApiClientService);
 
+  getById(id: number): Observable<NotificationDto> {
+    return this.api.get<NotificationDto>(`/notifications/${id}`);
+  }
+
   list(params: NotificationQueryParams): Observable<PagedResult<NotificationDto>> {
     return this.api.getPaged<NotificationDto>('/notifications', params);
   }

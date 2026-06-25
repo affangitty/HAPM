@@ -4,6 +4,7 @@ import { FormFieldComponent } from '../../../shared/components/forms/form-field/
 import { UiButtonComponent } from '../../../shared/components/ui/button/ui-button.component';
 import { UiInputComponent } from '../../../shared/components/ui/input/ui-input.component';
 import { UiTextareaComponent } from '../../../shared/components/ui/textarea/ui-textarea.component';
+import { getControlError } from '../../../shared/utils/form-errors.util';
 import { createMedicationGroup } from './medication-form.util';
 
 @Component({
@@ -63,11 +64,9 @@ export class MedicationFormRowsComponent {
   }
 
   err(group: unknown, field: string): string | null {
-    const ctrl = (group as FormGroup).get(field);
-    if (!ctrl || !ctrl.touched || !ctrl.invalid) return null;
-    if (ctrl.errors?.['required']) return 'Required';
-    if (ctrl.errors?.['maxlength']) return 'Too long';
-    if (ctrl.errors?.['min'] || ctrl.errors?.['max']) return 'Must be 1–365 days';
-    return 'Invalid';
+    return getControlError((group as FormGroup).get(field), {
+      min: 'Must be 1–365 days.',
+      max: 'Must be 1–365 days.',
+    });
   }
 }

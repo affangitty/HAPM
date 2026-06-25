@@ -1,5 +1,7 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
+import { ApiErrorService } from '../../../core/api/api-error.service';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { getFormControlError, markFormGroupTouched, guardFormSubmit } from '../../../shared/utils/form-errors.util';
 import { Router, RouterLink } from '@angular/router';
 import { extractApiErrorMessage } from '../../../core/auth/utils/api-error.util';
 import { AuthService } from '../../../core/auth/auth.service';
@@ -13,6 +15,7 @@ import { UiTextareaComponent } from '../../../shared/components/ui/textarea/ui-t
 import { DoctorsApiService } from '../../doctors/data/doctors-api.service';
 import { PatientsApiService } from '../../patients/data/patients-api.service';
 import { WaitlistApiService } from '../data/waitlist-api.service';
+import { getRolePrefix, roleBase, roleRoute } from '../../../shared/utils/role-prefix.util';
 
 @Component({
   selector: 'app-waitlist-join-page',
@@ -67,6 +70,8 @@ import { WaitlistApiService } from '../data/waitlist-api.service';
   `,
 })
 export class WaitlistJoinPageComponent implements OnInit {
+  private readonly toasts = inject(ApiErrorService);
+
   private readonly api = inject(WaitlistApiService);
   private readonly doctorsApi = inject(DoctorsApiService);
   private readonly patientsApi = inject(PatientsApiService);
@@ -102,8 +107,8 @@ export class WaitlistJoinPageComponent implements OnInit {
   }
 
   submit(): void {
-    this.form.markAllAsTouched();
-    if (this.form.invalid) return;
+    markFormGroupTouched(this.form);
+    if (!guardFormSubmit(this.form, this.toasts)) return;
 
     this.saving.set(true);
     this.error.set(null);
@@ -119,7 +124,7 @@ export class WaitlistJoinPageComponent implements OnInit {
       .subscribe({
         next: (entry) => {
           this.saving.set(false);
-          void this.router.navigate([`${this.basePath()}/waitlist/${entry.id}`]);
+          void this.router.navigate([roleRoute(this.router, 'waitlist', String(entry.id))]);
         },
         error: (err) => {
           this.error.set(extractApiErrorMessage(err, 'Failed to join waitlist.'));
@@ -138,8 +143,8 @@ export class WaitlistJoinPageComponent implements OnInit {
     if (!ctrl || !ctrl.touched || !ctrl.invalid) return null;
     return 'Required';
   }
-
   basePath(): string {
-    return `/${this.router.url.split('/').filter(Boolean)[0]}`;
+    return roleBase(this.router);
   }
+
 }
