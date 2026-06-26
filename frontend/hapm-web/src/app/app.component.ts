@@ -1,5 +1,6 @@
-import { Component } from '@angular/core';
+import { Component, inject, OnInit } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { UserPreferencesService } from './core/preferences/user-preferences.service';
 import { ApiToastHostComponent } from './shared/components/api-toast-host/api-toast-host.component';
 
 @Component({
@@ -11,4 +12,10 @@ import { ApiToastHostComponent } from './shared/components/api-toast-host/api-to
     <app-api-toast-host />
   `,
 })
-export class AppComponent {}
+export class AppComponent implements OnInit {
+  private readonly preferences = inject(UserPreferencesService);
+
+  ngOnInit(): void {
+    this.preferences.initialize();
+  }
+}

@@ -12,7 +12,7 @@ import {
   strongPasswordValidator,
 } from '../validators/password.validators';
 import { extractApiErrorMessage } from '../../../core/auth/utils/api-error.util';
-import { consumePasswordResetToken, peekPasswordResetToken } from '../utils/password-reset-token.util';
+import { consumePasswordResetToken, resolvePasswordResetToken } from '../utils/password-reset-token.util';
 import { getFormControlError, markFormGroupTouched, guardFormSubmit } from '../../../shared/utils/form-errors.util';
 
 @Component({
@@ -127,7 +127,7 @@ export class ResetPasswordPageComponent implements OnInit {
 
   readonly loading = signal(false);
   readonly errorMessage = signal<string | null>(null);
-  readonly token = peekPasswordResetToken();
+  token: string | null = null;
   readonly settingsRoute = this.auth.getSettingsRoute();
   readonly isAuthenticated = this.auth.isAuthenticated;
 
@@ -137,7 +137,19 @@ export class ResetPasswordPageComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    if (this.auth.isAuthenticated()) {
+    const queryToken = this.route.snapshot.queryParamMap.get('token');
+    this.token = resolvePasswordResetToken(queryToken);
+
+    if (queryToken) {
+      void this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: { token: null },
+        queryParamsHandling: 'merge',
+        replaceUrl: true,
+      });
+    }
+
+    if (this.auth.isAuthenticated() && !this.token) {
       void this.router.navigateByUrl(this.auth.getSettingsRoute());
     }
   }

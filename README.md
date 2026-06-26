@@ -29,7 +29,7 @@ PostgreSQL
 
 ## Features
 
-For a complete capability list, see **[docs/FEATURES.md](docs/FEATURES.md)**.
+For a complete capability list, see **[docs/FEATURES.md](docs/FEATURES.md)**. To manually test every screen and action in the Angular app, see **[docs/Frontend_Flow_Testing.md](docs/Frontend_Flow_Testing.md)**.
 
 - **JWT authentication** with **refresh-token rotation** and revocation on logout/deactivation
 - **RBAC** with 4 roles: `Admin`, `Doctor`, `Patient`, `Receptionist`

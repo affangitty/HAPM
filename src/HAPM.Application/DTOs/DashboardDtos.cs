@@ -70,6 +70,7 @@ public record PatientRoleDashboardDto(
     IReadOnlyList<RoleDashboardPrescriptionDto> Prescriptions,
     decimal BalanceDue,
     string? BalanceDueDate,
+    int? PrimaryUnpaidInvoiceId,
     IReadOnlyList<RoleDashboardVitalDto> Vitals,
     IReadOnlyList<RoleDashboardNotificationDto> Notifications);
 

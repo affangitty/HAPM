@@ -9,7 +9,7 @@ namespace HAPM.Application.Tests.Services;
 public class AuthServiceTests : ServiceTestBase
 {
     private AuthService CreateSut() =>
-        new(Uow, TokenService, PasswordHasher, CurrentUser);
+        new(Uow, TokenService, PasswordHasher, CurrentUser, TokenHasher, EmailSender, FrontendOptions);
 
     [Fact]
     public async Task RegisterPatientAsync_creates_user_and_returns_tokens()

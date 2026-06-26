@@ -5,7 +5,9 @@ using HAPM.Application.Interfaces;
 using HAPM.Application.Mapping;
 using HAPM.Domain.Entities;
 using HAPM.Domain.Enums;
+using HAPM.Application.Configuration;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace HAPM.Application.Services;
 
@@ -15,13 +17,26 @@ public class AuthService : IAuthService
     private readonly ITokenService _tokenService;
     private readonly IPasswordHasher _passwordHasher;
     private readonly ICurrentUserService _currentUser;
+    private readonly ITokenHasher _tokenHasher;
+    private readonly IEmailSender _emailSender;
+    private readonly FrontendSettings _frontend;
 
-    public AuthService(IUnitOfWork uow, ITokenService tokenService, IPasswordHasher passwordHasher, ICurrentUserService currentUser)
+    public AuthService(
+        IUnitOfWork uow,
+        ITokenService tokenService,
+        IPasswordHasher passwordHasher,
+        ICurrentUserService currentUser,
+        ITokenHasher tokenHasher,
+        IEmailSender emailSender,
+        IOptions<FrontendSettings> frontend)
     {
         _uow = uow;
         _tokenService = tokenService;
         _passwordHasher = passwordHasher;
         _currentUser = currentUser;
+        _tokenHasher = tokenHasher;
+        _emailSender = emailSender;
+        _frontend = frontend.Value;
     }
 
     public async Task<AuthResponse> RegisterPatientAsync(RegisterPatientRequest request, CancellationToken ct = default)
@@ -71,9 +86,10 @@ public class AuthService : IAuthService
 
     public async Task<AuthResponse> RefreshTokenAsync(RefreshTokenRequest request, CancellationToken ct = default)
     {
+        var tokenHash = _tokenHasher.Hash(request.RefreshToken);
         var token = await _uow.RefreshTokens.QueryTracked()
             .Include(t => t.User)
-            .FirstOrDefaultAsync(t => t.Token == request.RefreshToken, ct);
+            .FirstOrDefaultAsync(t => t.Token == tokenHash, ct);
 
         if (token is null || !token.IsActive)
             throw new UnauthorizedException("Invalid or expired refresh token.");
@@ -84,7 +100,7 @@ public class AuthService : IAuthService
         // Rotate: revoke the old token and issue a new pair.
         token.RevokedAtUtc = DateTime.UtcNow;
         var response = await IssueTokensAsync(token.User, ct);
-        token.ReplacedByToken = response.RefreshToken;
+        token.ReplacedByToken = _tokenHasher.Hash(response.RefreshToken);
         await _uow.SaveChangesAsync(ct);
 
         return response;
@@ -92,10 +108,18 @@ public class AuthService : IAuthService
 
     public async Task LogoutAsync(RefreshTokenRequest request, CancellationToken ct = default)
     {
+        var userId = _currentUser.UserId ?? throw new UnauthorizedException();
+        var tokenHash = _tokenHasher.Hash(request.RefreshToken);
         var token = await _uow.RefreshTokens.QueryTracked()
-            .FirstOrDefaultAsync(t => t.Token == request.RefreshToken, ct);
+            .FirstOrDefaultAsync(t => t.Token == tokenHash, ct);
 
-        if (token is not null && token.IsActive)
+        if (token is null)
+            return;
+
+        if (token.UserId != userId)
+            throw new ForbiddenException("Cannot revoke another user's session.");
+
+        if (token.IsActive)
         {
             token.RevokedAtUtc = DateTime.UtcNow;
             await _uow.SaveChangesAsync(ct);
@@ -145,6 +169,14 @@ public class AuthService : IAuthService
         }, ct);
         await _uow.SaveChangesAsync(ct);
 
+        var baseUrl = _frontend.BaseUrl.TrimEnd('/');
+        var resetLink = $"{baseUrl}/auth/reset-password?token={Uri.EscapeDataString(tokenValue)}";
+        await _emailSender.SendAsync(
+            user.Email,
+            "Reset your HAPM password",
+            $"Use this link to reset your password (expires in 1 hour):\n{resetLink}",
+            ct);
+
         return new ForgotPasswordResponse(message, includeDevToken ? tokenValue : null);
     }
 
@@ -175,10 +207,11 @@ public class AuthService : IAuthService
     private async Task<AuthResponse> IssueTokensAsync(User user, CancellationToken ct)
     {
         var accessToken = _tokenService.CreateAccessToken(user);
+        var refreshTokenValue = _tokenService.CreateRefreshTokenValue();
         var refreshToken = new RefreshToken
         {
             UserId = user.Id,
-            Token = _tokenService.CreateRefreshTokenValue(),
+            Token = _tokenHasher.Hash(refreshTokenValue),
             ExpiresAtUtc = DateTime.UtcNow.AddDays(_tokenService.RefreshTokenDays)
         };
 
@@ -187,7 +220,7 @@ public class AuthService : IAuthService
 
         return new AuthResponse(
             accessToken,
-            refreshToken.Token,
+            refreshTokenValue,
             DateTime.UtcNow.AddMinutes(_tokenService.AccessTokenMinutes),
             await MapUserDtoAsync(user.Id, ct));
     }

@@ -48,7 +48,11 @@ import {
 
         <div [class]="DASHBOARD_SPLIT_GRID_CLASS">
           <app-health-records-widget />
-          <app-billing-overview-widget [balanceDue]="dashboard.balanceDue" [dueDate]="dashboard.balanceDueDate" />
+          <app-billing-overview-widget
+            [balanceDue]="dashboard.balanceDue"
+            [dueDate]="dashboard.balanceDueDate"
+            [unpaidInvoiceId]="dashboard.primaryUnpaidInvoiceId"
+          />
         </div>
 
         <app-dashboard-notifications-widget [items]="dashboard.notifications" viewAllRoute="/patient/notifications" />

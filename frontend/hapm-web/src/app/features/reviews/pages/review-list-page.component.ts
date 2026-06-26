@@ -1,4 +1,5 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ApiErrorService } from '../../../core/api/api-error.service';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { markFormGroupTouched, guardFormSubmit } from '../../../shared/utils/form-errors.util';
@@ -86,6 +87,7 @@ export class ReviewListPageComponent implements OnInit {
   private readonly auth = inject(AuthService);
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly pageSize = DEFAULT_PAGE_SIZE;
   readonly page = signal(1);
@@ -126,7 +128,7 @@ export class ReviewListPageComponent implements OnInit {
     if (this.isPatient()) this.loadReviewableAppointments();
 
     if (this.isDoctor()) {
-      this.doctorsApi.getCurrentDoctor().subscribe({
+      this.doctorsApi.getCurrentDoctor().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
         next: (d) => { this.doctorId = d.id; this.load(); },
         error: () => this.load(),
       });
@@ -154,7 +156,9 @@ export class ReviewListPageComponent implements OnInit {
     if (!guardFormSubmit(this.createForm, this.toasts)) return;
     this.saving.set(true);
     const v = this.createForm.getRawValue();
-    this.api.create({ appointmentId: Number(v.appointmentId), rating: this.rating(), comment: v.comment || undefined }).subscribe({
+    this.api.create({ appointmentId: Number(v.appointmentId), rating: this.rating(), comment: v.comment || undefined })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
       next: () => {
         this.saving.set(false);
         this.createForm.reset();
@@ -173,7 +177,7 @@ export class ReviewListPageComponent implements OnInit {
       search: this.search || undefined,
       doctorId: this.doctorId ?? undefined,
       minRating: this.minRating() ? Number(this.minRating()) : undefined,
-    }).subscribe({
+    }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (r) => {
         this.rows.set(r.items);
         this.totalCount.set(r.totalCount);
@@ -184,12 +188,12 @@ export class ReviewListPageComponent implements OnInit {
   }
 
   private loadReviewableAppointments(): void {
-    this.patientsApi.getMyProfile().subscribe({
+    this.patientsApi.getMyProfile().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (patient) => {
         forkJoin({
           completed: this.appointmentsApi.list({ page: 1, pageSize: 100, patientId: patient.id, status: 'Completed' }),
           reviews: this.api.list({ page: 1, pageSize: 200 }),
-        }).subscribe({
+        }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
           next: ({ completed, reviews }) => {
             const reviewedIds = new Set(reviews.items.map((r) => r.appointmentId));
             const options = toAppointmentSelectOptions(completed.items, {

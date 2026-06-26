@@ -51,7 +51,7 @@ public class UserServiceTests : ServiceTestBase
         await Uow.RefreshTokens.AddAsync(new Domain.Entities.RefreshToken
         {
             UserId = scenario.PatientUserId,
-            Token = "active-token",
+            Token = TokenHasher.Hash("active-token"),
             ExpiresAtUtc = DateTime.UtcNow.AddDays(7)
         });
         await Uow.SaveChangesAsync();

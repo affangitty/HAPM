@@ -42,6 +42,10 @@ public class ReviewService : IReviewService
         {
             ("rating", false) => reviews.OrderBy(r => r.Rating),
             ("rating", true) => reviews.OrderByDescending(r => r.Rating),
+            ("date", false) => reviews.OrderBy(r => r.CreatedAtUtc),
+            ("date", true) => reviews.OrderByDescending(r => r.CreatedAtUtc),
+            ("createdat", false) => reviews.OrderBy(r => r.CreatedAtUtc),
+            ("createdat", true) => reviews.OrderByDescending(r => r.CreatedAtUtc),
             (_, _) => reviews.OrderByDescending(r => r.CreatedAtUtc)
         };
 

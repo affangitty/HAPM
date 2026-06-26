@@ -21,11 +21,15 @@ export const authGuard: CanActivateFn = () => {
   );
 };
 
-export const guestGuard: CanActivateFn = () => {
+export const guestGuard: CanActivateFn = (_route, state) => {
   const auth = inject(AuthService);
   const router = inject(Router);
 
   if (!auth.isAuthenticated()) {
+    return true;
+  }
+
+  if (state.url.includes('/auth/reset-password')) {
     return true;
   }
 

@@ -121,6 +121,7 @@ export interface PatientDashboardData {
   prescriptions: DashboardPrescriptionItem[];
   balanceDue: number;
   balanceDueDate: string | null;
+  primaryUnpaidInvoiceId: number | null;
   nextAppointment: DashboardAppointmentItem | null;
   vitals: DashboardVitalItem[];
   quickActions: DashboardQuickAction[];

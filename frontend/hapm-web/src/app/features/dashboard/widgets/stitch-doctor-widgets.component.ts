@@ -19,10 +19,7 @@ import { DashboardWidgetCardComponent } from './dashboard-kpi-grid.component';
         <div class="rounded-xl border border-amber-200 bg-amber-50 p-4">
           <p class="font-semibold text-foreground">{{ patient.patient }}</p>
           <p class="mt-1 text-xs text-muted-foreground">Wait: {{ patient.duration }}</p>
-          <p class="mt-2 flex items-center gap-1 text-xs text-emerald-700">
-            <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg>
-            Vitals complete
-          </p>
+          <p class="mt-2 text-xs text-muted-foreground">{{ patient.type }} · {{ patient.status }}</p>
         </div>
       } @else {
         <p class="py-6 text-center text-sm text-muted-foreground">No patients waiting.</p>

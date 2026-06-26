@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
@@ -53,6 +54,13 @@ try
     if (string.IsNullOrWhiteSpace(jwt.Key) || Encoding.UTF8.GetByteCount(jwt.Key) < 32)
         throw new InvalidOperationException("Jwt:Key must be at least 32 bytes for HMAC-SHA256 signing.");
 
+    if (!builder.Environment.IsDevelopment() &&
+        jwt.Key.Contains("REPLACE_ME", StringComparison.Ordinal))
+    {
+        throw new InvalidOperationException(
+            "Production requires a secure Jwt:Key. Set the Jwt__Key environment variable (see .env.example).");
+    }
+
     builder.Services
         .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         .AddJwtBearer(options =>
@@ -73,11 +81,41 @@ try
             {
                 OnMessageReceived = context =>
                 {
-                    var accessToken = context.Request.Query["access_token"];
                     var path = context.HttpContext.Request.Path;
-                    if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+                    if (!path.StartsWithSegments("/hubs"))
+                        return Task.CompletedTask;
+
+                    var authHeader = context.Request.Headers.Authorization.FirstOrDefault();
+                    if (!string.IsNullOrEmpty(authHeader) &&
+                        authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                    {
+                        context.Token = authHeader["Bearer ".Length..].Trim();
+                        return Task.CompletedTask;
+                    }
+
+                    // WebSocket transports cannot set Authorization headers; fall back to query string.
+                    var accessToken = context.Request.Query["access_token"];
+                    if (!string.IsNullOrEmpty(accessToken))
                         context.Token = accessToken;
+
                     return Task.CompletedTask;
+                },
+                OnTokenValidated = async context =>
+                {
+                    var userIdClaim = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier)
+                        ?? context.Principal?.FindFirstValue("sub");
+                    if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var userId))
+                    {
+                        context.Fail("Invalid token subject.");
+                        return;
+                    }
+
+                    await using var scope = context.HttpContext.RequestServices.CreateAsyncScope();
+                    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                    var isActive = await db.Users.AsNoTracking()
+                        .AnyAsync(u => u.Id == userId && u.IsActive, context.HttpContext.RequestAborted);
+                    if (!isActive)
+                        context.Fail("This account has been deactivated.");
                 }
             };
         });
@@ -154,7 +192,11 @@ try
 
     var app = builder.Build();
 
-  // Migrations always run; demo seeding is development-only.
+  // Migrations run when enabled; demo seeding is development-only.
+    var applyMigrations = builder.Configuration.GetValue(
+        "Database:ApplyMigrationsOnStartup",
+        builder.Environment.IsDevelopment());
+
     using (var scope = app.Services.CreateScope())
     {
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
@@ -162,7 +204,8 @@ try
         try
         {
             var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            await context.Database.MigrateAsync();
+            if (applyMigrations)
+                await context.Database.MigrateAsync();
 
             if (isDevelopment)
             {

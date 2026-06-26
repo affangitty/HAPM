@@ -108,12 +108,18 @@ public partial class DashboardService
             .Where(i => i.PatientId == patient.Id && (i.Status == InvoiceStatus.Pending || i.Status == InvoiceStatus.PartiallyPaid))
             .Select(i => new
             {
+                i.Id,
                 Balance = i.TotalAmount - (i.Payments.Sum(p => (decimal?)p.Amount) ?? 0),
                 i.CreatedAtUtc,
             })
             .ToListAsync(ct);
 
         var balanceDue = balanceRows.Sum(b => b.Balance);
+        var primaryUnpaid = balanceRows
+            .Where(b => b.Balance > 0)
+            .OrderBy(b => b.CreatedAtUtc)
+            .Select(b => (int?)b.Id)
+            .FirstOrDefault();
         var dueDate = balanceRows.OrderBy(b => b.CreatedAtUtc)
             .Select(b => b.CreatedAtUtc.AddDays(30).ToString("MMM dd, yyyy"))
             .FirstOrDefault();
@@ -144,6 +150,7 @@ public partial class DashboardService
             prescriptions,
             balanceDue,
             dueDate,
+            primaryUnpaid,
             vitals,
             notifications);
     }
@@ -181,8 +188,9 @@ public partial class DashboardService
 
         var pendingInvoices = await _uow.Invoices.Query()
             .CountAsync(i => i.Status == InvoiceStatus.Pending || i.Status == InvoiceStatus.PartiallyPaid, ct);
+        var startOfDayUtc = today.ToDateTime(TimeOnly.MinValue, DateTimeKind.Local).ToUniversalTime();
         var collectedToday = await _uow.Payments.Query()
-            .Where(p => p.CreatedAtUtc >= today.ToDateTime(TimeOnly.MinValue))
+            .Where(p => p.CreatedAtUtc >= startOfDayUtc)
             .SumAsync(p => (decimal?)p.Amount, ct) ?? 0m;
 
         var notifications = await LoadNotificationsAsync(userId, ct);

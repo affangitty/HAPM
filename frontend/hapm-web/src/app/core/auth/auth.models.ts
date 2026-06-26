@@ -82,3 +82,9 @@ export const API_ROLE_TO_KEY: Record<UserRole, AppRoleKey> = {
   Patient: 'patient',
   Receptionist: 'receptionist',
 };
+
+/** URL path segment for role-scoped routes (e.g. reception, not receptionist). */
+export function roleRoutePrefix(role: UserRole): string {
+  if (role === 'Receptionist') return 'reception';
+  return role.toLowerCase();
+}

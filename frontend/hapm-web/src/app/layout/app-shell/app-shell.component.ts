@@ -3,7 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
-import { API_ROLE_TO_KEY } from '../../core/auth/auth.models';
+import { roleRoutePrefix } from '../../core/auth/auth.models';
 import { RealtimeService } from '../../core/realtime/realtime.service';
 import { SidebarComponent } from './sidebar/sidebar.component';
 import { TopNavComponent } from './top-nav/top-nav.component';
@@ -76,7 +76,7 @@ export class AppShellComponent implements OnInit {
 
   rolePrefix(): string {
     const role = this.auth.role();
-    return role ? API_ROLE_TO_KEY[role] : 'admin';
+    return role ? roleRoutePrefix(role) : 'admin';
   }
 
   onLogout(): void {

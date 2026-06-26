@@ -1,5 +1,7 @@
 # Deployment Guide - HAPM API
 
+> **Manual UI testing:** After the app is running, follow **[Frontend_Flow_Testing.md](Frontend_Flow_Testing.md)** for a click-by-click walkthrough of every screen, role, and action.
+
 ## Prerequisites
 
 - [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
@@ -55,6 +57,7 @@ dotnet tool restore        # installs dotnet-ef 8.0.11 from dotnet-tools.json
 
 ```bash
 dotnet run --project src/HAPM.API --urls http://localhost:5168
+cd "frontend/hapm-web" && npm start
 ```
 
 On startup the app automatically:
@@ -79,16 +82,18 @@ curl -X POST http://localhost:5168/api/auth/login \
   -d '{"email":"admin@hapm.local","password":"Admin@12345"}'
 ```
 
-Seeded accounts (login at http://localhost:4200/auth/login in development — use **show password** or the table below):
+Seeded accounts (login at [http://localhost:4200/auth/login](http://localhost:4200/auth/login) in development — use **show password** or the table below):
 
-| Role | Email | Password |
-|------|-------|----------|
-| Admin | `admin@hapm.local` | `Admin@12345` |
-| Receptionist | `reception@hapm.local` | `Reception@12345` |
-| Doctor (Cardiology) | `dr.sharma@hapm.local` | `Doctor@12345` |
-| Doctor (Dermatology) | `dr.iyer@hapm.local` | `Doctor@12345` |
-| Doctor (Orthopedics) | `dr.khan@hapm.local` | `Doctor@12345` |
-| Patient | `patient@hapm.local` | `Patient@12345` |
+
+| Role                 | Email                  | Password          |
+| -------------------- | ---------------------- | ----------------- |
+| Admin                | `admin@hapm.local`     | `Admin@12345`     |
+| Receptionist         | `reception@hapm.local` | `Reception@12345` |
+| Doctor (Cardiology)  | `dr.sharma@hapm.local` | `Doctor@12345`    |
+| Doctor (Dermatology) | `dr.iyer@hapm.local`   | `Doctor@12345`    |
+| Doctor (Orthopedics) | `dr.khan@hapm.local`   | `Doctor@12345`    |
+| Patient              | `patient@hapm.local`   | `Patient@12345`   |
+
 
 ### 7. Run the smoke tests (optional)
 
@@ -135,15 +140,17 @@ dotnet publish src/HAPM.API -c Release -o ./publish
 
 Set these in the hosting environment (do **not** commit secrets):
 
-| Variable | Description |
-|----------|-------------|
-| `ConnectionStrings__DefaultConnection` | PostgreSQL connection string |
-| `Jwt__Key` | Random secret, 64+ characters (HMAC-SHA256 signing key) |
-| `Jwt__Issuer` / `Jwt__Audience` | Token issuer/audience (defaults: `HAPM.API` / `HAPM.Clients`) |
-| `Cors__AllowedOrigins__0` | Frontend origin, e.g. `https://app.example.com` |
-| `FileStorage__RootPath` | Upload directory (mount persistent storage) |
-| `ASPNETCORE_ENVIRONMENT` | `Production` |
-| `ASPNETCORE_URLS` | e.g. `http://0.0.0.0:8080` |
+
+| Variable                               | Description                                                   |
+| -------------------------------------- | ------------------------------------------------------------- |
+| `ConnectionStrings__DefaultConnection` | PostgreSQL connection string                                  |
+| `Jwt__Key`                             | Random secret, 64+ characters (HMAC-SHA256 signing key)       |
+| `Jwt__Issuer` / `Jwt__Audience`        | Token issuer/audience (defaults: `HAPM.API` / `HAPM.Clients`) |
+| `Cors__AllowedOrigins__0`              | Frontend origin, e.g. `https://app.example.com`               |
+| `FileStorage__RootPath`                | Upload directory (mount persistent storage)                   |
+| `ASPNETCORE_ENVIRONMENT`               | `Production`                                                  |
+| `ASPNETCORE_URLS`                      | e.g. `http://0.0.0.0:8080`                                    |
+
 
 > The seeded `Jwt:Key` in `appsettings.json` is a placeholder - it **must** be replaced in production.
 
@@ -196,12 +203,14 @@ WantedBy=multi-user.target
 
 ## Azure Migration Path (future)
 
-| Concern | Today | Azure target |
-|---------|-------|--------------|
-| File storage | `LocalFileStorageService` (`uploads/`) | Implement `IFileStorageService` over Blob Storage; swap DI registration |
-| Secrets | appsettings / environment variables | Azure Key Vault via `AddAzureKeyVault` |
-| Push notifications | In-app only (DB rows) | Azure Notification Hub invoked from `NotificationService` |
-| Database | Self-hosted PostgreSQL | Azure Database for PostgreSQL (connection string change only) |
+
+| Concern            | Today                                  | Azure target                                                            |
+| ------------------ | -------------------------------------- | ----------------------------------------------------------------------- |
+| File storage       | `LocalFileStorageService` (`uploads/`) | Implement `IFileStorageService` over Blob Storage; swap DI registration |
+| Secrets            | appsettings / environment variables    | Azure Key Vault via `AddAzureKeyVault`                                  |
+| Push notifications | In-app only (DB rows)                  | Azure Notification Hub invoked from `NotificationService`               |
+| Database           | Self-hosted PostgreSQL                 | Azure Database for PostgreSQL (connection string change only)           |
+
 
 ---
 
@@ -227,3 +236,4 @@ HAPM/
 ├── smoke-test-v3.ps1
 └── smoke-test-v4.ps1
 ```
+

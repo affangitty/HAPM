@@ -188,6 +188,41 @@ public class BillingServiceTests : ServiceTestBase
     }
 
     [Fact]
+    public async Task AddPaymentAsync_patient_can_pay_own_invoice_with_card()
+    {
+        var scenario = await SeedScenarioAsync();
+        var seeded = await TestData.SeedInvoiceAsync(Uow, scenario.PatientId, 120m);
+
+        CurrentUser.As(UserRole.Patient, scenario.PatientUserId);
+        var sut = CreateSut();
+
+        var invoice = await sut.AddPaymentAsync(seeded.Id, new AddPaymentRequest
+        {
+            Amount = 120m,
+            PaymentMethod = PaymentMethod.Card
+        });
+
+        Assert.Equal(InvoiceStatus.Paid, invoice.Status);
+        Assert.Equal(0m, invoice.BalanceDue);
+    }
+
+    [Fact]
+    public async Task AddPaymentAsync_patient_cash_payment_throws_bad_request()
+    {
+        var scenario = await SeedScenarioAsync();
+        var seeded = await TestData.SeedInvoiceAsync(Uow, scenario.PatientId, 80m);
+
+        CurrentUser.As(UserRole.Patient, scenario.PatientUserId);
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<BadRequestException>(() => sut.AddPaymentAsync(seeded.Id, new AddPaymentRequest
+        {
+            Amount = 80m,
+            PaymentMethod = PaymentMethod.Cash
+        }));
+    }
+
+    [Fact]
     public async Task CancelAsync_pending_invoice_succeeds()
     {
         var scenario = await SeedScenarioAsync();

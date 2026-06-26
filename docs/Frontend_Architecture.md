@@ -791,6 +791,7 @@ These are required for full backend coverage but absent from both design exports
 
 | Purpose | Path |
 |---------|------|
+| Manual UI test flows | `docs/Frontend_Flow_Testing.md` |
 | Stitch layouts | `design/stitch-export/*/screen.png` |
 | Stitch tokens | `design/stitch-export/clinical_precision/DESIGN.md` |
 | Figma colors/type | `design/figma-export/src/styles/theme.css` |

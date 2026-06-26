@@ -94,6 +94,7 @@ export interface PatientRoleDashboardApi {
   prescriptions: RoleDashboardPrescriptionApi[];
   balanceDue: number;
   balanceDueDate: string | null;
+  primaryUnpaidInvoiceId: number | null;
   vitals: RoleDashboardVitalApi[];
   notifications: RoleDashboardNotificationApi[];
 }

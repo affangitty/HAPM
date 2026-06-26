@@ -32,7 +32,7 @@ import { getRolePrefix, roleBase, roleRoute } from '../../../shared/utils/role-p
     AreaChartComponent, UiSkeletonComponent, DataTableComponent,
   ],
   template: `
-    <app-ui-page-header title="Billing & Invoices" subtitle="Payment management and revenue tracking">
+    <app-ui-page-header [title]="pageTitle()" [subtitle]="pageSubtitle()">
       <div actions class="flex gap-2">
         @if (isStaff()) {
           <a [routerLink]="basePath() + '/billing/invoices/new'"><app-ui-button size="sm">New invoice</app-ui-button></a>
@@ -43,6 +43,7 @@ import { getRolePrefix, roleBase, roleRoute } from '../../../shared/utils/role-p
       </div>
     </app-ui-page-header>
 
+    @if (isStaff()) {
     @if (summaryLoading()) {
       <div class="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <app-ui-skeleton class="h-28" /><app-ui-skeleton class="h-28" /><app-ui-skeleton class="h-28" /><app-ui-skeleton class="h-28" />
@@ -62,6 +63,7 @@ import { getRolePrefix, roleBase, roleRoute } from '../../../shared/utils/role-p
           <app-area-chart [data]="chartData()" [series]="revenueSeries" [height]="180" ariaLabel="Revenue trend" />
         </app-ui-card-content>
       </app-ui-card>
+    }
     }
 
     <div class="mb-4 flex flex-wrap gap-2">
@@ -168,12 +170,22 @@ export class InvoiceListPageComponent implements OnInit {
       : { trend: 'down' as const, value: `-${Math.abs(pct).toFixed(1)}%` };
   });
 
-  ngOnInit(): void { this.load(); this.loadSummary(); }
-
   isStaff(): boolean {
     const role = this.auth.role();
     return role === 'Admin' || role === 'Receptionist';
   }
+
+  pageTitle(): string {
+    return this.isStaff() ? 'Billing & Invoices' : 'My Bills';
+  }
+
+  pageSubtitle(): string {
+    return this.isStaff()
+      ? 'Payment management and revenue tracking'
+      : 'View invoices and pay outstanding balances online';
+  }
+
+  ngOnInit(): void { this.load(); this.loadSummary(); }
 
   onSearch(v: string): void { this.search = v.toLowerCase(); this.debouncedFilter(); }
   onStatus(v: string): void { this.status.set(v); this.page.set(1); this.load(); }

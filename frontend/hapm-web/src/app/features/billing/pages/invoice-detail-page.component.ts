@@ -82,6 +82,32 @@ import { InvoiceDto } from '../models/billing.models';
           </app-ui-card>
         }
 
+        @if (isPatient() && inv.balanceDue > 0 && inv.status !== 'Cancelled') {
+          <app-ui-card class="mt-6 max-w-md">
+            <app-ui-card-content class="space-y-4 p-5">
+              <h3 class="font-semibold">Pay online</h3>
+              <p class="text-sm text-muted-foreground">
+                Outstanding balance: <span class="font-semibold text-foreground">{{ '$' + inv.balanceDue.toFixed(2) }}</span>
+              </p>
+              <form [formGroup]="paymentForm" (ngSubmit)="pay()">
+                <app-form-field label="Amount">
+                  <app-ui-input type="number" formControlName="amount" step="0.01" />
+                </app-form-field>
+                <app-form-field label="Payment method">
+                  <app-ui-select formControlName="paymentMethod" [options]="patientMethodOptions" />
+                </app-form-field>
+                @if (error()) { <p class="text-sm text-destructive">{{ error() }}</p> }
+                @if (paymentSuccess()) {
+                  <p class="rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{{ paymentSuccess() }}</p>
+                }
+                <app-ui-button type="submit" class="mt-2" [loading]="paying()">
+                  Pay {{ '$' + paymentForm.controls.amount.value.toFixed(2) }}
+                </app-ui-button>
+              </form>
+            </app-ui-card-content>
+          </app-ui-card>
+        }
+
         @if (isStaff() && inv.status !== 'Cancelled') {
           <div class="mt-6 flex flex-wrap gap-2">
             @if (inv.balanceDue > 0) {
@@ -122,7 +148,10 @@ export class InvoiceDetailPageComponent {
     (id) => this.api.getById(id),
     this.destroyRef,
     { onLoaded: (inv) => {
-        this.paymentForm.patchValue({ amount: inv.balanceDue });
+        this.paymentForm.patchValue({
+          amount: inv.balanceDue,
+          paymentMethod: this.isPatient() ? 'Card' : 'Cash',
+        });
         this.patchEditForm(inv);
       } },
   );
@@ -134,11 +163,17 @@ export class InvoiceDetailPageComponent {
   readonly cancelling = signal(false);
   readonly editing = signal(false);
   readonly error = signal<string | null>(null);
+  readonly paymentSuccess = signal<string | null>(null);
 
   readonly methodOptions = [
     { label: 'Cash', value: 'Cash' }, { label: 'Card', value: 'Card' },
     { label: 'UPI', value: 'Upi' }, { label: 'Insurance', value: 'Insurance' },
     { label: 'Bank transfer', value: 'BankTransfer' },
+  ];
+
+  readonly patientMethodOptions = [
+    { label: 'Credit / debit card', value: 'Card' },
+    { label: 'UPI', value: 'Upi' },
   ];
 
   readonly paymentForm = this.fb.nonNullable.group({
@@ -162,13 +197,30 @@ export class InvoiceDetailPageComponent {
     return role === 'Admin' || role === 'Receptionist';
   }
 
+  isPatient(): boolean {
+    return this.auth.role() === 'Patient';
+  }
+
   pay(): void {
     const inv = this.invoice();
     if (!inv || this.paymentForm.invalid) return;
     this.paying.set(true);
+    this.error.set(null);
+    this.paymentSuccess.set(null);
     const v = this.paymentForm.getRawValue();
     this.api.addPayment(inv.id, { amount: v.amount, paymentMethod: v.paymentMethod }).subscribe({
-      next: (updated) => { this.invoice.set(updated); this.paying.set(false); },
+      next: (updated) => {
+        this.invoice.set(updated);
+        this.paying.set(false);
+        this.paymentForm.patchValue({ amount: updated.balanceDue, paymentMethod: this.isPatient() ? 'Card' : v.paymentMethod });
+        if (updated.balanceDue <= 0) {
+          this.paymentSuccess.set('Payment successful. This invoice is fully paid.');
+          this.toasts.show('Payment successful.', 'success');
+        } else {
+          this.paymentSuccess.set(`Payment recorded. Remaining balance: $${updated.balanceDue.toFixed(2)}`);
+          this.toasts.show('Payment recorded.', 'success');
+        }
+      },
       error: (err) => { this.error.set(extractApiErrorMessage(err, 'Payment failed.')); this.paying.set(false); },
     });
   }

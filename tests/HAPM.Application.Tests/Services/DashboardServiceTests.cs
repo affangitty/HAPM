@@ -80,4 +80,32 @@ public class DashboardServiceTests : ServiceTestBase
 
         Assert.Contains(rows, r => r.Specialization == "Cardiology" && r.TotalRevenue == 200m);
     }
+
+    [Fact]
+    public async Task GetReceptionistDashboardAsync_returns_queue_and_billing_metrics()
+    {
+        var scenario = await SeedScenarioAsync();
+        CurrentUser.As(UserRole.Receptionist, scenario.ReceptionistUserId);
+        var appointment = await TestData.SeedAppointmentAsync(
+            Uow, scenario.DoctorId, scenario.PatientId,
+            HospitalClock.Today, scenario.DefaultSlotStart, AppointmentStatus.CheckedIn);
+        var invoice = await TestData.SeedInvoiceAsync(Uow, scenario.PatientId, 100m, appointmentId: appointment.Id);
+        await Uow.Payments.AddAsync(new Payment
+        {
+            InvoiceId = invoice.Id,
+            ReceiptNumber = "RCP-TEST-003",
+            Amount = 25m,
+            Method = PaymentMethod.Cash,
+            ReceivedByUserId = scenario.ReceptionistUserId,
+            CreatedAtUtc = DateTime.UtcNow,
+        });
+        await Uow.SaveChangesAsync();
+
+        var sut = CreateSut();
+        var dashboard = await sut.GetReceptionistDashboardAsync();
+
+        Assert.NotEmpty(dashboard.Kpis);
+        Assert.Contains(dashboard.Queue, q => q.Id == appointment.Id);
+        Assert.NotEmpty(dashboard.Rooms);
+    }
 }

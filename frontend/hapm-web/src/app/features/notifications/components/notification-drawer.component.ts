@@ -1,4 +1,4 @@
-import { Component, DestroyRef, inject, input, OnInit, output, signal } from '@angular/core';
+import { Component, DestroyRef, effect, inject, input, output, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { debounceTime } from 'rxjs/operators';
 import { setPageLoadFailed } from '../../../shared/utils/page-load.util';
@@ -49,7 +49,7 @@ import { NotificationDto } from '../models/notification.models';
     }
   `,
 })
-export class NotificationDrawerComponent implements OnInit {
+export class NotificationDrawerComponent {
   private readonly api = inject(NotificationsApiService);
   private readonly hub = inject(NotificationsHubService);
   private readonly destroyRef = inject(DestroyRef);
@@ -65,9 +65,13 @@ export class NotificationDrawerComponent implements OnInit {
   readonly items = signal<NotificationDto[]>([]);
   readonly unreadCount = signal(0);
 
-  ngOnInit(): void {
-    this.refresh();
-    this.hub.received$.pipe(debounceTime(300), takeUntilDestroyed(this.destroyRef)).subscribe(() => this.refresh());
+  constructor() {
+    effect(() => {
+      if (this.open()) this.refresh();
+    });
+    this.hub.received$.pipe(debounceTime(300), takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      if (this.open()) this.refresh();
+    });
   }
 
   centerLink(): string { return `/${this.rolePrefix()}/notifications`; }

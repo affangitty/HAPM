@@ -24,6 +24,14 @@ public class DoctorLeaveService : IDoctorLeaveService
         if (!await _uow.Doctors.Query().AnyAsync(d => d.Id == doctorId, ct))
             throw new NotFoundException("Doctor", doctorId);
 
+        if (_currentUser.Role == UserRole.Doctor)
+        {
+            var ownsDoctor = await _uow.Doctors.Query()
+                .AnyAsync(d => d.Id == doctorId && d.UserId == _currentUser.UserId, ct);
+            if (!ownsDoctor)
+                throw new ForbiddenException("You can only view your own leave calendar.");
+        }
+
         return await _uow.DoctorLeaves.Query()
             .Where(l => l.DoctorId == doctorId)
             .OrderByDescending(l => l.StartDate)

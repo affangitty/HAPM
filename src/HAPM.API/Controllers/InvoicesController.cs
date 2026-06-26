@@ -48,7 +48,7 @@ public class InvoicesController : ControllerBase
     /// moves to PartiallyPaid and finally Paid when the balance reaches zero.
     /// </summary>
     [HttpPost("{id:int}/payments")]
-    [Authorize(Roles = Roles.Staff)]
+    [Authorize]
     public async Task<ActionResult<InvoiceDto>> AddPayment(int id, AddPaymentRequest request, CancellationToken ct) =>
         Ok(await _billingService.AddPaymentAsync(id, request, ct));
 

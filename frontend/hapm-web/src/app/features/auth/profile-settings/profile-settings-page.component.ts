@@ -3,6 +3,7 @@ import { ApiErrorService } from '../../../core/api/api-error.service';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { getFormControlError, markFormGroupTouched, guardFormSubmit } from '../../../shared/utils/form-errors.util';
 import { AuthService } from '../../../core/auth/auth.service';
+import { UserPreferencesService } from '../../../core/preferences/user-preferences.service';
 import { extractApiErrorMessage } from '../../../core/auth/utils/api-error.util';
 import { UserDto } from '../../../core/auth/auth.models';
 import { FormFieldComponent } from '../../../shared/components/forms/form-field/form-field.component';
@@ -98,16 +99,6 @@ type SettingsSection = 'profile' | 'security' | 'notifications' | 'appearance';
                   >
                     {{ initials() }}
                   </div>
-                  <div>
-                    <button
-                      type="button"
-                      class="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
-                      disabled
-                    >
-                      Change Photo
-                    </button>
-                    <p class="mt-1 text-[11px] text-muted-foreground">JPG, PNG — max 2MB</p>
-                  </div>
                 </div>
 
                 @if (user(); as currentUser) {
@@ -190,7 +181,7 @@ type SettingsSection = 'profile' | 'security' | 'notifications' | 'appearance';
               <app-ui-card-content class="p-5">
                 <h2 class="mb-4 text-sm font-semibold text-foreground">Notification Preferences</h2>
                 <div class="space-y-4">
-                  @for (pref of notificationPrefs; track pref.label) {
+                  @for (pref of notificationPrefs; track pref.key) {
                     <div class="flex items-center justify-between border-b border-border py-2 last:border-0">
                       <div>
                         <p class="text-sm font-medium text-foreground">{{ pref.label }}</p>
@@ -200,8 +191,9 @@ type SettingsSection = 'profile' | 'security' | 'notifications' | 'appearance';
                         type="button"
                         class="relative h-6 w-10 rounded-full transition-colors"
                         [class]="pref.enabled() ? 'bg-primary' : 'bg-muted'"
-                        (click)="pref.enabled.set(!pref.enabled())"
+                        (click)="toggleNotification(pref.key)"
                         [attr.aria-pressed]="pref.enabled()"
+                        [attr.aria-label]="pref.label"
                       >
                         <span
                           class="absolute top-1 size-4 rounded-full bg-white shadow-sm transition-all"
@@ -229,10 +221,10 @@ type SettingsSection = 'profile' | 'security' | 'notifications' | 'appearance';
                           class="rounded-xl border p-3 text-center text-xs font-medium transition-all"
                           [class]="
                             selectedTheme() === theme
-                              ? 'border-primary bg-blue-50 text-primary'
+                              ? 'border-primary bg-primary/10 text-primary'
                               : 'border-border text-muted-foreground hover:bg-muted'
                           "
-                          (click)="selectedTheme.set(theme)"
+                          (click)="preferences.setTheme(theme)"
                         >
                           {{ theme }}
                         </button>
@@ -248,10 +240,10 @@ type SettingsSection = 'profile' | 'security' | 'notifications' | 'appearance';
                           class="rounded-xl border p-3 text-center text-xs font-medium transition-all"
                           [class]="
                             selectedDensity() === density
-                              ? 'border-primary bg-blue-50 text-primary'
+                              ? 'border-primary bg-primary/10 text-primary'
                               : 'border-border text-muted-foreground hover:bg-muted'
                           "
-                          (click)="selectedDensity.set(density)"
+                          (click)="preferences.setDensity(density)"
                         >
                           {{ density }}
                         </button>
@@ -272,24 +264,24 @@ export class ProfileSettingsPageComponent implements OnInit {
 
   private readonly auth = inject(AuthService);
   private readonly fb = inject(FormBuilder);
+  protected readonly preferences = inject(UserPreferencesService);
 
   readonly user = this.auth.user;
   readonly activeSection = signal<SettingsSection>('profile');
   readonly passwordLoading = signal(false);
   readonly passwordError = signal<string | null>(null);
   readonly passwordSuccess = signal<string | null>(null);
-  readonly selectedTheme = signal('Light');
-  readonly selectedDensity = signal('Default');
+  readonly selectedTheme = this.preferences.theme;
+  readonly selectedDensity = this.preferences.density;
 
   readonly themes = ['Light', 'Dark', 'System'] as const;
   readonly densities = ['Compact', 'Default', 'Comfortable'] as const;
 
   readonly notificationPrefs = [
-    { label: 'Appointment Reminders', desc: 'Get notified 30 minutes before appointments', enabled: signal(true) },
-    { label: 'Lab Results Ready', desc: 'When patient lab results are available for review', enabled: signal(true) },
-    { label: 'New Messages', desc: 'Real-time alerts for incoming staff messages', enabled: signal(true) },
-    { label: 'Billing Updates', desc: 'Payment confirmations and overdue alerts', enabled: signal(false) },
-    { label: 'System Announcements', desc: 'Platform updates and maintenance notices', enabled: signal(true) },
+    { key: 'appointmentReminders' as const, label: 'Appointment Reminders', desc: 'Get notified 30 minutes before appointments', enabled: signal(true) },
+    { key: 'labResultsReady' as const, label: 'Lab Results Ready', desc: 'When patient lab results are available for review', enabled: signal(true) },
+    { key: 'billingAlerts' as const, label: 'Billing Updates', desc: 'Payment confirmations and overdue alerts', enabled: signal(true) },
+    { key: 'systemAnnouncements' as const, label: 'System Announcements', desc: 'Platform updates and maintenance notices', enabled: signal(true) },
   ];
 
   readonly passwordForm = this.fb.nonNullable.group({
@@ -319,6 +311,21 @@ export class ProfileSettingsPageComponent implements OnInit {
 
   ngOnInit(): void {
     this.auth.loadCurrentUser().subscribe();
+    this.preferences.initialize();
+    const saved = this.preferences.notifications();
+    for (const pref of this.notificationPrefs) {
+      pref.enabled.set(saved[pref.key]);
+    }
+    this.preferences.setTheme(this.preferences.theme());
+    this.preferences.setDensity(this.preferences.density());
+  }
+
+  toggleNotification(key: (typeof this.notificationPrefs)[number]['key']): void {
+    const pref = this.notificationPrefs.find((p) => p.key === key);
+    if (!pref) return;
+    const next = !pref.enabled();
+    pref.enabled.set(next);
+    this.preferences.setNotification(key, next);
   }
 
   passwordFieldError(controlName: 'currentPassword' | 'newPassword' | 'confirmNewPassword'): string | null {

@@ -5,6 +5,8 @@ export function getRolePrefix(router: Router): string {
   return router.url.split('/').filter(Boolean)[0] ?? 'admin';
 }
 
+export { roleRoutePrefix } from '../../core/auth/auth.models';
+
 /** Role-scoped base path such as `/admin`. */
 export function roleBase(router: Router): string {
   return `/${getRolePrefix(router)}`;

@@ -12,6 +12,7 @@ import {
   LoginRequest,
   RegisterRequest,
   ROLE_HOME_ROUTES,
+  roleRoutePrefix,
   UserDto,
   UserRole,
 } from './auth.models';
@@ -115,7 +116,7 @@ export class AuthService {
   getSettingsRoute(role?: UserRole | null): string {
     const resolved = role ?? this.role();
     if (!resolved) return '/auth/login';
-    const prefix = resolved === 'Receptionist' ? 'reception' : resolved.toLowerCase();
+    const prefix = roleRoutePrefix(resolved);
     return `/${prefix}/settings`;
   }
 

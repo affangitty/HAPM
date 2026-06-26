@@ -189,8 +189,23 @@ public class LabReportService : ILabReportService
         if (_currentUser.Role != UserRole.Doctor)
             throw new ForbiddenException("Only doctors can review lab reports.");
 
+        var doctorId = await _uow.Doctors.Query()
+            .Where(d => d.UserId == _currentUser.UserId)
+            .Select(d => (int?)d.Id)
+            .FirstOrDefaultAsync(ct) ?? throw new ForbiddenException("No doctor profile exists for the current user.");
+
         var report = await _uow.LabReports.QueryTracked()
             .FirstOrDefaultAsync(r => r.Id == id, ct) ?? throw new NotFoundException("Lab report", id);
+
+        var canReview = report.DoctorId == doctorId;
+        if (!canReview && report.AppointmentId is int appointmentId)
+        {
+            canReview = await _uow.Appointments.Query()
+                .AnyAsync(a => a.Id == appointmentId && a.DoctorId == doctorId, ct);
+        }
+
+        if (!canReview)
+            throw new ForbiddenException("You can only review lab reports assigned to you.");
 
         report.Status = LabReportStatus.Reviewed;
         report.ReviewRemarks = request.Remarks.Trim();
@@ -213,15 +228,32 @@ public class LabReportService : ILabReportService
 
     private async Task<IQueryable<LabReport>> ScopeToCurrentUserAsync(IQueryable<LabReport> query, CancellationToken ct)
     {
-        if (_currentUser.Role == UserRole.Patient)
+        switch (_currentUser.Role)
         {
-            var patientId = await _uow.Patients.Query()
-                .Where(p => p.UserId == _currentUser.UserId)
-                .Select(p => (int?)p.Id)
-                .FirstOrDefaultAsync(ct);
-            return query.Where(r => r.PatientId == (patientId ?? -1));
-        }
+            case UserRole.Patient:
+            {
+                var patientId = await _uow.Patients.Query()
+                    .Where(p => p.UserId == _currentUser.UserId)
+                    .Select(p => (int?)p.Id)
+                    .FirstOrDefaultAsync(ct);
+                return query.Where(r => r.PatientId == (patientId ?? -1));
+            }
+            case UserRole.Doctor:
+            {
+                var doctorId = await _uow.Doctors.Query()
+                    .Where(d => d.UserId == _currentUser.UserId)
+                    .Select(d => (int?)d.Id)
+                    .FirstOrDefaultAsync(ct);
+                if (doctorId is null)
+                    return query.Where(_ => false);
 
-        return query;
+                return query.Where(r =>
+                    r.DoctorId == doctorId ||
+                    (r.AppointmentId != null &&
+                     _uow.Appointments.Query().Any(a => a.Id == r.AppointmentId && a.DoctorId == doctorId)));
+            }
+            default:
+                return query;
+        }
     }
 }

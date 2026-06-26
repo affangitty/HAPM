@@ -128,6 +128,7 @@ export class DashboardApiService {
       })),
       balanceDue: data.balanceDue,
       balanceDueDate: data.balanceDueDate,
+      primaryUnpaidInvoiceId: data.primaryUnpaidInvoiceId,
       vitals: data.vitals.map((v) => ({
         label: v.label,
         value: v.value,

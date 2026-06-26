@@ -1,7 +1,9 @@
+using HAPM.Application.Configuration;
 using HAPM.Application.Interfaces;
 using HAPM.Infrastructure.Auditing;
 using HAPM.Infrastructure.Auth;
 using HAPM.Infrastructure.BackgroundJobs;
+using HAPM.Infrastructure.Email;
 using HAPM.Infrastructure.Persistence;
 using HAPM.Infrastructure.Storage;
 using Microsoft.EntityFrameworkCore;
@@ -21,10 +23,14 @@ public static class DependencyInjection
             .AddInterceptors(provider.GetRequiredService<AuditSaveChangesInterceptor>()));
 
         services.Configure<JwtSettings>(configuration.GetSection(JwtSettings.SectionName));
+        services.Configure<EmailSettings>(configuration.GetSection(EmailSettings.SectionName));
+        services.Configure<FrontendSettings>(configuration.GetSection(FrontendSettings.SectionName));
 
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<ITokenService, TokenService>();
         services.AddSingleton<IPasswordHasher, BcryptPasswordHasher>();
+        services.AddSingleton<ITokenHasher, Sha256TokenHasher>();
+        services.AddSingleton<IEmailSender, SmtpEmailSender>();
         services.AddSingleton<IFileStorageService, LocalFileStorageService>();
         services.AddHostedService<AppointmentReminderService>();
 

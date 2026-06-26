@@ -205,6 +205,8 @@ public class BillingService : IBillingService
             .Include(i => i.Patient)
             .FirstOrDefaultAsync(i => i.Id == id, ct) ?? throw new NotFoundException("Invoice", id);
 
+        await EnsureCanRecordPaymentAsync(invoice, request, ct);
+
         if (invoice.Status is not (InvoiceStatus.Pending or InvoiceStatus.PartiallyPaid))
             throw new ConflictException($"Payments can only be recorded against pending or partially paid invoices (current status: {invoice.Status}).");
 
@@ -266,18 +268,59 @@ public class BillingService : IBillingService
         return await GetByIdUnscopedAsync(id, ct);
     }
 
+    private async Task EnsureCanRecordPaymentAsync(Invoice invoice, AddPaymentRequest request, CancellationToken ct)
+    {
+        switch (_currentUser.Role)
+        {
+            case UserRole.Patient:
+            {
+                var patientId = await _uow.Patients.Query()
+                    .Where(p => p.UserId == _currentUser.UserId)
+                    .Select(p => (int?)p.Id)
+                    .FirstOrDefaultAsync(ct);
+                if (patientId is null || invoice.PatientId != patientId)
+                    throw new ForbiddenException("You can only pay your own invoices.");
+                if (request.PaymentMethod is not (PaymentMethod.Card or PaymentMethod.Upi))
+                    throw new BadRequestException("Online payments must use Card or UPI.");
+                return;
+            }
+            case UserRole.Doctor:
+                throw new ForbiddenException("Doctors cannot record invoice payments.");
+            default:
+                return;
+        }
+    }
+
     private async Task<IQueryable<Invoice>> ScopeToCurrentUserAsync(IQueryable<Invoice> query, CancellationToken ct)
     {
-        if (_currentUser.Role == UserRole.Patient)
+        switch (_currentUser.Role)
         {
-            var patientId = await _uow.Patients.Query()
-                .Where(p => p.UserId == _currentUser.UserId)
-                .Select(p => (int?)p.Id)
-                .FirstOrDefaultAsync(ct);
-            return query.Where(i => i.PatientId == (patientId ?? -1));
-        }
+            case UserRole.Patient:
+            {
+                var patientId = await _uow.Patients.Query()
+                    .Where(p => p.UserId == _currentUser.UserId)
+                    .Select(p => (int?)p.Id)
+                    .FirstOrDefaultAsync(ct);
+                return query.Where(i => i.PatientId == (patientId ?? -1));
+            }
+            case UserRole.Doctor:
+            {
+                var doctorId = await _uow.Doctors.Query()
+                    .Where(d => d.UserId == _currentUser.UserId)
+                    .Select(d => (int?)d.Id)
+                    .FirstOrDefaultAsync(ct);
+                if (doctorId is null)
+                    return query.Where(_ => false);
 
-        return query;
+                var patientIds = _uow.Appointments.Query()
+                    .Where(a => a.DoctorId == doctorId)
+                    .Select(a => a.PatientId)
+                    .Distinct();
+                return query.Where(i => patientIds.Contains(i.PatientId));
+            }
+            default:
+                return query;
+        }
     }
 
     private async Task<string> GenerateInvoiceNumberAsync(CancellationToken ct)

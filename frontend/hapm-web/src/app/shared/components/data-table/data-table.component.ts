@@ -51,7 +51,11 @@ import { DataTableColumn } from './data-table.models';
             <tr
               appUiTableRow
               [class]="rowLink() ? 'cursor-pointer hover:bg-muted/50' : ''"
+              [attr.tabindex]="rowLink() ? 0 : null"
+              [attr.role]="rowLink() ? 'button' : null"
               (click)="onRowActivate(row)"
+              (keydown.enter)="onRowActivate(row)"
+              (keydown.space)="$event.preventDefault(); onRowActivate(row)"
             >
               @for (col of columns(); track col.key) {
                 <td appUiTableCell [class]="col.className ?? ''">{{ col.cell(row) }}</td>

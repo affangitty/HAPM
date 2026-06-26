@@ -4,6 +4,8 @@
 
 This document describes **what the application can do**, organized by capability. For endpoint-level detail, see the API tables in [README.md](../README.md).
 
+**To exercise every feature in the browser** (what to click, expected results, API-only endpoints), use **[Frontend_Flow_Testing.md](Frontend_Flow_Testing.md)**.
+
 ---
 
 ## Summary

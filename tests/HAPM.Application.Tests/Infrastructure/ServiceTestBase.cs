@@ -1,9 +1,12 @@
+using HAPM.Application.Configuration;
 using HAPM.Application.Interfaces;
 using HAPM.Application.Realtime;
 using HAPM.Application.Services;
 using HAPM.Application.Tests.Infrastructure.Fakes;
+using HAPM.Infrastructure.Auth;
 using HAPM.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace HAPM.Application.Tests.Infrastructure;
 
@@ -19,6 +22,10 @@ public abstract class ServiceTestBase : IDisposable
     protected FakePasswordHasher PasswordHasher { get; } = new();
     protected FakeTokenService TokenService { get; } = new();
     protected FakeFileStorageService FileStorage { get; } = new();
+    protected Sha256TokenHasher TokenHasher { get; } = new();
+    protected FakeEmailSender EmailSender { get; } = new();
+    protected IOptions<FrontendSettings> FrontendOptions { get; } =
+        Options.Create(new FrontendSettings { BaseUrl = "http://localhost:4200" });
 
     protected ServiceTestBase()
     {

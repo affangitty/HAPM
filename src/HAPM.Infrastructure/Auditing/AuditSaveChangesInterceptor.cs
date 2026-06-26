@@ -21,7 +21,8 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
 
     private static readonly HashSet<string> MaskedProperties = new(StringComparer.OrdinalIgnoreCase)
     {
-        nameof(User.PasswordHash)
+        nameof(User.PasswordHash),
+        nameof(PasswordResetToken.Token),
     };
 
     private readonly ICurrentUserService _currentUser;

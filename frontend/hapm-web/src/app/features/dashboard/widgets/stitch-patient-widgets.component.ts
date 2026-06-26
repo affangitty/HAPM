@@ -85,7 +85,7 @@ export class PatientPrescriptionsWidgetComponent {
       <app-dashboard-section-header title="Health Records" />
       <div class="space-y-2">
         <a routerLink="/patient/lab-reports" class="flex items-center justify-between rounded-lg border border-border px-3 py-2 text-sm hover:bg-muted/50">
-          <span>Lab Results</span><span class="text-xs text-muted-foreground">Updated recently</span>
+          <span>Lab Results</span><span class="text-xs text-muted-foreground">View results</span>
         </a>
         <a routerLink="/patient/vitals" class="flex items-center justify-between rounded-lg border border-border px-3 py-2 text-sm hover:bg-muted/50">
           <span>Vital Signs</span><span class="text-xs text-amber-600">Review trends</span>
@@ -121,7 +121,9 @@ export class HealthRecordsWidgetComponent {}
       }
       <div class="mt-5 flex justify-end gap-2">
         <a routerLink="/patient/billing"><app-ui-button variant="outline" size="sm">View Statement</app-ui-button></a>
-        <a routerLink="/patient/billing"><app-ui-button size="sm">Pay Now</app-ui-button></a>
+        @if (balanceDue() > 0 && payNowLink(); as link) {
+          <a [routerLink]="link"><app-ui-button size="sm">Pay Now</app-ui-button></a>
+        }
       </div>
     </app-dashboard-widget-card>
   `,
@@ -129,6 +131,12 @@ export class HealthRecordsWidgetComponent {}
 export class BillingOverviewWidgetComponent {
   readonly balanceDue = input(0);
   readonly dueDate = input<string | null>(null);
+  readonly unpaidInvoiceId = input<number | null>(null);
+
+  payNowLink(): string | null {
+    const id = this.unpaidInvoiceId();
+    return id ? `/patient/billing/invoices/${id}` : null;
+  }
 
   formatMoney(v: number): string {
     return `$${v.toFixed(2)}`;

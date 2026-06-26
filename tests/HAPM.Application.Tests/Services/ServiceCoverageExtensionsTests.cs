@@ -13,13 +13,14 @@ public class ServiceCoverageExtensionsTests : ServiceTestBase
     public async Task AuthService_logout_revokes_refresh_token()
     {
         await SeedScenarioAsync();
-        var sut = new AuthService(Uow, TokenService, PasswordHasher, CurrentUser);
+        var sut = new AuthService(Uow, TokenService, PasswordHasher, CurrentUser, TokenHasher, EmailSender, FrontendOptions);
         var login = await sut.LoginAsync(new LoginRequest
         {
             Email = "patient@test.local",
             Password = TestData.DefaultPassword
         });
 
+        CurrentUser.As(UserRole.Patient, login.User.Id);
         await sut.LogoutAsync(new RefreshTokenRequest { RefreshToken = login.RefreshToken });
 
         await Assert.ThrowsAsync<UnauthorizedException>(() =>
@@ -30,7 +31,7 @@ public class ServiceCoverageExtensionsTests : ServiceTestBase
     public async Task AuthService_refresh_deactivated_user_throws_unauthorized()
     {
         var scenario = await SeedScenarioAsync();
-        var sut = new AuthService(Uow, TokenService, PasswordHasher, CurrentUser);
+        var sut = new AuthService(Uow, TokenService, PasswordHasher, CurrentUser, TokenHasher, EmailSender, FrontendOptions);
         var login = await sut.LoginAsync(new LoginRequest
         {
             Email = "patient@test.local",
@@ -49,7 +50,7 @@ public class ServiceCoverageExtensionsTests : ServiceTestBase
     public async Task AuthService_get_current_user_unauthorized_when_anonymous()
     {
         await SeedScenarioAsync();
-        var sut = new AuthService(Uow, TokenService, PasswordHasher, CurrentUser);
+        var sut = new AuthService(Uow, TokenService, PasswordHasher, CurrentUser, TokenHasher, EmailSender, FrontendOptions);
         await Assert.ThrowsAsync<UnauthorizedException>(() => sut.GetCurrentUserAsync());
     }
 
