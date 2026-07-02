@@ -106,9 +106,9 @@ public class BillingServiceTests : ServiceTestBase
         {
             TaxPercent = 0m,
             DiscountAmount = 0m,
-            Items =
+            Items = new List<InvoiceItemRequest>
             {
-                new InvoiceItemRequest { Description = "Updated item", Quantity = 2, UnitPrice = 75m }
+                new() { Description = "Updated item", Quantity = 2, UnitPrice = 75m }
             }
         });
 
@@ -127,7 +127,10 @@ public class BillingServiceTests : ServiceTestBase
 
         await Assert.ThrowsAsync<ConflictException>(() => sut.PatchAsync(seeded.Id, new PatchInvoiceRequest
         {
-            Items = { new InvoiceItemRequest { Description = "X", Quantity = 1, UnitPrice = 10m } }
+            Items = new List<InvoiceItemRequest>
+            {
+                new() { Description = "X", Quantity = 1, UnitPrice = 10m }
+            }
         }));
     }
 

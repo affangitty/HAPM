@@ -14,7 +14,7 @@ public class ChangeLogJsonTests
             new Dictionary<string, object?> { ["Address"] = "New St" });
 
         Assert.Contains("\"Address\"", json);
-        Assert.Contains("\"old\":\"Old St\"", json.Replace(" ", ""));
-        Assert.Contains("\"new\":\"New St\"", json.Replace(" ", ""));
+        Assert.Contains("\"old\":\"Old St\"", json);
+        Assert.Contains("\"new\":\"New St\"", json);
     }
 }

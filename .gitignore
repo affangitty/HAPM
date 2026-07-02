@@ -3,6 +3,14 @@ bin/
 obj/
 *.user
 *.suo
+[Dd]ebug/
+[Rr]elease/
+TestResults/
+
+## Node / Angular (root-level safety net; frontend has its own .gitignore)
+node_modules/
+frontend/**/dist/
+frontend/**/.angular/cache/
 
 ## Logs & local artifacts
 logs/

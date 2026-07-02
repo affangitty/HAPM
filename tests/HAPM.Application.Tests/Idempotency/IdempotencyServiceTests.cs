@@ -2,6 +2,7 @@ using HAPM.Application.Idempotency;
 using HAPM.Domain.Enums;
 using HAPM.Infrastructure.Idempotency;
 using HAPM.Infrastructure.Persistence;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -9,15 +10,20 @@ namespace HAPM.Application.Tests.Idempotency;
 
 public class IdempotencyServiceTests : IDisposable
 {
+  private readonly SqliteConnection _connection;
   private readonly AppDbContext _db;
   private readonly IdempotencyService _service;
 
   public IdempotencyServiceTests()
   {
+    _connection = new SqliteConnection("DataSource=:memory:");
+    _connection.Open();
+
     var options = new DbContextOptionsBuilder<AppDbContext>()
-      .UseInMemoryDatabase(Guid.NewGuid().ToString())
+      .UseSqlite(_connection)
       .Options;
     _db = new AppDbContext(options);
+    _db.Database.EnsureCreated();
     _service = new IdempotencyService(_db, NullLogger<IdempotencyService>.Instance);
   }
 
@@ -76,5 +82,9 @@ public class IdempotencyServiceTests : IDisposable
     Assert.Empty(await _db.IdempotencyRecords.ToListAsync());
   }
 
-  public void Dispose() => _db.Dispose();
+  public void Dispose()
+  {
+    _db.Dispose();
+    _connection.Dispose();
+  }
 }
