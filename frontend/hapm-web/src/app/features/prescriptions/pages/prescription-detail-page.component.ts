@@ -9,7 +9,9 @@ import { UiButtonComponent } from '../../../shared/components/ui/button/ui-butto
 import { UiCardComponent, UiCardContentComponent } from '../../../shared/components/ui/card/ui-card.component';
 import { UiEmptyStateComponent } from '../../../shared/components/ui/empty-state/ui-empty-state.component';
 import { UiSkeletonComponent } from '../../../shared/components/ui/skeleton/ui-skeleton.component';
+import { HasUnsavedChanges } from '../../../core/guards/has-unsaved-changes';
 import { initDetailRouteLoader } from '../../../shared/utils/detail-route.util';
+import { bindUnsavedChangesProtection, formsAreDirty, markFormsPristine } from '../../../shared/utils/unsaved-changes.util';
 import { roleRoute } from '../../../shared/utils/role-prefix.util';
 import { getFormControlError, markFormGroupTouched, guardFormSubmit } from '../../../shared/utils/form-errors.util';
 import { MedicationTableComponent } from '../components/medication-table.component';
@@ -120,7 +122,7 @@ import { PrescriptionDto } from '../models/prescription.models';
     }
   `,
 })
-export class PrescriptionDetailPageComponent {
+export class PrescriptionDetailPageComponent implements HasUnsavedChanges {
   private readonly toasts = inject(ApiErrorService);
 
   private readonly api = inject(PrescriptionsApiService);
@@ -144,6 +146,14 @@ export class PrescriptionDetailPageComponent {
     items: this.fb.array([createMedicationGroup(this.fb)]),
   });
 
+  constructor() {
+    bindUnsavedChangesProtection(this.destroyRef, () => this.hasUnsavedChanges());
+  }
+
+  hasUnsavedChanges(): boolean {
+    return this.editing() && formsAreDirty(this.form);
+  }
+
   isDoctor(): boolean {
     return this.auth.role() === 'Doctor';
   }
@@ -161,18 +171,20 @@ export class PrescriptionDetailPageComponent {
     for (const item of rx.items) {
       items.push(createMedicationGroup(this.fb, item));
     }
+    markFormsPristine(this.form);
     this.editing.set(true);
   }
 
   cancelEdit(): void {
     this.editing.set(false);
     this.error.set(null);
+    markFormsPristine(this.form);
   }
 
   save(): void {
     const rx = this.prescription();
     if (!rx) return;
-    if (!guardFormSubmit(this.form, this.toasts)) return;
+    if (!guardFormSubmit(this.form)) return;
 
     this.saving.set(true);
     this.error.set(null);
@@ -191,6 +203,7 @@ export class PrescriptionDetailPageComponent {
           this.prescription.set(updated);
           this.editing.set(false);
           this.saving.set(false);
+          markFormsPristine(this.form);
         },
         error: (err) => {
           this.error.set(extractApiErrorMessage(err, 'Failed to save prescription.'));

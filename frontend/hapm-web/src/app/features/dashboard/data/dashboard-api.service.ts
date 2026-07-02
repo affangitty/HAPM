@@ -315,17 +315,17 @@ export class DashboardApiService {
   private personalizeAdmin(): Pick<AdminDashboardData, 'greeting' | 'subtitle'> {
     const name = this.firstName();
     return {
-      greeting: 'Dashboard Overview',
+      greeting: name ? `Welcome back, ${name}` : 'Dashboard Overview',
       subtitle: name
-        ? `Welcome back, ${name}. Here is what's happening today.`
+        ? "Here is what's happening today."
         : 'Real-time metrics and system health for HAPM.',
     };
   }
 
   private personalizeDoctor(): Pick<DoctorDashboardData, 'greeting' | 'subtitle'> {
-    const name = this.auth.user()?.fullName ?? 'Doctor';
+    const first = this.firstName() ?? 'Doctor';
     return {
-      greeting: `Good morning, ${name.split(' ')[0]}`,
+      greeting: `${this.timeOfDayGreeting()}, ${first}`,
       subtitle: 'Your schedule and attention items for today.',
     };
   }
@@ -339,14 +339,22 @@ export class DashboardApiService {
   }
 
   private personalizeReception(): Pick<ReceptionistDashboardData, 'greeting' | 'subtitle'> {
+    const name = this.firstName();
     return {
-      greeting: 'Reception Dashboard',
-      subtitle: this.todayLabel(),
+      greeting: name ? `Hello, ${name}` : 'Reception Dashboard',
+      subtitle: `${this.todayLabel()} · Front desk overview`,
     };
   }
 
   private firstName(): string | null {
     return this.auth.user()?.fullName?.split(' ')[0] ?? null;
+  }
+
+  private timeOfDayGreeting(): string {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
   }
 
   private todayLabel(): string {

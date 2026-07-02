@@ -140,8 +140,10 @@ public class BillingService : IBillingService
         return await GetByIdUnscopedAsync(invoice.Id, ct);
     }
 
-    public async Task<InvoiceDto> UpdateAsync(int id, UpdateInvoiceRequest request, CancellationToken ct = default)
+    public async Task<InvoiceDto> PatchAsync(int id, PatchInvoiceRequest request, CancellationToken ct = default)
     {
+        PatchValidation.EnsureAnyFieldSet(request);
+
         var invoice = await _uow.Invoices.QueryTracked()
             .Include(i => i.Items)
             .Include(i => i.Appointment).ThenInclude(a => a!.Doctor).ThenInclude(d => d.User)
@@ -150,49 +152,63 @@ public class BillingService : IBillingService
         if (invoice.Status != InvoiceStatus.Pending)
             throw new ConflictException($"Only pending invoices can be updated (current status: {invoice.Status}).");
 
-        var items = request.Items.Select(i => new InvoiceItem
-        {
-            Description = i.Description.Trim(),
-            Quantity = i.Quantity,
-            UnitPrice = i.UnitPrice,
-            Amount = i.Quantity * i.UnitPrice
-        }).ToList();
+        var taxPercent = request.TaxPercent ?? invoice.TaxPercent;
+        var discountAmount = request.DiscountAmount ?? invoice.DiscountAmount;
+        var notes = request.Notes ?? invoice.Notes;
 
-        // Preserve the auto-added consultation line when the invoice is linked to an appointment.
-        if (invoice.AppointmentId.HasValue && invoice.Appointment is not null)
+        List<InvoiceItem> items;
+        if (request.Items is not null)
         {
-            var appt = invoice.Appointment;
-            var consultationDesc = $"Consultation - Dr. {appt.Doctor.User.FullName} ({appt.Doctor.Specialization})";
-            if (!items.Any(i => i.Description == consultationDesc))
+            items = request.Items.Select(i => new InvoiceItem
             {
-                items.Insert(0, new InvoiceItem
+                Description = i.Description.Trim(),
+                Quantity = i.Quantity,
+                UnitPrice = i.UnitPrice,
+                Amount = i.Quantity * i.UnitPrice
+            }).ToList();
+
+            if (invoice.AppointmentId.HasValue && invoice.Appointment is not null)
+            {
+                var appt = invoice.Appointment;
+                var consultationDesc = $"Consultation - Dr. {appt.Doctor.User.FullName} ({appt.Doctor.Specialization})";
+                if (!items.Any(i => i.Description == consultationDesc))
                 {
-                    Description = consultationDesc,
-                    Quantity = 1,
-                    UnitPrice = appt.Doctor.ConsultationFee,
-                    Amount = appt.Doctor.ConsultationFee
-                });
+                    items.Insert(0, new InvoiceItem
+                    {
+                        Description = consultationDesc,
+                        Quantity = 1,
+                        UnitPrice = appt.Doctor.ConsultationFee,
+                        Amount = appt.Doctor.ConsultationFee
+                    });
+                }
             }
+        }
+        else
+        {
+            items = invoice.Items.ToList();
         }
 
         if (items.Count == 0)
             throw new BadRequestException("An invoice must contain at least one line item.");
 
-        var (subTotal, taxAmount, total) = InvoiceMath.Calculate(items.Select(i => i.Amount), request.TaxPercent, request.DiscountAmount);
+        var (subTotal, taxAmount, total) = InvoiceMath.Calculate(items.Select(i => i.Amount), taxPercent, discountAmount);
 
         if (total < 0)
             throw new BadRequestException("Discount cannot exceed the invoice total.");
 
-        invoice.Items.Clear();
-        foreach (var item in items)
-            invoice.Items.Add(item);
+        if (request.Items is not null)
+        {
+            invoice.Items.Clear();
+            foreach (var item in items)
+                invoice.Items.Add(item);
+        }
 
         invoice.SubTotal = subTotal;
-        invoice.TaxPercent = request.TaxPercent;
+        invoice.TaxPercent = taxPercent;
         invoice.TaxAmount = taxAmount;
-        invoice.DiscountAmount = request.DiscountAmount;
+        invoice.DiscountAmount = discountAmount;
         invoice.TotalAmount = total;
-        invoice.Notes = request.Notes;
+        invoice.Notes = notes;
 
         await _uow.SaveChangesAsync(ct);
         return await GetByIdUnscopedAsync(id, ct);

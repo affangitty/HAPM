@@ -48,10 +48,10 @@ public class LabReportsController : ControllerBase
     }
 
     /// <summary>Updates report metadata and optionally replaces the file (resets review status when file changes).</summary>
-    [HttpPut("{id:int}")]
+    [HttpPatch("{id:int}")]
     [Authorize(Roles = Roles.Clinical)]
     [RequestSizeLimit(11 * 1024 * 1024)]
-    public async Task<ActionResult<LabReportDto>> Update(int id, [FromForm] UpdateLabReportRequest request, IFormFile? file, CancellationToken ct)
+    public async Task<ActionResult<LabReportDto>> Patch(int id, [FromForm] PatchLabReportRequest request, IFormFile? file, CancellationToken ct)
     {
         Stream? stream = null;
         if (file is { Length: > 0 })
@@ -59,7 +59,7 @@ public class LabReportsController : ControllerBase
 
         try
         {
-            var report = await _labReportService.UpdateAsync(
+            var report = await _labReportService.PatchAsync(
                 id, request, stream, file?.FileName, file?.ContentType, file?.Length, ct);
             return Ok(report);
         }

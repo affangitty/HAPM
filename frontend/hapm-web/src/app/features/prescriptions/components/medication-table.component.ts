@@ -8,6 +8,7 @@ import {
   UiTableRowComponent,
 } from '../../../shared/components/ui/table/ui-table.component';
 import { UiEmptyStateComponent } from '../../../shared/components/ui/empty-state/ui-empty-state.component';
+import { MobileRecordCardComponent } from '../../../shared/components/mobile-record-card/mobile-record-card.component';
 import { PrescriptionItemDto } from '../models/prescription.models';
 
 @Component({
@@ -21,12 +22,27 @@ import { PrescriptionItemDto } from '../models/prescription.models';
     UiTableHeadComponent,
     UiTableCellComponent,
     UiEmptyStateComponent,
+    MobileRecordCardComponent,
   ],
   template: `
     @if (!items().length) {
       <app-ui-empty-state title="No medications" message="This prescription has no medication items." />
     } @else {
-      <div class="overflow-x-auto rounded-xl border">
+      <div class="space-y-3 md:hidden">
+        @for (item of items(); track item.id ?? item.medicineName + $index; let i = $index) {
+          <app-mobile-record-card
+            [title]="item.medicineName"
+            [subtitle]="item.dosage"
+            [fields]="[
+              { label: 'Frequency', value: item.frequency },
+              { label: 'Duration', value: item.durationDays + ' days' },
+              { label: 'Instructions', value: item.instructions || '—' },
+            ]"
+          />
+        }
+      </div>
+
+      <div class="hidden md:block">
         <app-ui-table>
           <thead appUiTableHeader>
             <tr appUiTableRow>
@@ -34,7 +50,7 @@ import { PrescriptionItemDto } from '../models/prescription.models';
               <th appUiTableHead>Dosage</th>
               <th appUiTableHead>Frequency</th>
               <th appUiTableHead>Duration</th>
-              <th appUiTableHead class="hidden sm:table-cell">Instructions</th>
+              <th appUiTableHead>Instructions</th>
             </tr>
           </thead>
           <tbody appUiTableBody>
@@ -44,9 +60,7 @@ import { PrescriptionItemDto } from '../models/prescription.models';
                 <td appUiTableCell>{{ item.dosage }}</td>
                 <td appUiTableCell>{{ item.frequency }}</td>
                 <td appUiTableCell>{{ item.durationDays }} days</td>
-                <td appUiTableCell class="hidden sm:table-cell text-muted-foreground">
-                  {{ item.instructions || '—' }}
-                </td>
+                <td appUiTableCell class="text-muted-foreground">{{ item.instructions || '—' }}</td>
               </tr>
             }
           </tbody>

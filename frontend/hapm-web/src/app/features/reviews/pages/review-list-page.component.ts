@@ -18,7 +18,9 @@ import { UiPageHeaderComponent } from '../../../shared/components/ui/page-header
 import { UiSelectComponent } from '../../../shared/components/ui/select/ui-select.component';
 import { UiTextareaComponent } from '../../../shared/components/ui/textarea/ui-textarea.component';
 import { DEFAULT_PAGE_SIZE } from '../../../shared/models/pagination.model';
+import { HasUnsavedChanges } from '../../../core/guards/has-unsaved-changes';
 import { debounce } from '../../../shared/utils/debounce.util';
+import { bindUnsavedChangesProtection, formsAreDirty, markFormsPristine } from '../../../shared/utils/unsaved-changes.util';
 import { AppointmentsApiService } from '../../appointments/data/appointments-api.service';
 import { toAppointmentSelectOptions } from '../../appointments/utils/appointment-picker.util';
 import { DoctorsApiService } from '../../doctors/data/doctors-api.service';
@@ -78,7 +80,7 @@ import { forkJoin } from 'rxjs';
       (pageChange)="onPageChange($event)" />
   `,
 })
-export class ReviewListPageComponent implements OnInit {
+export class ReviewListPageComponent implements OnInit, HasUnsavedChanges {
   private readonly toasts = inject(ApiErrorService);
   private readonly api = inject(ReviewsApiService);
   private readonly doctorsApi = inject(DoctorsApiService);
@@ -124,6 +126,14 @@ export class ReviewListPageComponent implements OnInit {
   readonly rowLink = (r: ReviewDto) => roleRoute(this.router, this.reviewSegment(), String(r.id));
   private readonly debouncedLoad = debounce(() => this.load(), 250);
 
+  constructor() {
+    bindUnsavedChangesProtection(this.destroyRef, () => this.hasUnsavedChanges());
+  }
+
+  hasUnsavedChanges(): boolean {
+    return this.isPatient() && formsAreDirty(this.createForm);
+  }
+
   ngOnInit(): void {
     if (this.isPatient()) this.loadReviewableAppointments();
 
@@ -153,7 +163,7 @@ export class ReviewListPageComponent implements OnInit {
 
   submitReview(): void {
     markFormGroupTouched(this.createForm);
-    if (!guardFormSubmit(this.createForm, this.toasts)) return;
+    if (!guardFormSubmit(this.createForm)) return;
     this.saving.set(true);
     const v = this.createForm.getRawValue();
     this.api.create({ appointmentId: Number(v.appointmentId), rating: this.rating(), comment: v.comment || undefined })
@@ -162,6 +172,7 @@ export class ReviewListPageComponent implements OnInit {
       next: () => {
         this.saving.set(false);
         this.createForm.reset();
+        markFormsPristine(this.createForm);
         this.loadReviewableAppointments();
         this.load();
       },
@@ -203,6 +214,7 @@ export class ReviewListPageComponent implements OnInit {
             });
             this.reviewAppointmentOptions.set(options);
             if (options.length === 1) this.createForm.controls.appointmentId.setValue(options[0].value);
+            markFormsPristine(this.createForm);
           },
         });
       },

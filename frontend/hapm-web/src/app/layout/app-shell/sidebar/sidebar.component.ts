@@ -37,11 +37,13 @@ import { NavIconComponent } from './nav-icon.component';
           type="button"
           class="shrink-0 rounded-md p-1.5 text-muted-foreground hover:bg-muted"
           [class.ml-auto]="!collapsed()"
-          [attr.aria-label]="collapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
+          [attr.aria-label]="drawerMode() ? 'Close navigation menu' : collapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
           (click)="toggleCollapsed.emit()"
         >
           <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-            @if (collapsed()) {
+            @if (drawerMode()) {
+              <path d="M18 6 6 18M6 6l12 12" />
+            } @else if (collapsed()) {
               <path d="m9 18 6-6-6-6" />
             } @else {
               <path d="m15 18-6-6 6-6" />
@@ -80,20 +82,35 @@ import { NavIconComponent } from './nav-icon.component';
       </nav>
 
       <div class="border-t border-sidebar-border p-3">
-        <div [class]="cn('flex items-center gap-2', collapsed() ? 'justify-center' : '')">
-          <app-ui-avatar size="sm" [name]="userName()" />
-          @if (!collapsed()) {
+        @if (collapsed()) {
+          <div class="flex flex-col items-center gap-2">
+            <app-ui-avatar size="sm" [name]="userName()" />
+            <button
+              type="button"
+              class="rounded-md p-2 text-muted-foreground hover:bg-muted"
+              aria-label="Log out"
+              [title]="'Log out (' + userName() + ')'"
+              (click)="logout.emit()"
+            >
+              <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" x2="9" y1="12" y2="12" />
+              </svg>
+            </button>
+          </div>
+        } @else {
+          <div class="flex items-center gap-2">
+            <app-ui-avatar size="sm" [name]="userName()" />
             <div class="min-w-0 flex-1">
               <p class="truncate text-xs font-semibold">{{ userName() }}</p>
               <p class="truncate text-[10px] text-muted-foreground">{{ userRole() }}</p>
             </div>
             <button type="button" class="rounded-md p-1 text-muted-foreground hover:bg-muted" aria-label="Log out" (click)="logout.emit()">
-              <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" x2="9" y1="12" y2="12" />
               </svg>
             </button>
-          }
-        </div>
+          </div>
+        }
       </div>
     </aside>
   `,
@@ -102,6 +119,7 @@ export class SidebarComponent {
   private readonly auth = inject(AuthService);
 
   readonly collapsed = input(false);
+  readonly drawerMode = input(false);
   readonly toggleCollapsed = output<void>();
   readonly logout = output<void>();
 

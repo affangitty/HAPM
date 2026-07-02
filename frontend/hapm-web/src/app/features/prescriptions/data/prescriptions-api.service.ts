@@ -30,6 +30,6 @@ export class PrescriptionsApiService {
   }
 
   update(id: number, request: UpdatePrescriptionRequest): Observable<PrescriptionDto> {
-    return this.api.put<PrescriptionDto>(`/prescriptions/${id}`, request);
+    return this.api.patch<PrescriptionDto>(`/prescriptions/${id}`, request);
   }
 }

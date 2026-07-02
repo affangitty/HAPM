@@ -19,7 +19,7 @@ import { LAB_REPORT_ACCEPT, LAB_REPORT_MAX_BYTES } from '../models/lab-report.mo
       </svg>
       <p class="text-sm font-medium">Drop report file here</p>
       <p class="mt-1 text-xs text-muted-foreground">PDF, DICOM, PNG, JPG — up to 10 MB</p>
-      <input #fileInput type="file" class="hidden" [accept]="accept" (change)="onFileSelect($event)" />
+      <input #fileInput id="lab-report-file" name="labReportFile" type="file" class="hidden" [accept]="accept" (change)="onFileSelect($event)" />
       <app-ui-button type="button" variant="outline" size="sm" class="mt-3" (pressed)="fileInput.click()">Browse files</app-ui-button>
 
       @if (selectedFile()) {

@@ -56,14 +56,27 @@ dotnet tool restore        # installs dotnet-ef 8.0.11 from dotnet-tools.json
 ### 5. Run the API
 
 ```bash
-dotnet run --project src/HAPM.API --urls http://localhost:5168
-cd "frontend/hapm-web" && npm start
+dotnet build src/HAPM.API
+cd src/HAPM.API
+dotnet run --no-build --launch-profile http
 ```
 
 On startup the app automatically:
 
-1. Applies all EF Core migrations (`InitialCreate`, `AddClinicalAndOpsFeatures`, `AddTemplatesFollowUpAndAnalytics`)
+1. Applies all EF Core migrations (through `AddAuditLogArchives`)
 2. Seeds default accounts and doctor schedules (first run only)
+
+> If `dotnet run` appears stuck on **Building...**, stop any running `HAPM.API.exe` (`taskkill //F //IM HAPM.API.exe` on Windows), build once, then use `--no-build`.
+
+**Frontend** (optional):
+
+```bash
+cd frontend/hapm-web
+npm install
+npm start
+```
+
+Open http://localhost:4200/auth/login
 
 Useful locations:
 
@@ -148,6 +161,10 @@ Set these in the hosting environment (do **not** commit secrets):
 | `Jwt__Issuer` / `Jwt__Audience`        | Token issuer/audience (defaults: `HAPM.API` / `HAPM.Clients`) |
 | `Cors__AllowedOrigins__0`              | Frontend origin, e.g. `https://app.example.com`               |
 | `FileStorage__RootPath`                | Upload directory (mount persistent storage)                   |
+| `Audit__ArchiveAfterDays`              | Days before audit rows move to archive (default `90`)         |
+| `Audit__PurgeArchiveAfterDays`         | Days before archived rows are deleted (default `365`)         |
+| `Audit__ArchiveIntervalHours`          | Archive job interval (default `24`)                           |
+| `Database__ApplyMigrationsOnStartup`   | Set `false` in production if migrations are DBA-managed       |
 | `ASPNETCORE_ENVIRONMENT`               | `Production`                                                  |
 | `ASPNETCORE_URLS`                      | e.g. `http://0.0.0.0:8080`                                    |
 

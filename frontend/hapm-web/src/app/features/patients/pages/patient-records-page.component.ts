@@ -1,4 +1,6 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
+import { HasUnsavedChanges } from '../../../core/guards/has-unsaved-changes';
+import { bindUnsavedChangesProtection, formsAreDirty, markFormsPristine } from '../../../shared/utils/unsaved-changes.util';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { extractApiErrorMessage } from '../../../core/auth/utils/api-error.util';
 import { DataTableComponent } from '../../../shared/components/data-table/data-table.component';
@@ -86,9 +88,10 @@ import {
     }
   `,
 })
-export class PatientRecordsPageComponent implements OnInit {
+export class PatientRecordsPageComponent implements OnInit, HasUnsavedChanges {
   private readonly api = inject(PatientsApiService);
   private readonly fb = inject(FormBuilder);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly patient = signal<PatientDto | null>(null);
   readonly history = signal<PatientMedicalHistoryDto | null>(null);
@@ -103,6 +106,14 @@ export class PatientRecordsPageComponent implements OnInit {
     { id: 'allergies' as const, label: 'Allergies' },
     { id: 'conditions' as const, label: 'Chronic Conditions' },
   ];
+
+  constructor() {
+    bindUnsavedChangesProtection(this.destroyRef, () => this.hasUnsavedChanges());
+  }
+
+  hasUnsavedChanges(): boolean {
+    return formsAreDirty(this.form);
+  }
 
   readonly form = this.fb.group({
     emergencyContactName: [''],
@@ -127,6 +138,7 @@ export class PatientRecordsPageComponent implements OnInit {
           allergies: patient.allergies ?? '',
           chronicConditions: patient.chronicConditions ?? '',
         });
+        markFormsPristine(this.form);
         this.api.getMedicalHistory(patient.id).subscribe({ next: (h) => this.history.set(h) });
       },
     });
@@ -153,6 +165,7 @@ export class PatientRecordsPageComponent implements OnInit {
       .subscribe({
         next: (updated) => {
           this.patient.set(updated);
+          markFormsPristine(this.form);
           this.saving.set(false);
         },
         error: (err) => {

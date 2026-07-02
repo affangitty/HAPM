@@ -188,6 +188,8 @@ try
                 Array.Empty<string>()
             }
         });
+
+        options.OperationFilter<IdempotencyHeaderOperationFilter>();
     });
 
     var app = builder.Build();
@@ -242,6 +244,7 @@ try
     app.UseRateLimiter();
     app.UseAuthentication();
     app.UseAuthorization();
+    app.UseMiddleware<IdempotencyMiddleware>();
 
     app.MapControllers();
     app.MapHapmHubs();

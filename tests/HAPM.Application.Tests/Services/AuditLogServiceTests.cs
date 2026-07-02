@@ -1,14 +1,17 @@
+using HAPM.Application.Configuration;
 using HAPM.Application.DTOs;
-using HAPM.Application.Services;
-using HAPM.Application.Tests.Infrastructure;
 using HAPM.Domain.Entities;
 using HAPM.Domain.Enums;
+using HAPM.Application.Tests.Infrastructure;
+using HAPM.Infrastructure.ChangeLog;
+using Microsoft.Extensions.Options;
 
 namespace HAPM.Application.Tests.Services;
 
 public class AuditLogServiceTests : ServiceTestBase
 {
-    private AuditLogService CreateSut() => new(Uow);
+    private ChangeLogService CreateSut() =>
+        new(Db, CurrentUser, Options.Create(new AuditSettings()));
 
     [Fact]
     public async Task GetPagedAsync_applies_all_filters()

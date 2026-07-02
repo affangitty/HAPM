@@ -115,8 +115,7 @@ export class AppointmentDetailPageComponent {
   }
 
   canCreatePrescription(apt: AppointmentDto): boolean {
-    const role = this.auth.role();
-    if (role !== 'Doctor' && role !== 'Admin') return false;
+    if (this.auth.role() !== 'Doctor') return false;
     if (apt.hasPrescription) return false;
     return apt.status === 'Completed' || apt.status === 'CheckedIn';
   }
@@ -131,7 +130,7 @@ export class AppointmentDetailPageComponent {
   }
 
   prescriptionCreateLink(appointmentId: number): string {
-    return roleRoute(this.router, 'prescriptions', 'new') + `?appointmentId=${appointmentId}`;
+    return roleRoute(this.router, 'prescriptions', 'create') + `?appointmentId=${appointmentId}`;
   }
 
   listLink(): string {

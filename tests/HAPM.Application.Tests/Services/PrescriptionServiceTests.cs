@@ -89,7 +89,7 @@ public class PrescriptionServiceTests : ServiceTestBase
     }
 
     [Fact]
-    public async Task UpdateAsync_prescribing_doctor_updates_diagnosis()
+    public async Task PatchAsync_prescribing_doctor_updates_diagnosis()
     {
         var scenario = await SeedScenarioAsync();
         var appointment = await TestData.SeedAppointmentAsync(
@@ -100,7 +100,7 @@ public class PrescriptionServiceTests : ServiceTestBase
         var sut = CreateSut();
         var created = await sut.CreateAsync(SampleRequest(appointment.Id));
 
-        var updated = await sut.UpdateAsync(created.Id, new UpdatePrescriptionRequest
+        var updated = await sut.PatchAsync(created.Id, new PatchPrescriptionRequest
         {
             Diagnosis = "Updated diagnosis",
             Items = SampleRequest(appointment.Id).Items

@@ -48,7 +48,7 @@ export class LabReportsApiService {
     if (request.doctorId != null) form.append('doctorId', String(request.doctorId));
     if (request.appointmentId != null) form.append('appointmentId', String(request.appointmentId));
     if (request.file) form.append('file', request.file);
-    return this.http.put<LabReportDto>(`${this.baseUrl}/lab-reports/${id}`, form);
+    return this.http.patch<LabReportDto>(`${this.baseUrl}/lab-reports/${id}`, form);
   }
 
   delete(id: number): Observable<void> {

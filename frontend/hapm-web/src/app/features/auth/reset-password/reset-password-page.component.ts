@@ -162,7 +162,7 @@ export class ResetPasswordPageComponent implements OnInit {
   }
 
   submit(): void {
-    if (!guardFormSubmit(this.form, this.toasts)) return;
+    if (!guardFormSubmit(this.form)) return;
 
     if (!this.token) {
       this.errorMessage.set(

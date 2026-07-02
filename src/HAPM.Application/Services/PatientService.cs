@@ -23,7 +23,7 @@ public class PatientService : IPatientService
 
     public async Task<PagedResult<PatientDto>> GetPagedAsync(PatientQueryParams query, CancellationToken ct = default)
     {
-        var patients = _uow.Patients.Query();
+        var patients = await PatientAccessScope.ApplyToPatientsAsync(_uow.Patients.Query(), _uow, _currentUser, ct);
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
@@ -109,24 +109,25 @@ public class PatientService : IPatientService
             .FirstAsync(ct);
     }
 
-    public async Task<PatientDto> UpdateAsync(int id, UpdatePatientRequest request, CancellationToken ct = default)
+    public async Task<PatientDto> PatchAsync(int id, PatchPatientRequest request, CancellationToken ct = default)
     {
+        PatchValidation.EnsureAnyFieldSet(request);
         await EnsureCanAccessPatientAsync(id, ct);
 
         var patient = await _uow.Patients.QueryTracked()
             .Include(p => p.User)
             .FirstOrDefaultAsync(p => p.Id == id, ct) ?? throw new NotFoundException("Patient", id);
 
-        patient.User.FullName = request.FullName.Trim();
-        patient.User.PhoneNumber = request.PhoneNumber;
-        patient.DateOfBirth = request.DateOfBirth;
-        patient.Gender = request.Gender;
-        patient.BloodGroup = request.BloodGroup;
-        patient.Address = request.Address;
-        patient.EmergencyContactName = request.EmergencyContactName;
-        patient.EmergencyContactPhone = request.EmergencyContactPhone;
-        patient.Allergies = request.Allergies;
-        patient.ChronicConditions = request.ChronicConditions;
+        if (request.FullName is not null) patient.User.FullName = request.FullName.Trim();
+        if (request.PhoneNumber is not null) patient.User.PhoneNumber = request.PhoneNumber;
+        if (request.DateOfBirth.HasValue) patient.DateOfBirth = request.DateOfBirth.Value;
+        if (request.Gender.HasValue) patient.Gender = request.Gender.Value;
+        if (request.BloodGroup is not null) patient.BloodGroup = request.BloodGroup;
+        if (request.Address is not null) patient.Address = request.Address;
+        if (request.EmergencyContactName is not null) patient.EmergencyContactName = request.EmergencyContactName;
+        if (request.EmergencyContactPhone is not null) patient.EmergencyContactPhone = request.EmergencyContactPhone;
+        if (request.Allergies is not null) patient.Allergies = request.Allergies;
+        if (request.ChronicConditions is not null) patient.ChronicConditions = request.ChronicConditions;
 
         await _uow.SaveChangesAsync(ct);
 
@@ -172,18 +173,8 @@ public class PatientService : IPatientService
         return new PatientMedicalHistoryDto(patient, appointments, prescriptions, labReports);
     }
 
-    /// <summary>Patients may only access their own record; staff and doctors may access any.</summary>
-    private async Task EnsureCanAccessPatientAsync(int patientId, CancellationToken ct)
-    {
-        if (_currentUser.Role != UserRole.Patient)
-            return;
-
-        var ownsRecord = await _uow.Patients.Query()
-            .AnyAsync(p => p.Id == patientId && p.UserId == _currentUser.UserId, ct);
-
-        if (!ownsRecord)
-            throw new ForbiddenException("Patients can only access their own record.");
-    }
+    private Task EnsureCanAccessPatientAsync(int patientId, CancellationToken ct) =>
+        PatientAccessScope.EnsureCanAccessPatientAsync(patientId, _uow, _currentUser, ct);
 
     private async Task<string> GenerateMrnAsync(CancellationToken ct)
     {

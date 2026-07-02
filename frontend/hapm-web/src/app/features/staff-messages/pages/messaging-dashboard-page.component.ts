@@ -1,4 +1,4 @@
-import { Component, computed, DestroyRef, inject, OnInit, signal } from '@angular/core';
+import { Component, DestroyRef, HostListener, inject, OnInit, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { UiEmptyStateComponent } from '../../../shared/components/ui/empty-state/ui-empty-state.component';
 import { setPageLoadFailed } from '../../../shared/utils/page-load.util';
@@ -11,6 +11,7 @@ import { UiButtonComponent } from '../../../shared/components/ui/button/ui-butto
 import { UiPageHeaderComponent } from '../../../shared/components/ui/page-header/ui-page-header.component';
 import { UiSelectComponent } from '../../../shared/components/ui/select/ui-select.component';
 import { UiSkeletonComponent } from '../../../shared/components/ui/skeleton/ui-skeleton.component';
+import { VIEWPORT } from '../../../shared/utils/viewport.util';
 import { DoctorsApiService } from '../../doctors/data/doctors-api.service';
 import { ConversationSidebarComponent } from '../components/conversation-sidebar.component';
 import { MessageBubbleComponent } from '../components/message-bubble.component';
@@ -30,17 +31,41 @@ import { ConversationThread, StaffMessageDto } from '../models/staff-message.mod
   template: `
     <app-ui-page-header title="Staff Messaging" subtitle="Team collaboration and doctor coordination" />
 
-    <div class="grid h-[calc(100vh-12rem)] min-h-[480px] overflow-hidden rounded-xl border lg:grid-cols-[280px_1fr]">
-      <app-conversation-sidebar [threads]="threads()" [selectedId]="selectedThread()?.id ?? null" (select)="selectThread($event)" />
+    <div class="flex h-[min(720px,calc(100dvh-11rem))] min-h-[320px] overflow-hidden rounded-xl border lg:grid lg:grid-cols-[minmax(0,280px)_1fr]">
+      <div
+        class="h-full min-h-0 overflow-hidden border-b lg:border-b-0 lg:border-r"
+        [class]="mobilePanel() === 'thread' ? 'hidden lg:block' : 'block'"
+      >
+        <app-conversation-sidebar
+          [threads]="threads()"
+          [selectedId]="selectedThread()?.id ?? null"
+          (select)="selectThread($event)"
+        />
+      </div>
 
-      <div class="flex min-w-0 flex-col bg-background">
+      <div
+        class="min-h-0 min-w-0 flex-1 flex-col bg-background"
+        [class]="mobilePanel() === 'list' ? 'hidden lg:flex' : 'flex'"
+      >
         @if (selectedThread(); as thread) {
-          <div class="border-b px-4 py-3">
-            <h3 class="font-semibold">{{ thread.title }}</h3>
-            <p class="text-xs text-muted-foreground">{{ thread.subtitle }}</p>
+          <div class="flex items-center gap-2 border-b px-3 py-3 sm:px-4">
+            <button
+              type="button"
+              class="rounded-lg p-2 text-muted-foreground hover:bg-muted lg:hidden"
+              aria-label="Back to conversations"
+              (click)="showConversationList()"
+            >
+              <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="m15 18-6-6 6-6" />
+              </svg>
+            </button>
+            <div class="min-w-0 flex-1">
+              <h3 class="truncate font-semibold">{{ thread.title }}</h3>
+              <p class="truncate text-xs text-muted-foreground">{{ thread.subtitle }}</p>
+            </div>
           </div>
 
-          <div class="flex-1 space-y-3 overflow-y-auto p-4">
+          <div class="flex-1 space-y-3 overflow-y-auto p-3 sm:p-4">
             @if (loading()) {
               <app-ui-skeleton class="h-16" /><app-ui-skeleton class="h-16" />
             } @else if (loadError()) {
@@ -54,8 +79,8 @@ import { ConversationThread, StaffMessageDto } from '../models/staff-message.mod
 
           <app-message-composer [sending]="sending()" (send)="sendMessage($event)" />
         } @else {
-          <div class="flex flex-1 flex-col items-center justify-center gap-4 p-6 text-center">
-            <p class="text-muted-foreground">Select a conversation or start a new message</p>
+          <div class="flex flex-1 flex-col items-center justify-center gap-4 p-4 text-center sm:p-6">
+            <p class="text-sm text-muted-foreground">Select a conversation or start a new message</p>
             @if (isStaff()) {
               <form class="w-full max-w-md space-y-3 text-left" [formGroup]="newThreadForm" (ngSubmit)="startDoctorThread()">
                 <app-form-field label="Message doctor">
@@ -91,10 +116,12 @@ export class MessagingDashboardPageComponent implements OnInit {
   readonly threads = signal<ConversationThread[]>([]);
   readonly selectedThread = signal<ConversationThread | null>(null);
   readonly doctorOptions = signal<{ label: string; value: string }[]>([]);
+  readonly mobilePanel = signal<'list' | 'thread'>('list');
+  readonly isLargeScreen = signal(this.readLargeScreen());
 
   readonly newThreadForm = this.fb.nonNullable.group({ doctorId: ['', Validators.required] });
 
-  readonly currentUserId = computed(() => this.auth.user()?.id ?? 0);
+  readonly currentUserId = () => this.auth.user()?.id ?? 0;
 
   ngOnInit(): void {
     this.hub.received$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((msg) => {
@@ -112,15 +139,31 @@ export class MessagingDashboardPageComponent implements OnInit {
     this.loadMessages();
   }
 
-  isStaff(): boolean {
-    const role = this.auth.role();
-    return role === 'Admin' || role === 'Receptionist';
+  @HostListener('window:resize')
+  onResize(): void {
+    this.isLargeScreen.set(this.readLargeScreen());
+    if (this.isLargeScreen()) {
+      this.mobilePanel.set('list');
+    }
   }
 
-  isAdmin(): boolean { return this.auth.role() === 'Admin'; }
+  isStaff(): boolean {
+    return this.auth.isStaff();
+  }
+
+  isAdmin(): boolean {
+    return this.auth.isAdmin();
+  }
+
+  showConversationList(): void {
+    this.mobilePanel.set('list');
+  }
 
   selectThread(thread: ConversationThread): void {
     this.selectedThread.set(thread);
+    if (!this.isLargeScreen()) {
+      this.mobilePanel.set('thread');
+    }
     this.loadMessagesForThread(thread);
   }
 
@@ -207,5 +250,9 @@ export class MessagingDashboardPageComponent implements OnInit {
   private messageBelongsToThread(msg: StaffMessageDto, thread: ConversationThread): boolean {
     if (thread.target === 'StaffBroadcast') return msg.target === 'StaffBroadcast';
     return msg.target === 'DoctorRoom' && msg.doctorId === thread.doctorId;
+  }
+
+  private readLargeScreen(): boolean {
+    return typeof window !== 'undefined' && window.innerWidth >= VIEWPORT.lg;
   }
 }

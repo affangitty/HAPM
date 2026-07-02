@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { Component, DestroyRef, effect, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { ApiErrorService } from '../../../core/api/api-error.service';
@@ -13,7 +13,9 @@ import { UiInputComponent } from '../../../shared/components/ui/input/ui-input.c
 import { UiSelectComponent } from '../../../shared/components/ui/select/ui-select.component';
 import { UiSkeletonComponent } from '../../../shared/components/ui/skeleton/ui-skeleton.component';
 import { UiTextareaComponent } from '../../../shared/components/ui/textarea/ui-textarea.component';
+import { HasUnsavedChanges } from '../../../core/guards/has-unsaved-changes';
 import { initDetailRouteLoader } from '../../../shared/utils/detail-route.util';
+import { bindUnsavedChangesProtection, formsAreDirty, markFormsPristine } from '../../../shared/utils/unsaved-changes.util';
 import { roleRoute } from '../../../shared/utils/role-prefix.util';
 import { LabReportStatusBadgeComponent } from '../components/lab-report-status-badge.component';
 import { ReportPreviewModalComponent } from '../components/report-preview-modal.component';
@@ -105,7 +107,7 @@ import { LabReportDto } from '../models/lab-report.models';
     }
   `,
 })
-export class LabReportDetailPageComponent {
+export class LabReportDetailPageComponent implements HasUnsavedChanges {
   private readonly api = inject(LabReportsApiService);
   private readonly auth = inject(AuthService);
   private readonly toasts = inject(ApiErrorService);
@@ -113,7 +115,10 @@ export class LabReportDetailPageComponent {
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private readonly routeState = initDetailRouteLoader('id', (id) => this.api.getById(id), this.destroyRef, {
-    onLoaded: (report) => this.editForm.patchValue({ title: report.title, reportType: report.reportType }),
+    onLoaded: (report) => {
+      this.editForm.patchValue({ title: report.title, reportType: report.reportType });
+      markFormsPristine(this.editForm);
+    },
   });
 
   readonly loading = this.routeState.loading;
@@ -139,6 +144,22 @@ export class LabReportDetailPageComponent {
     title: ['', [Validators.required, Validators.maxLength(200)]],
     reportType: ['Hematology', Validators.required],
   });
+
+  constructor() {
+    bindUnsavedChangesProtection(this.destroyRef, () => this.hasUnsavedChanges());
+    let wasEditing = false;
+    effect(() => {
+      const isEditing = this.editing();
+      if (wasEditing && !isEditing) {
+        markFormsPristine(this.editForm);
+      }
+      wasEditing = isEditing;
+    });
+  }
+
+  hasUnsavedChanges(): boolean {
+    return (this.editing() && formsAreDirty(this.editForm)) || formsAreDirty(this.reviewForm);
+  }
 
   isDoctor(): boolean { return this.auth.role() === 'Doctor'; }
   isAdmin(): boolean { return this.auth.role() === 'Admin'; }
@@ -182,7 +203,11 @@ export class LabReportDetailPageComponent {
     if (!r || this.reviewForm.invalid) return;
     this.reviewing.set(true);
     this.api.review(r.id, { remarks: this.reviewForm.getRawValue().remarks }).subscribe({
-      next: (updated) => { this.report.set(updated); this.reviewing.set(false); },
+      next: (updated) => {
+        this.report.set(updated);
+        this.reviewing.set(false);
+        markFormsPristine(this.reviewForm);
+      },
       error: () => this.reviewing.set(false),
     });
   }
@@ -205,6 +230,7 @@ export class LabReportDetailPageComponent {
         this.updating.set(false);
         this.editing.set(false);
         this.replacementFile = null;
+        markFormsPristine(this.editForm);
         this.toasts.show('Report updated.', 'success');
       },
       error: (err) => {

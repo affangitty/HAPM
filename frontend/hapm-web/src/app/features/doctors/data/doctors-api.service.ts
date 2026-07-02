@@ -71,11 +71,11 @@ export class DoctorsApiService {
   }
 
   update(id: number, request: UpdateDoctorRequest): Observable<DoctorDto> {
-    return this.api.put<DoctorDto>(`/doctors/${id}`, request);
+    return this.api.patch<DoctorDto>(`/doctors/${id}`, request);
   }
 
   updateOwnProfile(id: number, request: UpdateOwnDoctorProfileRequest): Observable<DoctorDto> {
-    return this.api.put<DoctorDto>(`/doctors/${id}/profile`, request);
+    return this.api.patch<DoctorDto>(`/doctors/${id}/profile`, request);
   }
 
   deactivate(id: number): Observable<void> {

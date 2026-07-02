@@ -104,4 +104,26 @@ public class ReviewServiceTests : ServiceTestBase
 
         await Assert.ThrowsAsync<NotFoundException>(() => sut.DeleteAsync(review.Id));
     }
+
+    [Fact]
+    public async Task GetPagedAsync_masks_patient_name_for_anonymous_viewer()
+    {
+        var scenario = await SeedScenarioAsync();
+        var appointment = await TestData.SeedAppointmentAsync(
+            Uow, scenario.DoctorId, scenario.PatientId,
+            scenario.FutureBookingDate, scenario.DefaultSlotStart, AppointmentStatus.Completed);
+
+        CurrentUser.As(UserRole.Patient, scenario.PatientUserId);
+        var sut = CreateSut();
+        await sut.CreateAsync(new CreateReviewRequest { AppointmentId = appointment.Id, Rating = 5, Comment = "Great" });
+
+        CurrentUser.As(UserRole.Doctor, scenario.DoctorUserId);
+        var doctorView = await sut.GetPagedAsync(new ReviewQueryParams { DoctorId = scenario.DoctorId, Page = 1, PageSize = 10 });
+        Assert.Equal("Test Patient", doctorView.Items[0].PatientName);
+
+        CurrentUser.As(UserRole.Patient, scenario.SecondPatientUserId);
+        var otherPatientView = await sut.GetPagedAsync(new ReviewQueryParams { DoctorId = scenario.DoctorId, Page = 1, PageSize = 10 });
+        Assert.Equal(ReviewPrivacy.MaskedPatientName, otherPatientView.Items[0].PatientName);
+        Assert.Equal(0, otherPatientView.Items[0].PatientId);
+    }
 }

@@ -16,7 +16,7 @@ public class PatientsController : ControllerBase
 
     public PatientsController(IPatientService patientService) => _patientService = patientService;
 
-    /// <summary>Search patients by name, email, MRN or phone with pagination. Staff and doctors only.</summary>
+    /// <summary>Search patients. Receptionists/admins: all patients. Doctors: only patients they have treated.</summary>
     [HttpGet]
     [Authorize(Roles = Roles.Clinical)]
     public async Task<ActionResult<PagedResult<PatientDto>>> GetAll([FromQuery] PatientQueryParams query, CancellationToken ct) =>
@@ -46,10 +46,10 @@ public class PatientsController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = patient.Id }, patient);
     }
 
-    /// <summary>Patients may update their own record; staff may update any.</summary>
-    [HttpPut("{id:int}")]
-    public async Task<ActionResult<PatientDto>> Update(int id, UpdatePatientRequest request, CancellationToken ct) =>
-        Ok(await _patientService.UpdateAsync(id, request, ct));
+    /// <summary>Patients may update their own record; receptionists and admins may update any; doctors may update their patients.</summary>
+    [HttpPatch("{id:int}")]
+    public async Task<ActionResult<PatientDto>> Patch(int id, PatchPatientRequest request, CancellationToken ct) =>
+        Ok(await _patientService.PatchAsync(id, request, ct));
 
     [HttpDelete("{id:int}")]
     [Authorize(Roles = Roles.Admin)]

@@ -4,8 +4,8 @@ import { Component } from '@angular/core';
   selector: 'app-ui-table',
   standalone: true,
   template: `
-    <div class="relative w-full overflow-x-auto rounded-xl border bg-card">
-      <table class="w-full min-w-[720px] border-collapse text-left text-sm">
+    <div class="relative w-full rounded-xl border bg-card">
+      <table class="w-full border-collapse text-left text-sm md:min-w-[720px]">
         <ng-content />
       </table>
     </div>

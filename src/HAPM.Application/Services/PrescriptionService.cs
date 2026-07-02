@@ -110,8 +110,10 @@ public class PrescriptionService : IPrescriptionService
         return await GetByIdUnscopedAsync(prescription.Id, ct);
     }
 
-    public async Task<PrescriptionDto> UpdateAsync(int id, UpdatePrescriptionRequest request, CancellationToken ct = default)
+    public async Task<PrescriptionDto> PatchAsync(int id, PatchPrescriptionRequest request, CancellationToken ct = default)
     {
+        PatchValidation.EnsureAnyFieldSet(request);
+
         var doctor = await GetCurrentDoctorAsync(ct);
 
         var prescription = await _uow.Prescriptions.QueryTracked()
@@ -121,13 +123,16 @@ public class PrescriptionService : IPrescriptionService
         if (prescription.DoctorId != doctor.Id && _currentUser.Role != UserRole.Admin)
             throw new ForbiddenException("Only the prescribing doctor can update this prescription.");
 
-        prescription.Diagnosis = request.Diagnosis.Trim();
-        prescription.Notes = request.Notes;
-        prescription.FollowUpDate = request.FollowUpDate;
+        if (request.Diagnosis is not null) prescription.Diagnosis = request.Diagnosis.Trim();
+        if (request.Notes is not null) prescription.Notes = request.Notes;
+        if (request.FollowUpDate.HasValue) prescription.FollowUpDate = request.FollowUpDate;
 
-        prescription.Items.Clear();
-        foreach (var item in request.Items.Select(ToItem))
-            prescription.Items.Add(item);
+        if (request.Items is not null)
+        {
+            prescription.Items.Clear();
+            foreach (var item in request.Items.Select(ToItem))
+                prescription.Items.Add(item);
+        }
 
         await _uow.SaveChangesAsync(ct);
         return await GetByIdUnscopedAsync(id, ct);

@@ -38,8 +38,8 @@ import { getRolePrefix, roleBase, roleRoute } from '../../../shared/utils/role-p
           <a [routerLink]="basePath() + '/billing/invoices/new'"><app-ui-button size="sm">New invoice</app-ui-button></a>
           <a [routerLink]="basePath() + '/billing/analytics'"><app-ui-button size="sm" variant="outline">Analytics</app-ui-button></a>
           <app-ui-button size="sm" variant="outline" [loading]="exporting()" (pressed)="exportCsv()">Export</app-ui-button>
+          <a [routerLink]="basePath() + '/billing/dashboard'"><app-ui-button size="sm" variant="outline">Dashboard</app-ui-button></a>
         }
-        <a [routerLink]="basePath() + '/billing/dashboard'"><app-ui-button size="sm" variant="outline">Dashboard</app-ui-button></a>
       </div>
     </app-ui-page-header>
 

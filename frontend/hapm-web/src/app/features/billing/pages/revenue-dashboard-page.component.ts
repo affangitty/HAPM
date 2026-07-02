@@ -11,6 +11,7 @@ import { UiPageHeaderComponent } from '../../../shared/components/ui/page-header
 import { UiButtonComponent } from '../../../shared/components/ui/button/ui-button.component';
 import { UiCardComponent, UiCardContentComponent } from '../../../shared/components/ui/card/ui-card.component';
 import { UiSkeletonComponent } from '../../../shared/components/ui/skeleton/ui-skeleton.component';
+import { MobileRecordCardComponent } from '../../../shared/components/mobile-record-card/mobile-record-card.component';
 import { UiStatusBadgeComponent } from '../../../shared/components/ui/status-badge/ui-status-badge.component';
 import { BillingApiService } from '../data/billing-api.service';
 import { DashboardApiService } from '../../dashboard/data/dashboard-api.service';
@@ -25,11 +26,11 @@ import { DASHBOARD_KPI_GRID_CLASS, DASHBOARD_SPLIT_GRID_CLASS, DASHBOARD_STACK_C
     UiEmptyStateComponent,
     RouterLink, UiPageHeaderComponent, UiButtonComponent, UiKpiCardComponent,
     UiCardComponent, UiCardContentComponent, BarChartComponent, DonutChartComponent,
-    UiSkeletonComponent, UiStatusBadgeComponent,
+    UiSkeletonComponent, UiStatusBadgeComponent, MobileRecordCardComponent,
   ],
   template: `
     <app-ui-page-header title="Revenue Dashboard" subtitle="Financial overview and billing performance">
-      <div actions class="flex gap-2">
+      <div actions class="flex flex-wrap gap-2">
         <app-ui-button size="sm" variant="outline" (pressed)="exportReport()">Export Report</app-ui-button>
         <a [routerLink]="basePath() + '/billing'"><app-ui-button size="sm">Invoices</app-ui-button></a>
       </div>
@@ -70,8 +71,24 @@ import { DASHBOARD_KPI_GRID_CLASS, DASHBOARD_SPLIT_GRID_CLASS, DASHBOARD_STACK_C
       <app-ui-card>
         <app-ui-card-content class="p-5">
           <h2 class="mb-4 font-semibold">Recent Billing Activity</h2>
-          <div class="overflow-x-auto">
-            <table class="w-full min-w-[640px] text-left text-sm">
+          <div class="space-y-3 md:hidden">
+            @for (inv of invoices().slice(0, 6); track inv.id) {
+              <app-mobile-record-card
+                [title]="inv.invoiceNumber"
+                [subtitle]="inv.patientName"
+                [fields]="[
+                  { label: 'Amount', value: formatAmount(inv.totalAmount) },
+                  { label: 'Status', value: inv.status },
+                ]"
+              >
+                <span trailing>
+                  <app-ui-status-badge [label]="inv.status" [tone]="inv.status === 'Paid' ? 'success' : 'warning'" />
+                </span>
+              </app-mobile-record-card>
+            }
+          </div>
+          <div class="hidden md:block">
+            <table class="w-full text-left text-sm">
               <thead>
                 <tr class="border-b text-xs uppercase tracking-wide text-muted-foreground">
                   <th class="px-2 py-3">Invoice</th><th class="px-2 py-3">Patient</th><th class="px-2 py-3">Amount</th><th class="px-2 py-3">Status</th>

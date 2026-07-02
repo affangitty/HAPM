@@ -1,4 +1,6 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
+import { HasUnsavedChanges } from '../../../core/guards/has-unsaved-changes';
+import { bindUnsavedChangesProtection, formsAreDirty, markFormsPristine } from '../../../shared/utils/unsaved-changes.util';
 import { ApiErrorService } from '../../../core/api/api-error.service';
 import { FormArray, FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { getFormControlError, markFormGroupTouched, guardFormSubmit } from '../../../shared/utils/form-errors.util';
@@ -79,7 +81,7 @@ import { forkJoin } from 'rxjs';
     </app-ui-card>
   `,
 })
-export class PrescriptionCreatePageComponent implements OnInit {
+export class PrescriptionCreatePageComponent implements OnInit, HasUnsavedChanges {
   private readonly toasts = inject(ApiErrorService);
 
   private readonly api = inject(PrescriptionsApiService);
@@ -90,12 +92,21 @@ export class PrescriptionCreatePageComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
   readonly templateOptions = signal<{ label: string; value: string }[]>([{ label: 'None', value: '' }]);
   readonly appointmentOptions = signal<{ label: string; value: string }[]>([]);
   readonly selectedTemplate = signal('');
+
+  constructor() {
+    bindUnsavedChangesProtection(this.destroyRef, () => this.hasUnsavedChanges());
+  }
+
+  hasUnsavedChanges(): boolean {
+    return formsAreDirty(this.form);
+  }
 
   readonly form = this.fb.nonNullable.group({
     appointmentId: ['', Validators.required],
@@ -188,7 +199,7 @@ export class PrescriptionCreatePageComponent implements OnInit {
 
   submit(): void {
     markFormGroupTouched(this.form);
-    if (!guardFormSubmit(this.form, this.toasts)) return;
+    if (!guardFormSubmit(this.form)) return;
 
     this.saving.set(true);
     this.error.set(null);
@@ -205,6 +216,7 @@ export class PrescriptionCreatePageComponent implements OnInit {
       .subscribe({
         next: (rx) => {
           this.saving.set(false);
+          markFormsPristine(this.form);
           void this.router.navigate([roleRoute(this.router, 'prescriptions', String(rx.id))]);
         },
         error: (err) => {

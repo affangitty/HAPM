@@ -107,28 +107,32 @@ public class DoctorService : IDoctorService
         return await GetByIdAsync(doctor.Id, ct);
     }
 
-    public async Task<DoctorDto> UpdateAsync(int id, UpdateDoctorRequest request, CancellationToken ct = default)
+    public async Task<DoctorDto> PatchAsync(int id, PatchDoctorRequest request, CancellationToken ct = default)
     {
+        PatchValidation.EnsureAnyFieldSet(request);
+
         var doctor = await _uow.Doctors.QueryTracked()
             .Include(d => d.User)
             .FirstOrDefaultAsync(d => d.Id == id, ct) ?? throw new NotFoundException("Doctor", id);
 
-        doctor.User.FullName = request.FullName.Trim();
-        doctor.User.PhoneNumber = request.PhoneNumber;
-        doctor.Specialization = request.Specialization.Trim();
-        doctor.Qualification = request.Qualification.Trim();
-        doctor.ExperienceYears = request.ExperienceYears;
-        doctor.ConsultationFee = request.ConsultationFee;
-        doctor.RoomNumber = request.RoomNumber;
-        doctor.Biography = request.Biography;
-        doctor.IsAvailable = request.IsAvailable;
+        if (request.FullName is not null) doctor.User.FullName = request.FullName.Trim();
+        if (request.PhoneNumber is not null) doctor.User.PhoneNumber = request.PhoneNumber;
+        if (request.Specialization is not null) doctor.Specialization = request.Specialization.Trim();
+        if (request.Qualification is not null) doctor.Qualification = request.Qualification.Trim();
+        if (request.ExperienceYears.HasValue) doctor.ExperienceYears = request.ExperienceYears.Value;
+        if (request.ConsultationFee.HasValue) doctor.ConsultationFee = request.ConsultationFee.Value;
+        if (request.RoomNumber is not null) doctor.RoomNumber = request.RoomNumber;
+        if (request.Biography is not null) doctor.Biography = request.Biography;
+        if (request.IsAvailable.HasValue) doctor.IsAvailable = request.IsAvailable.Value;
 
         await _uow.SaveChangesAsync(ct);
         return await GetByIdAsync(id, ct);
     }
 
-    public async Task<DoctorDto> UpdateOwnProfileAsync(int id, UpdateOwnDoctorProfileRequest request, CancellationToken ct = default)
+    public async Task<DoctorDto> PatchOwnProfileAsync(int id, PatchOwnDoctorProfileRequest request, CancellationToken ct = default)
     {
+        PatchValidation.EnsureAnyFieldSet(request);
+
         if (_currentUser.Role != UserRole.Doctor)
             throw new ForbiddenException("Only doctors can update their own profile.");
 
@@ -139,10 +143,10 @@ public class DoctorService : IDoctorService
         if (doctor.UserId != _currentUser.UserId)
             throw new ForbiddenException("You can only update your own doctor profile.");
 
-        doctor.User.FullName = request.FullName.Trim();
-        doctor.User.PhoneNumber = request.PhoneNumber;
-        doctor.RoomNumber = request.RoomNumber;
-        doctor.Biography = request.Biography;
+        if (request.FullName is not null) doctor.User.FullName = request.FullName.Trim();
+        if (request.PhoneNumber is not null) doctor.User.PhoneNumber = request.PhoneNumber;
+        if (request.RoomNumber is not null) doctor.RoomNumber = request.RoomNumber;
+        if (request.Biography is not null) doctor.Biography = request.Biography;
 
         await _uow.SaveChangesAsync(ct);
         return await GetByIdAsync(id, ct);

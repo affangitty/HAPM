@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { unsavedChangesGuard } from '../../core/guards/unsaved-changes.guard';
 
 export const PRESCRIPTION_TEMPLATE_ROUTES: Routes = [
   {
@@ -11,12 +12,14 @@ export const PRESCRIPTION_TEMPLATE_ROUTES: Routes = [
     path: 'templates/create',
     loadComponent: () =>
       import('./pages/template-create-page.component').then((m) => m.TemplateCreatePageComponent),
+    canDeactivate: [unsavedChangesGuard],
     data: { title: 'Create Template' },
   },
   {
     path: 'templates/:id/edit',
     loadComponent: () =>
       import('./pages/template-edit-page.component').then((m) => m.TemplateEditPageComponent),
+    canDeactivate: [unsavedChangesGuard],
     data: { title: 'Edit Template' },
   },
   {

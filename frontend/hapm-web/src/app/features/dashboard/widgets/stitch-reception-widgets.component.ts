@@ -2,6 +2,7 @@ import { Component, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { UiButtonComponent } from '../../../shared/components/ui/button/ui-button.component';
 import { UiStatusBadgeComponent } from '../../../shared/components/ui/status-badge/ui-status-badge.component';
+import { MobileRecordCardComponent } from '../../../shared/components/mobile-record-card/mobile-record-card.component';
 import { APPOINTMENT_STATUS_TONE, AppointmentStatus } from '../../../shared/models/enums';
 import { DashboardQueueItem } from '../models/dashboard.models';
 import { DashboardSectionHeaderComponent } from './dashboard-section-header.component';
@@ -10,15 +11,36 @@ import { DashboardWidgetCardComponent } from './dashboard-kpi-grid.component';
 @Component({
   selector: 'app-checkin-table-widget',
   standalone: true,
-  imports: [RouterLink, UiButtonComponent, UiStatusBadgeComponent, DashboardSectionHeaderComponent, DashboardWidgetCardComponent],
+  imports: [RouterLink, UiButtonComponent, UiStatusBadgeComponent, MobileRecordCardComponent, DashboardSectionHeaderComponent, DashboardWidgetCardComponent],
   host: { class: 'flex min-h-0 min-w-0 flex-col self-stretch lg:col-span-3' },
   template: `
     <app-dashboard-widget-card class="min-h-0 flex-1">
       <app-dashboard-section-header title="Patient Check-in">
         <a actions routerLink="/reception/appointments" class="text-xs font-medium text-primary hover:underline">View All</a>
       </app-dashboard-section-header>
-      <div class="overflow-x-auto">
-        <table class="w-full min-w-[640px] text-left text-sm">
+
+      <div class="space-y-3 md:hidden">
+        @for (item of items(); track item.id) {
+          <app-mobile-record-card
+            [title]="item.name"
+            [subtitle]="item.time"
+            [fields]="[
+              { label: 'Provider', value: item.doctor },
+              { label: 'Status', value: item.status },
+            ]"
+          >
+            <span trailing>
+              <app-ui-status-badge [label]="item.status" [tone]="statusTone(item.status)" />
+            </span>
+            <div class="mt-3">
+              <app-ui-button size="sm" variant="outline">Check In</app-ui-button>
+            </div>
+          </app-mobile-record-card>
+        }
+      </div>
+
+      <div class="hidden overflow-x-auto md:block">
+        <table class="w-full text-left text-sm">
           <thead>
             <tr class="border-b text-xs uppercase tracking-wide text-muted-foreground">
               <th class="px-2 py-3">Time</th><th class="px-2 py-3">Patient</th><th class="px-2 py-3">Provider</th><th class="px-2 py-3">Status</th><th class="px-2 py-3">Action</th>
@@ -84,7 +106,7 @@ export class RoomAllocationWidgetComponent {
       <app-dashboard-section-header title="Billing & Invoicing Overview">
         <a actions routerLink="/reception/billing" class="text-xs font-medium text-primary hover:underline">Go to Billing</a>
       </app-dashboard-section-header>
-      <div class="grid gap-4 md:grid-cols-3">
+      <div class="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
         @for (metric of metrics(); track metric.label) {
           <div class="rounded-xl border border-border p-4">
             <p class="text-xs text-muted-foreground">{{ metric.label }}</p>

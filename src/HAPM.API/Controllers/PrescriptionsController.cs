@@ -38,8 +38,8 @@ public class PrescriptionsController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = prescription.Id }, prescription);
     }
 
-    [HttpPut("{id:int}")]
+    [HttpPatch("{id:int}")]
     [Authorize(Roles = Roles.Doctor)]
-    public async Task<ActionResult<PrescriptionDto>> Update(int id, UpdatePrescriptionRequest request, CancellationToken ct) =>
-        Ok(await _prescriptionService.UpdateAsync(id, request, ct));
+    public async Task<ActionResult<PrescriptionDto>> Patch(int id, PatchPrescriptionRequest request, CancellationToken ct) =>
+        Ok(await _prescriptionService.PatchAsync(id, request, ct));
 }

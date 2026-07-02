@@ -31,7 +31,7 @@ export class BillingApiService {
   }
 
   update(id: number, request: UpdateInvoiceRequest): Observable<InvoiceDto> {
-    return this.api.put<InvoiceDto>(`/invoices/${id}`, request);
+    return this.api.patch<InvoiceDto>(`/invoices/${id}`, request);
   }
 
   addPayment(id: number, request: AddPaymentRequest): Observable<InvoiceDto> {

@@ -16,7 +16,7 @@ import { DayOfWeek, DoctorScheduleDto, ScheduleSlotRequest } from '../models/doc
   template: `
     <div class="space-y-4">
       @for (row of slotRows(); track $index) {
-        <div class="grid gap-3 rounded-xl border border-border p-4 sm:grid-cols-5">
+        <div class="grid gap-3 rounded-xl border border-border p-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
           <app-form-field label="Day">
             <app-ui-select [options]="dayOptions" [ngModel]="row.dayOfWeek" (ngModelChange)="patchRow($index, 'dayOfWeek', $event)" />
           </app-form-field>

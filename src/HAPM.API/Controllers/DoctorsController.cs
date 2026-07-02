@@ -68,16 +68,16 @@ public class DoctorsController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = doctor.Id }, doctor);
     }
 
-    [HttpPut("{id:int}")]
+    [HttpPatch("{id:int}")]
     [Authorize(Roles = Roles.Admin)]
-    public async Task<ActionResult<DoctorDto>> Update(int id, UpdateDoctorRequest request, CancellationToken ct) =>
-        Ok(await _doctorService.UpdateAsync(id, request, ct));
+    public async Task<ActionResult<DoctorDto>> Patch(int id, PatchDoctorRequest request, CancellationToken ct) =>
+        Ok(await _doctorService.PatchAsync(id, request, ct));
 
     /// <summary>Doctor updates their own profile (name, phone, room, biography).</summary>
-    [HttpPut("{id:int}/profile")]
+    [HttpPatch("{id:int}/profile")]
     [Authorize(Roles = Roles.Doctor)]
-    public async Task<ActionResult<DoctorDto>> UpdateOwnProfile(int id, UpdateOwnDoctorProfileRequest request, CancellationToken ct) =>
-        Ok(await _doctorService.UpdateOwnProfileAsync(id, request, ct));
+    public async Task<ActionResult<DoctorDto>> PatchOwnProfile(int id, PatchOwnDoctorProfileRequest request, CancellationToken ct) =>
+        Ok(await _doctorService.PatchOwnProfileAsync(id, request, ct));
 
     /// <summary>Replaces the doctor's weekly consulting schedule.</summary>
     [HttpPut("{id:int}/schedules")]

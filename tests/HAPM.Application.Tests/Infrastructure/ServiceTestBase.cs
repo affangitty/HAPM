@@ -12,8 +12,7 @@ namespace HAPM.Application.Tests.Infrastructure;
 
 public abstract class ServiceTestBase : IDisposable
 {
-    private readonly AppDbContext _context;
-
+    protected AppDbContext Db { get; }
     protected UnitOfWork Uow { get; }
     protected FakeCurrentUser CurrentUser { get; } = new();
     protected FakeNotificationService Notifications { get; } = new();
@@ -33,8 +32,8 @@ public abstract class ServiceTestBase : IDisposable
             .UseInMemoryDatabase($"hapm-tests-{Guid.NewGuid():N}")
             .Options;
 
-        _context = new AppDbContext(options);
-        Uow = new UnitOfWork(_context);
+        Db = new AppDbContext(options);
+        Uow = new UnitOfWork(Db);
     }
 
     protected async Task<TestScenario> SeedScenarioAsync(CancellationToken ct = default) =>
@@ -42,7 +41,7 @@ public abstract class ServiceTestBase : IDisposable
 
     public void Dispose()
     {
-        _context.Dispose();
+        Db.Dispose();
         GC.SuppressFinalize(this);
     }
 }

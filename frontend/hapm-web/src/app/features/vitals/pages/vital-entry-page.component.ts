@@ -1,7 +1,9 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
+import { HasUnsavedChanges } from '../../../core/guards/has-unsaved-changes';
+import { bindUnsavedChangesProtection, formsAreDirty, markFormsPristine } from '../../../shared/utils/unsaved-changes.util';
 import { ApiErrorService } from '../../../core/api/api-error.service';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { markFormGroupTouched, guardFormSubmit } from '../../../shared/utils/form-errors.util';
+import { guardFormSubmit } from '../../../shared/utils/form-errors.util';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { extractApiErrorMessage } from '../../../core/auth/utils/api-error.util';
 import { UiButtonComponent } from '../../../shared/components/ui/button/ui-button.component';
@@ -36,7 +38,7 @@ import { forkJoin } from 'rxjs';
     </app-ui-card>
   `,
 })
-export class VitalEntryPageComponent implements OnInit {
+export class VitalEntryPageComponent implements OnInit, HasUnsavedChanges {
   private readonly toasts = inject(ApiErrorService);
   private readonly api = inject(VitalsApiService);
   private readonly appointmentsApi = inject(AppointmentsApiService);
@@ -44,10 +46,19 @@ export class VitalEntryPageComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
   readonly appointmentOptions = signal<{ label: string; value: string }[]>([]);
+
+  constructor() {
+    bindUnsavedChangesProtection(this.destroyRef, () => this.hasUnsavedChanges());
+  }
+
+  hasUnsavedChanges(): boolean {
+    return formsAreDirty(this.form);
+  }
 
   readonly form = this.fb.group({
     appointmentId: ['', Validators.required],
@@ -69,8 +80,7 @@ export class VitalEntryPageComponent implements OnInit {
   }
 
   submit(): void {
-    markFormGroupTouched(this.form);
-    if (!guardFormSubmit(this.form, this.toasts)) return;
+    if (!guardFormSubmit(this.form)) return;
 
     const v = this.form.getRawValue();
     const hasMeasurement = [
@@ -97,7 +107,11 @@ export class VitalEntryPageComponent implements OnInit {
       weightKg: v.weightKg ?? undefined,
       notes: v.notes || undefined,
     }).subscribe({
-      next: () => { this.saving.set(false); void this.router.navigate([roleRoute(this.router, 'vitals')]); },
+      next: () => {
+        this.saving.set(false);
+        markFormsPristine(this.form);
+        void this.router.navigate([roleRoute(this.router, 'vitals')]);
+      },
       error: (err) => { this.error.set(extractApiErrorMessage(err, 'Failed to record vitals.')); this.saving.set(false); },
     });
   }

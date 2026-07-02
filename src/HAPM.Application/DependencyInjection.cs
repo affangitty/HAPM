@@ -23,7 +23,6 @@ public static class DependencyInjection
         services.AddScoped<IDoctorLeaveService, DoctorLeaveService>();
         services.AddScoped<IReviewService, ReviewService>();
         services.AddScoped<IWaitlistService, WaitlistService>();
-        services.AddScoped<IAuditLogService, AuditLogService>();
         services.AddScoped<IExportService, ExportService>();
         services.AddScoped<IPrescriptionTemplateService, PrescriptionTemplateService>();
         services.AddScoped<IStaffMessageService, StaffMessageService>();

@@ -34,9 +34,9 @@ public class PrescriptionTemplatesController : ControllerBase
     }
 
     /// <summary>Updates an existing template.</summary>
-    [HttpPut("{id:int}")]
-    public async Task<ActionResult<PrescriptionTemplateDto>> Update(int id, SavePrescriptionTemplateRequest request, CancellationToken ct) =>
-        Ok(await _templates.UpdateAsync(id, request, ct));
+    [HttpPatch("{id:int}")]
+    public async Task<ActionResult<PrescriptionTemplateDto>> Patch(int id, PatchPrescriptionTemplateRequest request, CancellationToken ct) =>
+        Ok(await _templates.PatchAsync(id, request, ct));
 
     /// <summary>Deletes a template.</summary>
     [HttpDelete("{id:int}")]

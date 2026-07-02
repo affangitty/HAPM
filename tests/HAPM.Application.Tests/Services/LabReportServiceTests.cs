@@ -133,14 +133,14 @@ public class LabReportServiceTests : ServiceTestBase
     }
 
     [Fact]
-    public async Task UpdateAsync_metadata_only_succeeds()
+    public async Task PatchAsync_metadata_only_succeeds()
     {
         var scenario = await SeedScenarioAsync();
         CurrentUser.As(UserRole.Doctor, scenario.DoctorUserId);
         var report = await SeedReportAsync(scenario.PatientId, scenario.DoctorId);
         var sut = CreateSut();
 
-        var updated = await sut.UpdateAsync(report.Id, new UpdateLabReportRequest
+        var updated = await sut.PatchAsync(report.Id, new PatchLabReportRequest
         {
             DoctorId = scenario.DoctorId,
             ReportType = "Imaging",
@@ -151,7 +151,7 @@ public class LabReportServiceTests : ServiceTestBase
     }
 
     [Fact]
-    public async Task UpdateAsync_replaces_file()
+    public async Task PatchAsync_replaces_file()
     {
         var scenario = await SeedScenarioAsync();
         CurrentUser.As(UserRole.Receptionist, scenario.ReceptionistUserId);
@@ -159,7 +159,7 @@ public class LabReportServiceTests : ServiceTestBase
         var sut = CreateSut();
 
         using var stream = new MemoryStream(new byte[] { 9, 8, 7 });
-        var updated = await sut.UpdateAsync(report.Id, new UpdateLabReportRequest
+        var updated = await sut.PatchAsync(report.Id, new PatchLabReportRequest
         {
             ReportType = "Blood",
             Title = "Replaced"
@@ -170,14 +170,14 @@ public class LabReportServiceTests : ServiceTestBase
     }
 
     [Fact]
-    public async Task UpdateAsync_patient_forbidden()
+    public async Task PatchAsync_patient_forbidden()
     {
         var scenario = await SeedScenarioAsync();
         CurrentUser.As(UserRole.Patient, scenario.PatientUserId);
         var report = await SeedReportAsync(scenario.PatientId, scenario.DoctorId);
         var sut = CreateSut();
 
-        await Assert.ThrowsAsync<ForbiddenException>(() => sut.UpdateAsync(report.Id, new UpdateLabReportRequest
+        await Assert.ThrowsAsync<ForbiddenException>(() => sut.PatchAsync(report.Id, new PatchLabReportRequest
         {
             ReportType = "Blood",
             Title = "X"

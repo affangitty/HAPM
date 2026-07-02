@@ -16,7 +16,7 @@ public class VitalsController : ControllerBase
 
     public VitalsController(IVitalSignService vitalSignService) => _vitalSignService = vitalSignService;
 
-    /// <summary>Vital sign history (patients see only their own). Filter by patientId or appointmentId.</summary>
+    /// <summary>Vital sign history. Patients: own only. Doctors: their appointments. Receptionists/admins: all.</summary>
     [HttpGet]
     public async Task<ActionResult<PagedResult<VitalSignDto>>> GetAll([FromQuery] VitalSignQueryParams query, CancellationToken ct) =>
         Ok(await _vitalSignService.GetPagedAsync(query, ct));

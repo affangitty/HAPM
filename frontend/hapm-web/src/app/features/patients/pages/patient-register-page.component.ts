@@ -1,4 +1,6 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { HasUnsavedChanges } from '../../../core/guards/has-unsaved-changes';
+import { bindUnsavedChangesProtection, formsAreDirty, markFormsPristine } from '../../../shared/utils/unsaved-changes.util';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { getFormControlError, guardFormSubmit } from '../../../shared/utils/form-errors.util';
 import { ApiErrorService } from '../../../core/api/api-error.service';
@@ -90,11 +92,12 @@ import { getRolePrefix, roleBase, roleRoute } from '../../../shared/utils/role-p
     </app-ui-card>
   `,
 })
-export class PatientRegisterPageComponent {
+export class PatientRegisterPageComponent implements HasUnsavedChanges {
   private readonly api = inject(PatientsApiService);
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
   private readonly toasts = inject(ApiErrorService);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
@@ -104,6 +107,14 @@ export class PatientRegisterPageComponent {
     { label: 'Female', value: 'Female' },
     { label: 'Other', value: 'Other' },
   ];
+
+  constructor() {
+    bindUnsavedChangesProtection(this.destroyRef, () => this.hasUnsavedChanges());
+  }
+
+  hasUnsavedChanges(): boolean {
+    return formsAreDirty(this.form);
+  }
 
   readonly form = this.fb.nonNullable.group({
     fullName: ['', Validators.required],
@@ -130,16 +141,14 @@ export class PatientRegisterPageComponent {
   }
 
   submit(): void {
-    if (!guardFormSubmit(this.form, this.toasts, {
-      fullName: 'Full name', email: 'Email', phoneNumber: 'Phone', password: 'Password',
-      dateOfBirth: 'Date of birth', gender: 'Gender',
-    }, { strongPassword: STRONG_PASSWORD_MESSAGE })) return;
+    if (!guardFormSubmit(this.form)) return;
     this.saving.set(true);
     this.error.set(null);
     this.api.create(this.form.getRawValue()).subscribe({
       next: (patient) => {
         this.saving.set(false);
         this.toasts.showSuccess(`Patient ${patient.fullName} registered successfully.`);
+        markFormsPristine(this.form);
         void this.router.navigateByUrl(roleRoute(this.router, 'patients', String(patient.id)));
       },
       error: (err) => {

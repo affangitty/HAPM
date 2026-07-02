@@ -1,4 +1,6 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
+import { HasUnsavedChanges } from '../../../core/guards/has-unsaved-changes';
+import { bindUnsavedChangesProtection, formsAreDirty, markFormsPristine } from '../../../shared/utils/unsaved-changes.util';
 import { ApiErrorService } from '../../../core/api/api-error.service';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { getFormControlError, markFormGroupTouched, guardFormSubmit } from '../../../shared/utils/form-errors.util';
@@ -69,7 +71,7 @@ import { getRolePrefix, roleBase, roleRoute } from '../../../shared/utils/role-p
     </app-ui-card>
   `,
 })
-export class WaitlistJoinPageComponent implements OnInit {
+export class WaitlistJoinPageComponent implements OnInit, HasUnsavedChanges {
   private readonly toasts = inject(ApiErrorService);
 
   private readonly api = inject(WaitlistApiService);
@@ -78,11 +80,20 @@ export class WaitlistJoinPageComponent implements OnInit {
   private readonly auth = inject(AuthService);
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly doctorOptions = signal<{ label: string; value: string }[]>([]);
   readonly patientOptions = signal<{ label: string; value: string }[]>([]);
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
+
+  constructor() {
+    bindUnsavedChangesProtection(this.destroyRef, () => this.hasUnsavedChanges());
+  }
+
+  hasUnsavedChanges(): boolean {
+    return formsAreDirty(this.form);
+  }
 
   readonly form = this.fb.nonNullable.group({
     doctorId: ['', Validators.required],
@@ -108,7 +119,7 @@ export class WaitlistJoinPageComponent implements OnInit {
 
   submit(): void {
     markFormGroupTouched(this.form);
-    if (!guardFormSubmit(this.form, this.toasts)) return;
+    if (!guardFormSubmit(this.form)) return;
 
     this.saving.set(true);
     this.error.set(null);
@@ -124,6 +135,7 @@ export class WaitlistJoinPageComponent implements OnInit {
       .subscribe({
         next: (entry) => {
           this.saving.set(false);
+          markFormsPristine(this.form);
           void this.router.navigate([roleRoute(this.router, 'waitlist', String(entry.id))]);
         },
         error: (err) => {

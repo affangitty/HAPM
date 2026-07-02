@@ -47,14 +47,14 @@ public class PrescriptionTemplateServiceTests : ServiceTestBase
     }
 
     [Fact]
-    public async Task UpdateAsync_updates_template()
+    public async Task PatchAsync_updates_template()
     {
         var scenario = await SeedScenarioAsync();
         CurrentUser.As(UserRole.Doctor, scenario.DoctorUserId);
         var sut = CreateSut();
         var created = await sut.CreateAsync(SampleRequest("Original"));
 
-        var updated = await sut.UpdateAsync(created.Id, SampleRequest("Updated"));
+        var updated = await sut.PatchAsync(created.Id, new PatchPrescriptionTemplateRequest { Name = "Updated" });
         Assert.Equal("Updated", updated.Name);
     }
 

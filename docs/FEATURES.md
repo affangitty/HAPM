@@ -16,7 +16,7 @@ This document describes **what the application can do**, organized by capability
 | **Clinical** | Appointments, vitals, prescriptions, lab reports, medical history |
 | **Operations** | Doctor schedules, leave, waitlist, notifications, reminders |
 | **Financial** | Invoices, tax/discount, partial payments, receipt numbers |
-| **Governance** | Audit log, CSV exports, admin dashboard & analytics |
+| **Governance** | Audit log with field-level diffs, cold archive, CSV exports, admin dashboard & analytics |
 | **Quality** | Validation, ProblemDetails errors, health checks, unit tests |
 
 **Scale:** 16 controllers · ~75 HTTP endpoints · 17 application services · 4 user roles
@@ -47,7 +47,7 @@ This document describes **what the application can do**, organized by capability
 - **Change password** for the signed-in user
 - **Get current user** (`/api/auth/me`) - profile of the authenticated account
 - **Strong password policy** - minimum length, uppercase, lowercase, digit, and special character
-- **Angular login UX** - show/hide password toggle on all password fields; demo mode lists seeded credentials on the sign-in screen
+- **Angular login UX** - show/hide password toggle on all password fields; demo mode lists seeded credentials on the sign-in screen; patient registration inline on the login page (also at `/auth/register`); dark/light theme toggle on auth and in the top nav
 
 ### Role-based access control (RBAC)
 
@@ -72,6 +72,8 @@ Four roles with endpoint-level enforcement:
 - **JWT signing key** validated at startup (minimum 32 bytes)
 - **Rate limiting** - 300 requests/min per IP globally; 10 requests/min on `/api/auth/*` (HTTP 429)
 - **Audit interceptor** masks password fields in change logs
+- **Idempotency keys** on key mutating routes — safe retries without duplicate bookings, registrations, or payments
+- **PATCH partial updates** on patients, doctors, prescriptions, invoices, lab reports, templates, and appointment reschedule (`PUT` retained only for full weekly schedule replace)
 
 ---
 
@@ -351,10 +353,23 @@ Per-doctor metrics:
 Every create, update, and delete across the system is recorded automatically:
 
 - Entity name, record ID, action type
-- Old and new values as JSON snapshots
+- **Per-field** old and new values as JSON (`{ "FieldName": { "old": …, "new": … } }`)
 - User who performed the action and timestamp
 - Password fields masked in audit entries
 - Admin can query with filters (entity, action, user, date range)
+- Detail UI shows a Field / Old / New table (legacy snapshot format still supported)
+- Rows older than **90 days** (configurable) are archived to `AuditLogArchives`; archives older than **365 days** are purged by a background job
+
+---
+
+## Idempotency
+
+Mutating API calls on sensitive routes support an optional **`Idempotency-Key`** request header (max 128 characters):
+
+- Supported on `POST`/`PATCH` for register, appointments, patients, doctors, invoices, prescriptions, reviews, waitlist, and receptionist creation
+- Same key + same body → original response replayed (24 h retention)
+- Login and refresh are excluded
+- Angular HTTP client attaches keys automatically via `idempotency.interceptor.ts`
 
 ---
 
@@ -372,12 +387,14 @@ Admin and reception can download Excel-friendly CSV files (UTF-8 with BOM):
 
 ## Background jobs
 
-Two automated reminder flows run on a background timer:
+Three automated background services run on timers:
 
 | Job | When | Action |
 |-----|------|--------|
 | **Appointment reminder** | Confirmed appointment within **24 hours** | In-app notification; flag prevents duplicate sends |
 | **Follow-up reminder** | Prescription follow-up date within **2 days** | In-app notification to patient |
+| **Idempotency cleanup** | Every **1 hour** | Purges expired idempotency records |
+| **Audit archive** | Every **24 hours** (configurable) | Moves aged audit logs to archive table; purges very old archives |
 
 Rescheduling an appointment resets the appointment reminder flag.
 
@@ -408,6 +425,12 @@ Authenticated requests use:
 
 ```
 Authorization: Bearer <accessToken>
+```
+
+Optional on supported mutating routes:
+
+```
+Idempotency-Key: <unique-client-generated-key>
 ```
 
 ---

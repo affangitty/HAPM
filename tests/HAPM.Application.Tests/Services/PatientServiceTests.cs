@@ -55,6 +55,45 @@ public class PatientServiceTests : ServiceTestBase
     }
 
     [Fact]
+    public async Task GetByIdAsync_doctor_can_access_own_patient()
+    {
+        var scenario = await SeedScenarioAsync();
+        await TestData.SeedAppointmentAsync(
+            Uow, scenario.DoctorId, scenario.PatientId,
+            scenario.FutureBookingDate, scenario.DefaultSlotStart, AppointmentStatus.Confirmed);
+        CurrentUser.As(UserRole.Doctor, scenario.DoctorUserId);
+        var sut = CreateSut();
+
+        var patient = await sut.GetByIdAsync(scenario.PatientId);
+        Assert.Equal("Test Patient", patient.FullName);
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_doctor_cannot_access_unrelated_patient()
+    {
+        var scenario = await SeedScenarioAsync();
+        CurrentUser.As(UserRole.Doctor, scenario.DoctorUserId);
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<ForbiddenException>(() => sut.GetByIdAsync(scenario.SecondPatientId));
+    }
+
+    [Fact]
+    public async Task GetPagedAsync_doctor_only_lists_assigned_patients()
+    {
+        var scenario = await SeedScenarioAsync();
+        await TestData.SeedAppointmentAsync(
+            Uow, scenario.DoctorId, scenario.PatientId,
+            scenario.FutureBookingDate, scenario.DefaultSlotStart, AppointmentStatus.Confirmed);
+        CurrentUser.As(UserRole.Doctor, scenario.DoctorUserId);
+        var sut = CreateSut();
+
+        var result = await sut.GetPagedAsync(new PatientQueryParams { Page = 1, PageSize = 50 });
+        Assert.Single(result.Items);
+        Assert.Equal(scenario.PatientId, result.Items[0].Id);
+    }
+
+    [Fact]
     public async Task GetByIdAsync_patient_cannot_access_other_record()
     {
         var scenario = await SeedScenarioAsync();
@@ -122,13 +161,13 @@ public class PatientServiceTests : ServiceTestBase
     }
 
     [Fact]
-    public async Task UpdateAsync_patient_updates_own_record()
+    public async Task PatchAsync_patient_updates_own_record()
     {
         var scenario = await SeedScenarioAsync();
         CurrentUser.As(UserRole.Patient, scenario.PatientUserId);
         var sut = CreateSut();
 
-        var updated = await sut.UpdateAsync(scenario.PatientId, new UpdatePatientRequest
+        var updated = await sut.PatchAsync(scenario.PatientId, new PatchPatientRequest
         {
             FullName = "Updated Patient",
             PhoneNumber = "+19997776600",

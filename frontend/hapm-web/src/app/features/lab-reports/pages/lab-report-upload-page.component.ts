@@ -1,7 +1,9 @@
 import { Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { ApiErrorService } from '../../../core/api/api-error.service';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { HasUnsavedChanges } from '../../../core/guards/has-unsaved-changes';
 import { getFormControlError, markFormGroupTouched, guardFormSubmit } from '../../../shared/utils/form-errors.util';
+import { bindUnsavedChangesProtection, formsAreDirty, markFormsPristine } from '../../../shared/utils/unsaved-changes.util';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { extractApiErrorMessage } from '../../../core/auth/utils/api-error.util';
 import { FormFieldComponent } from '../../../shared/components/forms/form-field/form-field.component';
@@ -61,7 +63,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
     </app-ui-card>
   `,
 })
-export class LabReportUploadPageComponent implements OnInit {
+export class LabReportUploadPageComponent implements OnInit, HasUnsavedChanges {
   private readonly toasts = inject(ApiErrorService);
   private readonly api = inject(LabReportsApiService);
   private readonly doctorsApi = inject(DoctorsApiService);
@@ -91,6 +93,14 @@ export class LabReportUploadPageComponent implements OnInit {
     reportType: ['Hematology', Validators.required],
     title: ['', [Validators.required, Validators.maxLength(200)]],
   });
+
+  constructor() {
+    bindUnsavedChangesProtection(this.destroyRef, () => this.hasUnsavedChanges());
+  }
+
+  hasUnsavedChanges(): boolean {
+    return formsAreDirty(this.form);
+  }
 
   ngOnInit(): void {
     this.patientsApi.list({ page: 1, pageSize: 100, sortBy: 'name' }).subscribe({
@@ -138,6 +148,7 @@ export class LabReportUploadPageComponent implements OnInit {
         clearInterval(timer);
         this.progress.set(100);
         this.uploading.set(false);
+        markFormsPristine(this.form);
         void this.router.navigate([roleRoute(this.router, 'lab-reports', String(report.id))]);
       },
       error: (err) => {

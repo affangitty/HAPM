@@ -1,10 +1,13 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
+import { HasUnsavedChanges } from '../../../core/guards/has-unsaved-changes';
+import { bindUnsavedChangesProtection, formsAreDirty } from '../../../shared/utils/unsaved-changes.util';
 import { DatePipe } from '@angular/common';
 import { ApiErrorService } from '../../../core/api/api-error.service';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { setPageLoadFailed } from '../../../shared/utils/page-load.util';
 import { extractApiErrorMessage } from '../../../core/auth/utils/api-error.util';
 import { getFormControlError, guardFormSubmit } from '../../../shared/utils/form-errors.util';
+import { MobileRecordCardComponent } from '../../../shared/components/mobile-record-card/mobile-record-card.component';
 import { DoctorsApiService } from '../data/doctors-api.service';
 import { DoctorLeaveDto } from '../models/doctor.models';
 import { FormFieldComponent } from '../../../shared/components/forms/form-field/form-field.component';
@@ -27,6 +30,7 @@ import { UiTextareaComponent } from '../../../shared/components/ui/textarea/ui-t
     UiInputComponent,
     UiTextareaComponent,
     UiButtonComponent,
+    MobileRecordCardComponent,
   ],
   template: `
     <app-ui-page-header title="Leave Management" subtitle="Register and manage your leave periods" />
@@ -61,7 +65,24 @@ import { UiTextareaComponent } from '../../../shared/components/ui/textarea/ui-t
         } @else if (!leaves().length) {
           <p class="text-sm text-muted-foreground">You have no registered leave periods.</p>
         } @else {
-          <div class="overflow-x-auto rounded-xl border border-border">
+          <div class="space-y-3 md:hidden">
+            @for (leave of leaves(); track leave.id) {
+              <app-mobile-record-card
+                [title]="leave.startDate + ' → ' + leave.endDate"
+                [subtitle]="leave.reason"
+                [fields]="[
+                  { label: 'Created', value: (leave.createdAtUtc | date: 'mediumDate') ?? '—' },
+                ]"
+              >
+                <div class="mt-3">
+                  <app-ui-button size="sm" variant="outline" [loading]="deletingId() === leave.id" (pressed)="deleteLeave(leave.id)">
+                    Delete
+                  </app-ui-button>
+                </div>
+              </app-mobile-record-card>
+            }
+          </div>
+          <div class="hidden overflow-x-auto rounded-xl border border-border md:block">
             <table class="w-full text-left text-sm">
               <thead class="border-b bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
@@ -94,11 +115,12 @@ import { UiTextareaComponent } from '../../../shared/components/ui/textarea/ui-t
     </div>
   `,
 })
-export class DoctorLeavesPageComponent implements OnInit {
+export class DoctorLeavesPageComponent implements OnInit, HasUnsavedChanges {
   private readonly toasts = inject(ApiErrorService);
 
   private readonly api = inject(DoctorsApiService);
   private readonly fb = inject(FormBuilder);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly leaves = signal<DoctorLeaveDto[]>([]);
   readonly loading = signal(false);
@@ -107,6 +129,14 @@ export class DoctorLeavesPageComponent implements OnInit {
   readonly error = signal<string | null>(null);
   readonly deletingId = signal<number | null>(null);
   doctorId = 0;
+
+  constructor() {
+    bindUnsavedChangesProtection(this.destroyRef, () => this.hasUnsavedChanges());
+  }
+
+  hasUnsavedChanges(): boolean {
+    return formsAreDirty(this.form);
+  }
 
   readonly form = this.fb.nonNullable.group({
     startDate: ['', Validators.required],
@@ -130,7 +160,7 @@ export class DoctorLeavesPageComponent implements OnInit {
   }
 
   submit(): void {
-    if (!guardFormSubmit(this.form, this.toasts)) return;
+    if (!guardFormSubmit(this.form)) return;
     this.saving.set(true);
     this.error.set(null);
     this.api.createLeave(this.doctorId, this.form.getRawValue()).subscribe({

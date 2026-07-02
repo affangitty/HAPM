@@ -12,7 +12,9 @@ import { UiInputComponent } from '../../../shared/components/ui/input/ui-input.c
 import { UiSelectComponent } from '../../../shared/components/ui/select/ui-select.component';
 import { UiSkeletonComponent } from '../../../shared/components/ui/skeleton/ui-skeleton.component';
 import { UiTextareaComponent } from '../../../shared/components/ui/textarea/ui-textarea.component';
+import { HasUnsavedChanges } from '../../../core/guards/has-unsaved-changes';
 import { initDetailRouteLoader } from '../../../shared/utils/detail-route.util';
+import { bindUnsavedChangesProtection, formsAreDirty, markFormsPristine } from '../../../shared/utils/unsaved-changes.util';
 import { roleRoute } from '../../../shared/utils/role-prefix.util';
 import { PaymentMethod } from '../../../shared/models/enums';
 import { InvoiceItemsTableComponent } from '../components/invoice-items-table.component';
@@ -136,7 +138,7 @@ import { InvoiceDto } from '../models/billing.models';
     }
   `,
 })
-export class InvoiceDetailPageComponent {
+export class InvoiceDetailPageComponent implements HasUnsavedChanges {
   private readonly api = inject(BillingApiService);
   private readonly auth = inject(AuthService);
   private readonly toasts = inject(ApiErrorService);
@@ -152,6 +154,7 @@ export class InvoiceDetailPageComponent {
           amount: inv.balanceDue,
           paymentMethod: this.isPatient() ? 'Card' : 'Cash',
         });
+        markFormsPristine(this.paymentForm);
         this.patchEditForm(inv);
       } },
   );
@@ -192,6 +195,14 @@ export class InvoiceDetailPageComponent {
     return this.editForm.controls.items.controls;
   }
 
+  constructor() {
+    bindUnsavedChangesProtection(this.destroyRef, () => this.hasUnsavedChanges());
+  }
+
+  hasUnsavedChanges(): boolean {
+    return formsAreDirty(this.paymentForm) || (this.editing() && formsAreDirty(this.editForm));
+  }
+
   isStaff(): boolean {
     const role = this.auth.role();
     return role === 'Admin' || role === 'Receptionist';
@@ -213,6 +224,7 @@ export class InvoiceDetailPageComponent {
         this.invoice.set(updated);
         this.paying.set(false);
         this.paymentForm.patchValue({ amount: updated.balanceDue, paymentMethod: this.isPatient() ? 'Card' : v.paymentMethod });
+        markFormsPristine(this.paymentForm);
         if (updated.balanceDue <= 0) {
           this.paymentSuccess.set('Payment successful. This invoice is fully paid.');
           this.toasts.show('Payment successful.', 'success');
@@ -280,6 +292,7 @@ export class InvoiceDetailPageComponent {
     for (const item of inv.items) {
       this.editForm.controls.items.push(this.editItemGroup(item.description, item.quantity, item.unitPrice));
     }
+    markFormsPristine(this.editForm);
   }
 
   private editItemGroup(description = '', quantity = 1, unitPrice = 0) {

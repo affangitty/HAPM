@@ -23,7 +23,7 @@ export class PrescriptionTemplatesApiService {
   }
 
   update(id: number, request: SavePrescriptionTemplateRequest): Observable<PrescriptionTemplateDto> {
-    return this.api.put<PrescriptionTemplateDto>(`/prescription-templates/${id}`, request);
+    return this.api.patch<PrescriptionTemplateDto>(`/prescription-templates/${id}`, request);
   }
 
   delete(id: number): Observable<void> {

@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { unsavedChangesGuard } from '../../core/guards/unsaved-changes.guard';
 
 export const WAITLIST_ROUTES: Routes = [
   {
@@ -17,6 +18,7 @@ export const WAITLIST_ROUTES: Routes = [
     path: 'waitlist/join',
     loadComponent: () =>
       import('./pages/waitlist-join-page.component').then((m) => m.WaitlistJoinPageComponent),
+    canDeactivate: [unsavedChangesGuard],
     data: { title: 'Join Waitlist' },
   },
   {

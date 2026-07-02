@@ -13,7 +13,9 @@ import { UiTextareaComponent } from '../../../shared/components/ui/textarea/ui-t
 import { getFormControlError, guardFormSubmit } from '../../../shared/utils/form-errors.util';
 import { UiEmptyStateComponent } from '../../../shared/components/ui/empty-state/ui-empty-state.component';
 import { UiSkeletonComponent } from '../../../shared/components/ui/skeleton/ui-skeleton.component';
+import { HasUnsavedChanges } from '../../../core/guards/has-unsaved-changes';
 import { initDetailRouteLoader } from '../../../shared/utils/detail-route.util';
+import { bindUnsavedChangesProtection, formsAreDirty, markFormsPristine } from '../../../shared/utils/unsaved-changes.util';
 import { roleRoute } from '../../../shared/utils/role-prefix.util';
 import { DoctorsApiService } from '../data/doctors-api.service';
 
@@ -80,14 +82,15 @@ import { DoctorsApiService } from '../data/doctors-api.service';
     }
   `,
 })
-export class DoctorEditPageComponent {
+export class DoctorEditPageComponent implements HasUnsavedChanges {
   private readonly api = inject(DoctorsApiService);
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
   private readonly toasts = inject(ApiErrorService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly routeState = initDetailRouteLoader('id', (id) => this.api.getById(id), this.destroyRef, {
-    onLoaded: (d) => this.form.patchValue({
+    onLoaded: (d) => {
+      this.form.patchValue({
       fullName: d.fullName,
       phoneNumber: d.phoneNumber ?? '',
       specialization: d.specialization,
@@ -97,7 +100,9 @@ export class DoctorEditPageComponent {
       roomNumber: d.roomNumber ?? '',
       biography: d.biography ?? '',
       isAvailable: d.isAvailable ? 'true' : 'false',
-    }),
+    });
+      markFormsPristine(this.form);
+    },
   });
 
   readonly doctor = this.routeState.data;
@@ -123,6 +128,14 @@ export class DoctorEditPageComponent {
     isAvailable: ['true', Validators.required],
   });
 
+  constructor() {
+    bindUnsavedChangesProtection(this.destroyRef, () => this.hasUnsavedChanges());
+  }
+
+  hasUnsavedChanges(): boolean {
+    return formsAreDirty(this.form);
+  }
+
   submit(): void {
     const d = this.doctor();
     if (!d || !guardFormSubmit(this.form)) return;
@@ -142,6 +155,7 @@ export class DoctorEditPageComponent {
       next: () => {
         this.saving.set(false);
         this.toasts.show('Doctor profile updated.', 'success');
+        markFormsPristine(this.form);
         void this.router.navigate([this.detailLink(d.id)]);
       },
       error: (err) => {

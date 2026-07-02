@@ -16,7 +16,9 @@ import { UiSelectComponent } from '../../../shared/components/ui/select/ui-selec
 import { UiSkeletonComponent } from '../../../shared/components/ui/skeleton/ui-skeleton.component';
 import { UiTabsComponent } from '../../../shared/components/ui/tabs/ui-tabs.component';
 import { UiTextareaComponent } from '../../../shared/components/ui/textarea/ui-textarea.component';
+import { HasUnsavedChanges } from '../../../core/guards/has-unsaved-changes';
 import { initDetailRouteLoader } from '../../../shared/utils/detail-route.util';
+import { bindUnsavedChangesProtection, formsAreDirty, markFormsPristine } from '../../../shared/utils/unsaved-changes.util';
 import { markFormGroupTouched, guardFormSubmit } from '../../../shared/utils/form-errors.util';
 import { roleRoute } from '../../../shared/utils/role-prefix.util';
 import { PatientsApiService } from '../data/patients-api.service';
@@ -127,7 +129,7 @@ import {
     }
   `,
 })
-export class PatientDetailPageComponent implements OnInit {
+export class PatientDetailPageComponent implements OnInit, HasUnsavedChanges {
   private readonly toasts = inject(ApiErrorService);
 
   private readonly api = inject(PatientsApiService);
@@ -173,6 +175,14 @@ export class PatientDetailPageComponent implements OnInit {
     { label: 'Female', value: 'Female' },
     { label: 'Other', value: 'Other' },
   ];
+
+  constructor() {
+    bindUnsavedChangesProtection(this.destroyRef, () => this.hasUnsavedChanges());
+  }
+
+  hasUnsavedChanges(): boolean {
+    return this.canEdit() && formsAreDirty(this.form);
+  }
 
   readonly form = this.fb.nonNullable.group({
     fullName: ['', Validators.required],
@@ -246,13 +256,14 @@ export class PatientDetailPageComponent implements OnInit {
   save(): void {
     const patient = this.patient();
     if (!patient) return;
-    if (!guardFormSubmit(this.form, this.toasts)) return;
+    if (!guardFormSubmit(this.form)) return;
     this.saving.set(true);
     this.error.set(null);
     this.api.update(patient.id, this.form.getRawValue()).subscribe({
       next: (updated) => {
         this.patient.set(updated);
         this.patchForm(updated);
+        markFormsPristine(this.form);
         this.saving.set(false);
       },
       error: (err) => {
@@ -281,5 +292,6 @@ export class PatientDetailPageComponent implements OnInit {
     });
     if (!this.canEdit()) this.form.disable();
     else this.form.enable();
+    markFormsPristine(this.form);
   }
 }

@@ -1,22 +1,24 @@
 using System.Text.Json;
+using HAPM.Application.ChangeLog;
 using HAPM.Application.Interfaces;
 using HAPM.Domain.Entities;
 using HAPM.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace HAPM.Infrastructure.Auditing;
 
 /// <summary>
-/// Writes an <see cref="AuditLog"/> row for every create/update/delete on domain entities.
-/// High-churn technical tables (audit logs themselves, notifications, refresh tokens) are excluded.
+/// Collects EF changes and persists them through <see cref="IChangeLogService"/>.
 /// </summary>
 public class AuditSaveChangesInterceptor : SaveChangesInterceptor
 {
     private static readonly HashSet<Type> ExcludedTypes = new()
     {
-        typeof(AuditLog), typeof(Notification), typeof(RefreshToken)
+        typeof(AuditLog), typeof(AuditLogArchive), typeof(Notification), typeof(RefreshToken),
+        typeof(IdempotencyRecord), typeof(PasswordResetToken),
     };
 
     private static readonly HashSet<string> MaskedProperties = new(StringComparer.OrdinalIgnoreCase)
@@ -26,9 +28,14 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
     };
 
     private readonly ICurrentUserService _currentUser;
-    private readonly List<PendingAudit> _pending = new();
+    private readonly IServiceScopeFactory _scopeFactory;
+    private readonly List<ChangeLogEntry> _pending = new();
 
-    public AuditSaveChangesInterceptor(ICurrentUserService currentUser) => _currentUser = currentUser;
+    public AuditSaveChangesInterceptor(ICurrentUserService currentUser, IServiceScopeFactory scopeFactory)
+    {
+        _currentUser = currentUser;
+        _scopeFactory = scopeFactory;
+    }
 
     public override ValueTask<InterceptionResult<int>> SavingChangesAsync(
         DbContextEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken = default)
@@ -68,22 +75,20 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
             switch (entry.State)
             {
                 case EntityState.Added:
-                    _pending.Add(new PendingAudit(entry, AuditAction.Created, OldValues: null));
+                    _pending.Add(BuildEntry(entry, AuditAction.Created, oldValues: null));
                     break;
                 case EntityState.Modified:
                 {
-                    var oldValues = entry.Properties
-                        .Where(p => p.IsModified && !Equals(p.OriginalValue, p.CurrentValue))
-                        .ToDictionary(p => p.Metadata.Name, p => Mask(p.Metadata.Name, p.OriginalValue));
+                    var oldValues = GetModifiedOriginalValues(entry);
                     if (oldValues.Count > 0)
-                        _pending.Add(new PendingAudit(entry, AuditAction.Updated, oldValues));
+                        _pending.Add(BuildEntry(entry, AuditAction.Updated, oldValues));
                     break;
                 }
                 case EntityState.Deleted:
                 {
                     var oldValues = entry.Properties
                         .ToDictionary(p => p.Metadata.Name, p => Mask(p.Metadata.Name, p.OriginalValue));
-                    _pending.Add(new PendingAudit(entry, AuditAction.Deleted, oldValues));
+                    _pending.Add(BuildEntry(entry, AuditAction.Deleted, oldValues));
                     break;
                 }
             }
@@ -95,45 +100,52 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
         if (context is null || _pending.Count == 0)
             return;
 
-        var logs = _pending.Select(p => p.ToAuditLog(_currentUser)).ToList();
-        _pending.Clear(); // cleared before re-entrant SaveChanges below
+        var entries = _pending.ToList();
+        _pending.Clear();
 
-        context.Set<AuditLog>().AddRange(logs);
-        await context.SaveChangesAsync(ct);
+        await using var scope = _scopeFactory.CreateAsyncScope();
+        var changeLog = scope.ServiceProvider.GetRequiredService<IChangeLogService>();
+        await changeLog.WriteAsync(entries, ct);
     }
+
+    private static ChangeLogEntry BuildEntry(EntityEntry entry, AuditAction action, Dictionary<string, object?>? oldValues)
+    {
+        var keyValue = entry.Properties
+            .Where(p => p.Metadata.IsPrimaryKey())
+            .Select(p => p.CurrentValue?.ToString() ?? p.OriginalValue?.ToString())
+            .FirstOrDefault() ?? "?";
+
+        return action switch
+        {
+            AuditAction.Created => new ChangeLogEntry(
+                entry.Entity.GetType().Name,
+                keyValue,
+                action,
+                new Dictionary<string, object?>(),
+                entry.Properties.ToDictionary(p => p.Metadata.Name, p => Mask(p.Metadata.Name, p.CurrentValue))),
+            AuditAction.Updated => new ChangeLogEntry(
+                entry.Entity.GetType().Name,
+                keyValue,
+                action,
+                oldValues ?? new Dictionary<string, object?>(),
+                entry.Properties
+                    .Where(p => p.IsModified)
+                    .ToDictionary(p => p.Metadata.Name, p => Mask(p.Metadata.Name, p.CurrentValue))),
+            AuditAction.Deleted => new ChangeLogEntry(
+                entry.Entity.GetType().Name,
+                keyValue,
+                action,
+                oldValues ?? new Dictionary<string, object?>(),
+                new Dictionary<string, object?>()),
+            _ => throw new InvalidOperationException($"Unsupported audit action {action}.")
+        };
+    }
+
+    private static Dictionary<string, object?> GetModifiedOriginalValues(EntityEntry entry) =>
+        entry.Properties
+            .Where(p => p.IsModified && !Equals(p.OriginalValue, p.CurrentValue))
+            .ToDictionary(p => p.Metadata.Name, p => Mask(p.Metadata.Name, p.OriginalValue));
 
     private static object? Mask(string propertyName, object? value) =>
         MaskedProperties.Contains(propertyName) ? "***" : value;
-
-    private sealed record PendingAudit(EntityEntry Entry, AuditAction Action, Dictionary<string, object?>? OldValues)
-    {
-        public AuditLog ToAuditLog(ICurrentUserService currentUser)
-        {
-            // For Added entities the database-generated key is available only after save.
-            var keyValue = Entry.Properties
-                .Where(p => p.Metadata.IsPrimaryKey())
-                .Select(p => p.CurrentValue?.ToString())
-                .FirstOrDefault() ?? "?";
-
-            var changes = new Dictionary<string, object?>();
-            if (OldValues is not null)
-                changes["old"] = OldValues;
-            if (Action is AuditAction.Created or AuditAction.Updated)
-            {
-                changes["new"] = Entry.Properties
-                    .Where(p => Action == AuditAction.Created || p.IsModified)
-                    .ToDictionary(p => p.Metadata.Name, p => Mask(p.Metadata.Name, p.CurrentValue));
-            }
-
-            return new AuditLog
-            {
-                UserId = currentUser.UserId,
-                UserEmail = currentUser.Email,
-                EntityName = Entry.Entity.GetType().Name,
-                EntityId = keyValue,
-                Action = Action,
-                ChangesJson = JsonSerializer.Serialize(changes)
-            };
-        }
-    }
 }

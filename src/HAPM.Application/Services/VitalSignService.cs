@@ -54,6 +54,8 @@ public class VitalSignService : IVitalSignService
         if (appointment.Status is AppointmentStatus.Cancelled or AppointmentStatus.NoShow)
             throw new ConflictException("Vitals cannot be recorded for a cancelled or no-show appointment.");
 
+        await EnsureCanRecordForAppointmentAsync(appointment, ct);
+
         if (request.TemperatureCelsius is null && request.PulseBpm is null && request.RespiratoryRatePerMin is null &&
             request.SystolicBpMmHg is null && request.DiastolicBpMmHg is null && request.OxygenSaturationPercent is null &&
             request.HeightCm is null && request.WeightKg is null)
@@ -97,6 +99,34 @@ public class VitalSignService : IVitalSignService
             return query.Where(v => v.PatientId == (patientId ?? -1));
         }
 
+        if (_currentUser.Role == UserRole.Doctor)
+        {
+            var doctorId = await _uow.Doctors.Query()
+                .Where(d => d.UserId == _currentUser.UserId)
+                .Select(d => (int?)d.Id)
+                .FirstOrDefaultAsync(ct);
+
+            if (doctorId is null)
+                return query.Where(_ => false);
+
+            return query.Where(v => v.Appointment.DoctorId == doctorId);
+        }
+
         return query;
+    }
+
+    /// <summary>Doctors record vitals only for their appointments; receptionists and admins for any visit.</summary>
+    private async Task EnsureCanRecordForAppointmentAsync(Appointment appointment, CancellationToken ct)
+    {
+        if (_currentUser.Role != UserRole.Doctor)
+            return;
+
+        var doctorId = await _uow.Doctors.Query()
+            .Where(d => d.UserId == _currentUser.UserId)
+            .Select(d => (int?)d.Id)
+            .FirstOrDefaultAsync(ct);
+
+        if (doctorId is null || appointment.DoctorId != doctorId)
+            throw new ForbiddenException("You can only record vitals for your own appointments.");
     }
 }

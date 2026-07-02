@@ -1,14 +1,15 @@
 import { Routes } from '@angular/router';
 import { UserRole } from '../../core/auth/auth.models';
 import { roleGuard } from '../../core/auth/role.guard';
+import { unsavedChangesGuard } from '../../core/guards/unsaved-changes.guard';
 import { APPOINTMENT_ROUTES } from '../../features/appointments/appointments.routes';
-import { DOCTOR_DIRECTORY_ROUTES, DOCTOR_SELF_ROUTES } from '../../features/doctors/doctors.routes';
+import { DOCTOR_BROWSE_ROUTES, DOCTOR_DIRECTORY_ROUTES, DOCTOR_SELF_ROUTES } from '../../features/doctors/doctors.routes';
 import { PATIENT_DIRECTORY_ROUTES, PATIENT_SELF_ROUTES } from '../../features/patients/patients.routes';
 import { PRESCRIPTION_TEMPLATE_ROUTES } from '../../features/prescription-templates/prescription-templates.routes';
 import { PRESCRIPTION_ROUTES } from '../../features/prescriptions/prescriptions.routes';
 import { WAITLIST_ROUTES } from '../../features/waitlist/waitlist.routes';
 import { LAB_REPORT_ROUTES } from '../../features/lab-reports/lab-reports.routes';
-import { BILLING_ROUTES } from '../../features/billing/billing.routes';
+import { PATIENT_BILLING_ROUTES, STAFF_BILLING_ROUTES } from '../../features/billing/billing.routes';
 import { NOTIFICATION_ROUTES } from '../../features/notifications/notifications.routes';
 import { STAFF_MESSAGE_ROUTES } from '../../features/staff-messages/staff-messages.routes';
 import { VITAL_ROUTES } from '../../features/vitals/vitals.routes';
@@ -48,6 +49,7 @@ const profileSettingsRoute: Routes = [
       import('../../features/auth/profile-settings/profile-settings-page.component').then(
         (m) => m.ProfileSettingsPageComponent,
       ),
+    canDeactivate: [unsavedChangesGuard],
     data: { title: 'Profile & Settings' },
   },
 ];
@@ -72,7 +74,7 @@ export const SHELL_CHILD_ROUTES: Routes = [
   ...roleShell(
     'admin',
     ['Admin'],
-    [...DOCTOR_DIRECTORY_ROUTES, ...PATIENT_DIRECTORY_ROUTES, ...APPOINTMENT_ROUTES, ...LAB_REPORT_ROUTES, ...BILLING_ROUTES, ...NOTIFICATION_ROUTES, ...STAFF_MESSAGE_ROUTES, ...AUDIT_LOG_ROUTES, ...USER_ROUTES, ...EXPORT_ROUTES, ...ANALYTICS_ROUTES],
+    [...DOCTOR_DIRECTORY_ROUTES, ...PATIENT_DIRECTORY_ROUTES, ...APPOINTMENT_ROUTES, ...LAB_REPORT_ROUTES, ...STAFF_BILLING_ROUTES, ...NOTIFICATION_ROUTES, ...STAFF_MESSAGE_ROUTES, ...AUDIT_LOG_ROUTES, ...USER_ROUTES, ...EXPORT_ROUTES, ...ANALYTICS_ROUTES],
   ),
   ...roleShell(
     'doctor',
@@ -96,11 +98,11 @@ export const SHELL_CHILD_ROUTES: Routes = [
     [
       ...PATIENT_SELF_ROUTES,
       ...APPOINTMENT_ROUTES,
-      ...DOCTOR_DIRECTORY_ROUTES.filter((r) => r.path === 'doctors' || r.path === 'doctors/:id'),
+      ...DOCTOR_BROWSE_ROUTES,
       ...WAITLIST_ROUTES,
       ...PRESCRIPTION_ROUTES,
       ...LAB_REPORT_ROUTES,
-      ...BILLING_ROUTES,
+      ...PATIENT_BILLING_ROUTES,
       ...NOTIFICATION_ROUTES,
       ...VITAL_ROUTES,
       ...REVIEW_ROUTES,
@@ -109,6 +111,6 @@ export const SHELL_CHILD_ROUTES: Routes = [
   ...roleShell(
     'reception',
     ['Receptionist'],
-    [...DOCTOR_DIRECTORY_ROUTES, ...PATIENT_DIRECTORY_ROUTES, ...APPOINTMENT_ROUTES, ...WAITLIST_ROUTES, ...LAB_REPORT_ROUTES, ...BILLING_ROUTES, ...NOTIFICATION_ROUTES, ...STAFF_MESSAGE_ROUTES, ...EXPORT_ROUTES],
+    [...DOCTOR_BROWSE_ROUTES, ...PATIENT_DIRECTORY_ROUTES, ...APPOINTMENT_ROUTES, ...WAITLIST_ROUTES, ...LAB_REPORT_ROUTES, ...STAFF_BILLING_ROUTES, ...NOTIFICATION_ROUTES, ...STAFF_MESSAGE_ROUTES, ...EXPORT_ROUTES],
   ),
 ];

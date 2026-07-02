@@ -125,6 +125,18 @@ export class AuthService {
     return !!current && roles.includes(current);
   }
 
+  isAdmin(): boolean {
+    return this.hasRole('Admin');
+  }
+
+  isStaff(): boolean {
+    return this.hasRole('Admin', 'Receptionist');
+  }
+
+  isClinical(): boolean {
+    return this.hasRole('Admin', 'Receptionist', 'Doctor');
+  }
+
   getAccessToken(): string | null {
     return this.storage.getAccessToken();
   }

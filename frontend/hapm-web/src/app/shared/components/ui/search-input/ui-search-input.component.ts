@@ -12,6 +12,8 @@ import { cn } from '../../../utils/cn';
         <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
       </svg>
       <input
+        id="global-search"
+        name="search"
         type="search"
         [placeholder]="placeholder()"
         aria-label="Search patients, doctors, appointments, and billing"

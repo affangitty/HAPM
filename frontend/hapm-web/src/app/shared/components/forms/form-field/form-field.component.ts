@@ -1,18 +1,12 @@
-import { Component, effect, inject, input } from '@angular/core';
+import { Component, contentChildren, effect, inject, input } from '@angular/core';
 import { cn } from '../../../utils/cn';
 import { FormFieldA11yHost } from './form-field-a11y.host';
-import { FORM_FIELD_CONTROL_ID } from './form-field.tokens';
+import { FORM_FIELD_LINKABLE } from './form-field-linkable';
 
 @Component({
   selector: 'app-form-field',
   standalone: true,
-  providers: [
-    FormFieldA11yHost,
-    {
-      provide: FORM_FIELD_CONTROL_ID,
-      useFactory: () => inject(FormFieldA11yHost).controlId,
-    },
-  ],
+  providers: [FormFieldA11yHost],
   template: `
     <div [class]="cn('flex flex-col gap-1.5', className())">
       @if (label()) {
@@ -35,6 +29,7 @@ import { FORM_FIELD_CONTROL_ID } from './form-field.tokens';
 })
 export class FormFieldComponent {
   protected readonly a11y = inject(FormFieldA11yHost);
+  private readonly linkedControls = contentChildren(FORM_FIELD_LINKABLE, { descendants: true });
 
   readonly label = input<string | null>(null);
   readonly hint = input<string | null>(null);
@@ -46,6 +41,13 @@ export class FormFieldComponent {
   readonly resolvedId = () => this.fieldId() ?? this.a11y.controlId;
 
   constructor() {
+    effect(() => {
+      const host = this.a11y;
+      for (const control of this.linkedControls()) {
+        control.linkFormField(host);
+      }
+    });
+
     effect(() => {
       this.a11y.error = this.error();
       this.a11y.hint = this.hint();

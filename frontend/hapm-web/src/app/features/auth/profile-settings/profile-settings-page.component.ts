@@ -1,4 +1,6 @@
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, DestroyRef, effect, inject, OnInit, signal } from '@angular/core';
+import { HasUnsavedChanges } from '../../../core/guards/has-unsaved-changes';
+import { bindUnsavedChangesProtection, formsAreDirty, markFormsPristine } from '../../../shared/utils/unsaved-changes.util';
 import { ApiErrorService } from '../../../core/api/api-error.service';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { getFormControlError, markFormGroupTouched, guardFormSubmit } from '../../../shared/utils/form-errors.util';
@@ -213,7 +215,7 @@ type SettingsSection = 'profile' | 'security' | 'notifications' | 'appearance';
                 <h2 class="mb-4 text-sm font-semibold text-foreground">Appearance</h2>
                 <div class="space-y-4">
                   <div>
-                    <label class="mb-2 block text-sm font-medium text-foreground">Theme</label>
+                    <p class="mb-2 text-sm font-medium text-foreground">Theme</p>
                     <div class="grid grid-cols-3 gap-2">
                       @for (theme of themes; track theme) {
                         <button
@@ -232,7 +234,7 @@ type SettingsSection = 'profile' | 'security' | 'notifications' | 'appearance';
                     </div>
                   </div>
                   <div>
-                    <label class="mb-2 block text-sm font-medium text-foreground">Interface Density</label>
+                    <p class="mb-2 text-sm font-medium text-foreground">Interface Density</p>
                     <div class="grid grid-cols-3 gap-2">
                       @for (density of densities; track density) {
                         <button
@@ -259,12 +261,13 @@ type SettingsSection = 'profile' | 'security' | 'notifications' | 'appearance';
     </div>
   `,
 })
-export class ProfileSettingsPageComponent implements OnInit {
+export class ProfileSettingsPageComponent implements OnInit, HasUnsavedChanges {
   private readonly toasts = inject(ApiErrorService);
 
   private readonly auth = inject(AuthService);
   private readonly fb = inject(FormBuilder);
   protected readonly preferences = inject(UserPreferencesService);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly user = this.auth.user;
   readonly activeSection = signal<SettingsSection>('profile');
@@ -283,6 +286,14 @@ export class ProfileSettingsPageComponent implements OnInit {
     { key: 'billingAlerts' as const, label: 'Billing Updates', desc: 'Payment confirmations and overdue alerts', enabled: signal(true) },
     { key: 'systemAnnouncements' as const, label: 'System Announcements', desc: 'Platform updates and maintenance notices', enabled: signal(true) },
   ];
+
+  constructor() {
+    bindUnsavedChangesProtection(this.destroyRef, () => this.hasUnsavedChanges());
+  }
+
+  hasUnsavedChanges(): boolean {
+    return formsAreDirty(this.passwordForm);
+  }
 
   readonly passwordForm = this.fb.nonNullable.group({
     currentPassword: ['', Validators.required],
@@ -338,7 +349,7 @@ export class ProfileSettingsPageComponent implements OnInit {
   }
 
   updatePassword(): void {
-    if (!guardFormSubmit(this.passwordForm, this.toasts)) return;
+    if (!guardFormSubmit(this.passwordForm)) return;
 
     const { currentPassword, newPassword } = this.passwordForm.getRawValue();
     this.passwordLoading.set(true);
@@ -350,6 +361,7 @@ export class ProfileSettingsPageComponent implements OnInit {
         this.passwordLoading.set(false);
         this.passwordSuccess.set('Your password has been updated successfully.');
         this.passwordForm.reset();
+        markFormsPristine(this.passwordForm);
       },
       error: (err) => {
         this.passwordLoading.set(false);

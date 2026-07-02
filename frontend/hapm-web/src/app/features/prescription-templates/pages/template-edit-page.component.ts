@@ -1,4 +1,6 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
+import { HasUnsavedChanges } from '../../../core/guards/has-unsaved-changes';
+import { bindUnsavedChangesProtection, formsAreDirty, markFormsPristine } from '../../../shared/utils/unsaved-changes.util';
 import { ApiErrorService } from '../../../core/api/api-error.service';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { getFormControlError, markFormGroupTouched, guardFormSubmit } from '../../../shared/utils/form-errors.util';
@@ -45,17 +47,26 @@ import { getRolePrefix, roleBase, roleRoute } from '../../../shared/utils/role-p
     </app-ui-card>
   `,
 })
-export class TemplateEditPageComponent implements OnInit {
+export class TemplateEditPageComponent implements OnInit, HasUnsavedChanges {
   private readonly toasts = inject(ApiErrorService);
 
   private readonly api = inject(PrescriptionTemplatesApiService);
   private readonly fb = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
   private templateId = 0;
+
+  constructor() {
+    bindUnsavedChangesProtection(this.destroyRef, () => this.hasUnsavedChanges());
+  }
+
+  hasUnsavedChanges(): boolean {
+    return formsAreDirty(this.form);
+  }
 
   readonly form = this.fb.nonNullable.group({
     name: ['', [Validators.required, Validators.maxLength(100)]],
@@ -81,13 +92,14 @@ export class TemplateEditPageComponent implements OnInit {
         if (!template.items.length) {
           items.push(createMedicationGroup(this.fb));
         }
+        markFormsPristine(this.form);
       },
     });
   }
 
   submit(): void {
     markFormGroupTouched(this.form);
-    if (!guardFormSubmit(this.form, this.toasts)) return;
+    if (!guardFormSubmit(this.form)) return;
 
     this.saving.set(true);
     this.error.set(null);
@@ -104,6 +116,7 @@ export class TemplateEditPageComponent implements OnInit {
       .subscribe({
         next: () => {
           this.saving.set(false);
+          markFormsPristine(this.form);
           void this.router.navigate([this.detailLink()]);
         },
         error: (err) => {

@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { unsavedChangesGuard } from '../../core/guards/unsaved-changes.guard';
 
 export const PRESCRIPTION_ROUTES: Routes = [
   {
@@ -17,12 +18,14 @@ export const PRESCRIPTION_ROUTES: Routes = [
     path: 'prescriptions/create',
     loadComponent: () =>
       import('./pages/prescription-create-page.component').then((m) => m.PrescriptionCreatePageComponent),
+    canDeactivate: [unsavedChangesGuard],
     data: { title: 'Create Prescription' },
   },
   {
     path: 'prescriptions/:id',
     loadComponent: () =>
       import('./pages/prescription-detail-page.component').then((m) => m.PrescriptionDetailPageComponent),
+    canDeactivate: [unsavedChangesGuard],
     data: { title: 'Prescription Details' },
   },
 ];

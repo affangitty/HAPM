@@ -98,12 +98,12 @@ public class DoctorServiceTests : ServiceTestBase
     }
 
     [Fact]
-    public async Task UpdateAsync_updates_doctor()
+    public async Task PatchAsync_updates_doctor()
     {
         var scenario = await SeedScenarioAsync();
         var sut = CreateSut();
 
-        var updated = await sut.UpdateAsync(scenario.DoctorId, new UpdateDoctorRequest
+        var updated = await sut.PatchAsync(scenario.DoctorId, new PatchDoctorRequest
         {
             FullName = "Dr Updated",
             PhoneNumber = "+10000000099",
@@ -120,13 +120,13 @@ public class DoctorServiceTests : ServiceTestBase
     }
 
     [Fact]
-    public async Task UpdateOwnProfileAsync_doctor_updates_self()
+    public async Task PatchOwnProfileAsync_doctor_updates_self()
     {
         var scenario = await SeedScenarioAsync();
         CurrentUser.As(UserRole.Doctor, scenario.DoctorUserId);
         var sut = CreateSut();
 
-        var updated = await sut.UpdateOwnProfileAsync(scenario.DoctorId, new UpdateOwnDoctorProfileRequest
+        var updated = await sut.PatchOwnProfileAsync(scenario.DoctorId, new PatchOwnDoctorProfileRequest
         {
             FullName = "Dr Self Updated",
             PhoneNumber = "+10000000088",
@@ -138,13 +138,13 @@ public class DoctorServiceTests : ServiceTestBase
     }
 
     [Fact]
-    public async Task UpdateOwnProfileAsync_non_doctor_throws_forbidden()
+    public async Task PatchOwnProfileAsync_non_doctor_throws_forbidden()
     {
         var scenario = await SeedScenarioAsync();
         CurrentUser.As(UserRole.Patient, scenario.PatientUserId);
         var sut = CreateSut();
 
-        await Assert.ThrowsAsync<ForbiddenException>(() => sut.UpdateOwnProfileAsync(scenario.DoctorId, new UpdateOwnDoctorProfileRequest
+        await Assert.ThrowsAsync<ForbiddenException>(() => sut.PatchOwnProfileAsync(scenario.DoctorId, new PatchOwnDoctorProfileRequest
         {
             FullName = "X",
             PhoneNumber = "+10000000001"
@@ -152,7 +152,7 @@ public class DoctorServiceTests : ServiceTestBase
     }
 
     [Fact]
-    public async Task UpdateOwnProfileAsync_other_doctor_throws_forbidden()
+    public async Task PatchOwnProfileAsync_other_doctor_throws_forbidden()
     {
         var scenario = await SeedScenarioAsync();
         CurrentUser.As(UserRole.Doctor, scenario.DoctorUserId);
@@ -160,7 +160,7 @@ public class DoctorServiceTests : ServiceTestBase
         var other = await CreateOtherDoctorAsync();
         var sut = CreateSut();
 
-        await Assert.ThrowsAsync<ForbiddenException>(() => sut.UpdateOwnProfileAsync(other.Id, new UpdateOwnDoctorProfileRequest
+        await Assert.ThrowsAsync<ForbiddenException>(() => sut.PatchOwnProfileAsync(other.Id, new PatchOwnDoctorProfileRequest
         {
             FullName = "X",
             PhoneNumber = "+10000000001"

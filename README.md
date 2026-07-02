@@ -44,7 +44,8 @@ For a complete capability list, see **[docs/FEATURES.md](docs/FEATURES.md)**. To
 - **Doctor leave management** - leave windows block slot lookup and booking; creation rejected while active appointments exist in the period
 - **Patient feedback & ratings** - 1–5 stars per completed appointment (one per appointment), average rating surfaced on doctor listings
 - **Appointment waitlist** - patients waitlist a doctor/date and are **auto-notified when a cancellation frees a slot**
-- **Audit log** - every create/update/delete recorded automatically by an EF Core interceptor (old/new values as JSON, passwords masked), queryable by admins
+- **Audit log** - every create/update/delete recorded automatically by an EF Core interceptor (per-field old→new JSON, passwords masked), queryable by admins; aged rows archived to cold storage
+- **Idempotent mutations** - `Idempotency-Key` header on key POST/PATCH routes; Angular client sends it automatically
 - **CSV exports** - appointments, patients and invoices (Excel-friendly, UTF-8 BOM)
 - **Analytics** - peak-hours heatmap data (day-of-week × hour), revenue by specialization, and per-doctor **performance metrics** (outcomes, no-show rate, rating, prescriptions, revenue)
 - **In-app notifications** (incl. on appointment complete) + background **appointment reminder job** (24 h window)
@@ -75,8 +76,14 @@ For a complete capability list, see **[docs/FEATURES.md](docs/FEATURES.md)**. To
 2. Start the API (migrations + seed data are applied automatically):
 
 ```bash
-dotnet run --project src/HAPM.API --urls http://localhost:5168
+dotnet build src/HAPM.API
+cd src/HAPM.API
+dotnet run --no-build --launch-profile http
 ```
+
+Or from the repo root: `dotnet run --project src/HAPM.API --urls http://localhost:5168` (uses the `http` launch profile → `Development` environment).
+
+> **Stuck on `Building...`?** A previous `HAPM.API.exe` may still be running and locking DLLs. Run `taskkill //F //IM HAPM.API.exe` (Windows), then build once and use `--no-build` as above.
 
 3. Open Swagger: http://localhost:5168/swagger
 
@@ -196,9 +203,9 @@ Authenticate via `Authorization: Bearer <accessToken>`.
 | GET | `/{id}/available-slots?date=` | Anonymous | Free bookable slots for a date |
 | GET | `/{id}/schedules` | Anonymous | Weekly schedule |
 | POST | `/` | Admin | Create doctor (account + profile) |
-| PUT | `/{id}` | Admin | Update doctor (full profile) |
-| PUT | `/{id}/profile` | Doctor (own) | Update own name, phone, room, biography |
-| PUT | `/{id}/schedules` | Admin | Replace weekly schedule |
+| PATCH | `/{id}` | Admin | Partial update (send only fields to change) |
+| PATCH | `/{id}/profile` | Doctor (own) | Update own name, phone, room, biography |
+| PUT | `/{id}/schedules` | Admin | Replace weekly schedule (full list) |
 | DELETE | `/{id}` | Admin | Deactivate (blocked while upcoming appointments exist) |
 | GET | `/{id}/leaves` | Authenticated | Leave history |
 | POST | `/{id}/leaves` | Admin, Doctor (own) | Add a leave window (blocks booking for the period) |
@@ -214,7 +221,7 @@ Authenticate via `Authorization: Bearer <accessToken>`.
 | GET | `/{id}` | Auth (patients: own only) | Patient details |
 | GET | `/{id}/medical-history` | Auth (patients: own only) | Appointments + prescriptions + lab reports |
 | POST | `/` | Admin, Receptionist | Register walk-in patient |
-| PUT | `/{id}` | Auth (patients: own only) | Update patient |
+| PATCH | `/{id}` | Auth (patients: own only) | Partial update patient |
 | DELETE | `/{id}` | Admin | Deactivate |
 
 ### Appointments - `/api/appointments`
@@ -231,7 +238,7 @@ Data is auto-scoped: patients see their own, doctors see theirs, staff see all.
 | POST | `/{id}/complete` | Doctor (own), Staff | → Completed (with notes) |
 | POST | `/{id}/cancel` | Owner or staff | → Cancelled (with reason) |
 | POST | `/{id}/no-show` | Doctor (own), Staff | Past appointment → NoShow |
-| PUT | `/{id}/reschedule` | Owner or staff | Move to a new valid slot |
+| PATCH | `/{id}/reschedule` | Owner or staff | Move to a new valid slot |
 
 ### Prescriptions - `/api/prescriptions`
 
@@ -241,7 +248,7 @@ Data is auto-scoped: patients see their own, doctors see theirs, staff see all.
 | GET | `/{id}` | Authenticated (scoped) | Prescription details |
 | GET | `/by-appointment/{appointmentId}` | Authenticated (scoped) | Prescription for appointment |
 | POST | `/` | Doctor (own appointment) | Issue prescription (checked-in/completed only, one per appointment) |
-| PUT | `/{id}` | Prescribing doctor | Update diagnosis/items |
+| PATCH | `/{id}` | Prescribing doctor | Update diagnosis/items |
 
 ### Prescription templates - `/api/prescription-templates`
 
@@ -252,7 +259,7 @@ Doctor-owned presets; applying one simply prefills a normal create-prescription 
 | GET | `/` | Doctor | List own templates |
 | GET | `/{id}` | Doctor (own) | Fetch a template (e.g. to prefill a prescription) |
 | POST | `/` | Doctor | Save a named template (unique name per doctor) |
-| PUT | `/{id}` | Doctor (own) | Update a template |
+| PATCH | `/{id}` | Doctor (own) | Update a template |
 | DELETE | `/{id}` | Doctor (own) | Delete a template |
 
 ### Lab reports - `/api/lab-reports`
@@ -263,7 +270,7 @@ Doctor-owned presets; applying one simply prefills a normal create-prescription 
 | GET | `/{id}` | Authenticated (scoped) | Report metadata |
 | GET | `/{id}/download` | Authenticated (scoped) | Stream the file |
 | POST | `/` | Admin, Receptionist, Doctor | `multipart/form-data` upload (`file` + metadata) |
-| PUT | `/{id}` | Admin, Receptionist, Doctor | Update metadata; optional new `file` (resets review status) |
+| PATCH | `/{id}` | Admin, Receptionist, Doctor | Update metadata; optional new `file` (resets review status) |
 | POST | `/{id}/review` | Doctor | Mark reviewed with remarks |
 | DELETE | `/{id}` | Admin | Delete report + file |
 
@@ -274,7 +281,7 @@ Doctor-owned presets; applying one simply prefills a normal create-prescription 
 | GET | `/` | Authenticated (patients: own) | Filters: `patientId`, `status`, date range |
 | GET | `/{id}` | Authenticated (scoped) | Invoice with line items |
 | POST | `/` | Admin, Receptionist | Create (consultation fee auto-added when `appointmentId` set) |
-| PUT | `/{id}` | Admin, Receptionist | Update pending invoice (line items, tax, discount, notes) |
+| PATCH | `/{id}` | Admin, Receptionist | Partial update pending invoice (line items, tax, discount, notes) |
 | POST | `/{id}/payments` | Admin, Receptionist | Record a (partial) payment; receipt auto-numbered; status moves `Pending → PartiallyPaid → Paid` |
 | GET | `/{id}/payments` | Authenticated (scoped) | Payment receipts for the invoice |
 | POST | `/{id}/cancel` | Admin, Receptionist | Cancel pending invoice |

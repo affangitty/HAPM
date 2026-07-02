@@ -35,7 +35,7 @@ export class PatientsApiService {
   }
 
   update(id: number, request: UpdatePatientRequest): Observable<PatientDto> {
-    return this.api.put<PatientDto>(`/patients/${id}`, request);
+    return this.api.patch<PatientDto>(`/patients/${id}`, request);
   }
 
   deactivate(id: number): Observable<void> {

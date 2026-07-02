@@ -8,7 +8,9 @@ import { loadByRouteParam } from '../../../shared/utils/route-param.util';
 import { AuditActionBadgeComponent } from '../components/audit-action-badge.component';
 import { AuditLogsApiService } from '../data/audit-logs-api.service';
 import { AuditLogDto } from '../models/audit-log.models';
-import { getRolePrefix, roleBase, roleRoute } from '../../../shared/utils/role-prefix.util';
+import { roleBase } from '../../../shared/utils/role-prefix.util';
+
+type FieldChange = { old: unknown; new: unknown };
 
 @Component({
   selector: 'app-audit-log-detail-page',
@@ -38,8 +40,31 @@ import { getRolePrefix, roleBase, roleRoute } from '../../../shared/utils/role-p
             <div><p class="text-xs text-muted-foreground">User</p><p class="font-medium">{{ l.userEmail ?? 'System' }}</p></div>
             <div><p class="text-xs text-muted-foreground">User ID</p><p>{{ l.userId ?? '—' }}</p></div>
             <div class="sm:col-span-2">
-              <p class="mb-2 text-xs text-muted-foreground">Changes (JSON)</p>
-              <pre class="overflow-x-auto rounded-lg bg-muted p-4 text-xs">{{ formatJson(l.changesJson) }}</pre>
+              <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Field changes</p>
+              @if (fieldChanges(l.changesJson).length) {
+                <div class="overflow-x-auto rounded-lg border">
+                  <table class="w-full text-sm">
+                    <thead class="bg-muted/60 text-left text-xs text-muted-foreground">
+                      <tr>
+                        <th class="px-3 py-2 font-medium">Field</th>
+                        <th class="px-3 py-2 font-medium">Old value</th>
+                        <th class="px-3 py-2 font-medium">New value</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (row of fieldChanges(l.changesJson); track row.field) {
+                        <tr class="border-t">
+                          <td class="px-3 py-2 font-medium">{{ row.field }}</td>
+                          <td class="px-3 py-2 text-muted-foreground">{{ formatValue(row.old) }}</td>
+                          <td class="px-3 py-2">{{ formatValue(row.new) }}</td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              } @else {
+                <pre class="overflow-x-auto rounded-lg bg-muted p-4 text-xs">{{ formatJson(l.changesJson) }}</pre>
+              }
             </div>
           </app-ui-card-content>
         </app-ui-card>
@@ -68,11 +93,44 @@ export class AuditLogDetailPageComponent implements OnInit {
     );
   }
 
+  fieldChanges(raw: string): { field: string; old: unknown; new: unknown }[] {
+    try {
+      const parsed = JSON.parse(raw) as Record<string, FieldChange>;
+      if (parsed['old'] && parsed['new'] && typeof parsed['old'] === 'object') {
+        return this.legacyChanges(parsed);
+      }
+      return Object.entries(parsed).map(([field, change]) => ({
+        field,
+        old: (change as FieldChange)?.old,
+        new: (change as FieldChange)?.new,
+      }));
+    } catch {
+      return [];
+    }
+  }
+
+  formatValue(value: unknown): string {
+    if (value === null || value === undefined) return '—';
+    if (typeof value === 'object') return JSON.stringify(value);
+    return String(value);
+  }
+
   formatJson(raw: string): string {
     try { return JSON.stringify(JSON.parse(raw), null, 2); } catch { return raw; }
   }
+
   basePath(): string {
     return roleBase(this.router);
   }
 
+  private legacyChanges(parsed: Record<string, unknown>): { field: string; old: unknown; new: unknown }[] {
+    const oldValues = (parsed['old'] ?? {}) as Record<string, unknown>;
+    const newValues = (parsed['new'] ?? {}) as Record<string, unknown>;
+    const fields = new Set([...Object.keys(oldValues), ...Object.keys(newValues)]);
+    return [...fields].map((field) => ({
+      field,
+      old: oldValues[field],
+      new: newValues[field],
+    }));
+  }
 }

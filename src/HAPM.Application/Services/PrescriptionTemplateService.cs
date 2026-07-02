@@ -68,8 +68,10 @@ public class PrescriptionTemplateService : IPrescriptionTemplateService
         return await GetByIdAsync(template.Id, ct);
     }
 
-    public async Task<PrescriptionTemplateDto> UpdateAsync(int id, SavePrescriptionTemplateRequest request, CancellationToken ct = default)
+    public async Task<PrescriptionTemplateDto> PatchAsync(int id, PatchPrescriptionTemplateRequest request, CancellationToken ct = default)
     {
+        PatchValidation.EnsureAnyFieldSet(request);
+
         var doctor = await GetCurrentDoctorAsync(ct);
 
         var template = await _uow.PrescriptionTemplates.QueryTracked()
@@ -77,18 +79,24 @@ public class PrescriptionTemplateService : IPrescriptionTemplateService
             .FirstOrDefaultAsync(t => t.Id == id && t.DoctorId == doctor.Id, ct)
             ?? throw new NotFoundException("Prescription template", id);
 
-        var name = request.Name.Trim();
-        if (await _uow.PrescriptionTemplates.Query()
-                .AnyAsync(t => t.Id != id && t.DoctorId == doctor.Id && t.Name.ToLower() == name.ToLower(), ct))
-            throw new ConflictException($"You already have a template named '{name}'.");
+        if (request.Name is not null)
+        {
+            var name = request.Name.Trim();
+            if (await _uow.PrescriptionTemplates.Query()
+                    .AnyAsync(t => t.Id != id && t.DoctorId == doctor.Id && t.Name.ToLower() == name.ToLower(), ct))
+                throw new ConflictException($"You already have a template named '{name}'.");
+            template.Name = name;
+        }
 
-        template.Name = name;
-        template.Diagnosis = request.Diagnosis.Trim();
-        template.Notes = request.Notes;
+        if (request.Diagnosis is not null) template.Diagnosis = request.Diagnosis.Trim();
+        if (request.Notes is not null) template.Notes = request.Notes;
 
-        template.Items.Clear();
-        foreach (var item in request.Items.Select(ToItem))
-            template.Items.Add(item);
+        if (request.Items is not null)
+        {
+            template.Items.Clear();
+            foreach (var item in request.Items.Select(ToItem))
+                template.Items.Add(item);
+        }
 
         await _uow.SaveChangesAsync(ct);
         return await GetByIdAsync(id, ct);

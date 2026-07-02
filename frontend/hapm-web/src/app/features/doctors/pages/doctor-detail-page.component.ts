@@ -1,4 +1,4 @@
-import { Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -72,7 +72,7 @@ import {
           }
         </div>
 
-        <app-ui-tabs class="mb-4 block" [tabs]="tabs" [active]="activeTab()" ariaLabel="Doctor sections" (tabChange)="setTab($event)" />
+        <app-ui-tabs class="mb-4 block" [tabs]="visibleTabs()" [active]="activeTab()" ariaLabel="Doctor sections" (tabChange)="setTab($event)" />
 
         @if (activeTab() === 'overview') {
           <app-ui-card>
@@ -190,7 +190,8 @@ export class DoctorDetailPageComponent implements OnInit {
         this.api.getSchedules(doctor.id).subscribe({ next: (s) => this.schedules.set(s) });
         this.loadReviews(doctor.id);
         this.loadSlots(doctor.id, this.slotDate());
-        if (this.activeTab() === 'performance') this.loadPerformance(doctor.id);
+        if (this.activeTab() === 'performance' && this.canViewPerformance(doctor.id))
+          this.loadPerformance(doctor.id);
       },
     },
   );
@@ -212,14 +213,19 @@ export class DoctorDetailPageComponent implements OnInit {
   readonly performanceLoading = signal(false);
   readonly activeTab = signal<DoctorDetailTab>('overview');
   readonly deactivating = signal(false);
+  readonly currentDoctorId = signal<number | null>(null);
 
-  readonly tabs = [
+  private readonly allTabs = [
     { id: 'overview' as const, label: 'Overview' },
     { id: 'schedule' as const, label: 'Schedule' },
     { id: 'availability' as const, label: 'Availability' },
     { id: 'reviews' as const, label: 'Reviews' },
     { id: 'performance' as const, label: 'Performance' },
   ];
+
+  readonly visibleTabs = computed(() =>
+    this.allTabs.filter((t) => t.id !== 'performance' || this.canViewPerformance(this.doctor()?.id ?? null)),
+  );
 
   readonly scheduleColumns: DataTableColumn<DoctorScheduleDto>[] = [
     { key: 'day', header: 'Day', cell: (r) => r.dayOfWeek },
@@ -236,18 +242,26 @@ export class DoctorDetailPageComponent implements OnInit {
   ];
 
   ngOnInit(): void {
+    if (this.auth.hasRole('Doctor')) {
+      this.api.getCurrentDoctor().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+        next: (d) => this.currentDoctorId.set(d.id),
+      });
+    }
+
     this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
       const tab = params.get('tab') as DoctorDetailTab | null;
       if (tab) {
-        this.activeTab.set(tab);
+        const resolved = tab === 'performance' && !this.canViewPerformance(this.doctor()?.id ?? null) ? 'overview' : tab;
+        this.activeTab.set(resolved);
         const doc = this.doctor();
-        if (doc && tab === 'performance' && !this.performance() && !this.performanceLoading())
+        if (doc && resolved === 'performance' && !this.performance() && !this.performanceLoading())
           this.loadPerformance(doc.id);
       }
     });
   }
 
   setTab(tab: DoctorDetailTab): void {
+    if (tab === 'performance' && !this.canViewPerformance(this.doctor()?.id ?? null)) return;
     this.activeTab.set(tab);
     void this.router.navigate([], { queryParams: { tab }, queryParamsHandling: 'merge' });
     const doc = this.doctor();
@@ -276,7 +290,13 @@ export class DoctorDetailPageComponent implements OnInit {
   }
 
   isAdmin(): boolean {
-    return this.auth.role() === 'Admin';
+    return this.auth.isAdmin();
+  }
+
+  canViewPerformance(doctorId: number | null): boolean {
+    if (!doctorId) return false;
+    if (this.auth.isAdmin()) return true;
+    return this.auth.hasRole('Doctor') && this.currentDoctorId() === doctorId;
   }
 
   formatCount(v: number): string {

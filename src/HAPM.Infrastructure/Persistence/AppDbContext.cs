@@ -30,6 +30,8 @@ public class AppDbContext : DbContext
     public DbSet<PrescriptionTemplate> PrescriptionTemplates => Set<PrescriptionTemplate>();
     public DbSet<PrescriptionTemplateItem> PrescriptionTemplateItems => Set<PrescriptionTemplateItem>();
     public DbSet<StaffMessage> StaffMessages => Set<StaffMessage>();
+    public DbSet<IdempotencyRecord> IdempotencyRecords => Set<IdempotencyRecord>();
+    public DbSet<AuditLogArchive> AuditLogArchives => Set<AuditLogArchive>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -246,6 +248,29 @@ public class AppDbContext : DbContext
             b.HasIndex(m => new { m.Target, m.DoctorId, m.CreatedAtUtc });
             b.HasOne(m => m.Sender).WithMany().HasForeignKey(m => m.SenderUserId).OnDelete(DeleteBehavior.Restrict);
             b.HasOne(m => m.Doctor).WithMany().HasForeignKey(m => m.DoctorId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<IdempotencyRecord>(b =>
+        {
+            b.Property(r => r.IdempotencyKey).HasMaxLength(128).IsRequired();
+            b.Property(r => r.HttpMethod).HasMaxLength(10).IsRequired();
+            b.Property(r => r.RequestPath).HasMaxLength(300).IsRequired();
+            b.Property(r => r.RequestBodyHash).HasMaxLength(64).IsRequired();
+            b.Property(r => r.ResponseBody).HasColumnType("text");
+            b.Property(r => r.ResponseContentType).HasMaxLength(100);
+            b.HasIndex(r => new { r.UserScope, r.IdempotencyKey }).IsUnique();
+            b.HasIndex(r => r.ExpiresAtUtc);
+        });
+
+        modelBuilder.Entity<AuditLogArchive>(b =>
+        {
+            b.Property(a => a.EntityName).HasMaxLength(100).IsRequired();
+            b.Property(a => a.EntityId).HasMaxLength(50).IsRequired();
+            b.Property(a => a.UserEmail).HasMaxLength(256);
+            b.Property(a => a.ChangesJson).HasColumnType("jsonb").IsRequired();
+            b.HasIndex(a => a.SourceAuditLogId).IsUnique();
+            b.HasIndex(a => a.CreatedAtUtc);
+            b.HasIndex(a => a.ArchivedAtUtc);
         });
     }
 

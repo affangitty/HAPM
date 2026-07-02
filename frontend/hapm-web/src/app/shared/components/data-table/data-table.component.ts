@@ -1,4 +1,4 @@
-import { Component, inject, input, output } from '@angular/core';
+import { Component, computed, inject, input, output } from '@angular/core';
 import { Router } from '@angular/router';
 import {
   UiTableBodyComponent,
@@ -11,6 +11,7 @@ import {
 import { UiEmptyStateComponent } from '../ui/empty-state/ui-empty-state.component';
 import { UiSkeletonComponent } from '../ui/skeleton/ui-skeleton.component';
 import { UiPaginationComponent } from '../ui/pagination/ui-pagination.component';
+import { MobileRecordCardComponent, MobileRecordField } from '../mobile-record-card/mobile-record-card.component';
 import { DataTableColumn } from './data-table.models';
 
 @Component({
@@ -26,44 +27,62 @@ import { DataTableColumn } from './data-table.models';
     UiEmptyStateComponent,
     UiSkeletonComponent,
     UiPaginationComponent,
+    MobileRecordCardComponent,
   ],
   template: `
     @if (loading()) {
       <div class="space-y-3">
         @for (row of skeletonRows; track row) {
-          <app-ui-skeleton class="h-12" />
+          <app-ui-skeleton class="h-12 md:h-12" />
         }
       </div>
     } @else if (!rows().length) {
       <app-ui-empty-state [title]="emptyTitle()" [message]="emptyMessage()" />
     } @else {
-      <div class="-mx-1 overflow-x-auto">
-      <app-ui-table>
-        <thead appUiTableHeader>
-          <tr appUiTableRow>
-            @for (col of columns(); track col.key) {
-              <th appUiTableHead [class]="col.headerClassName ?? ''">{{ col.header }}</th>
-            }
-          </tr>
-        </thead>
-        <tbody appUiTableBody>
-          @for (row of rows(); track trackBy(row)) {
-            <tr
-              appUiTableRow
-              [class]="rowLink() ? 'cursor-pointer hover:bg-muted/50' : ''"
-              [attr.tabindex]="rowLink() ? 0 : null"
-              [attr.role]="rowLink() ? 'button' : null"
-              (click)="onRowActivate(row)"
-              (keydown.enter)="onRowActivate(row)"
-              (keydown.space)="$event.preventDefault(); onRowActivate(row)"
-            >
+      <div class="space-y-3 md:hidden">
+        @for (row of rows(); track trackBy(row)) {
+          <button
+            type="button"
+            class="block w-full text-left"
+            [class.cursor-pointer]="!!rowLink()"
+            (click)="onRowActivate(row)"
+          >
+            <app-mobile-record-card
+              [title]="mobileTitle(row)"
+              [subtitle]="mobileSubtitle(row)"
+              [fields]="mobileFields(row)"
+            />
+          </button>
+        }
+      </div>
+
+      <div class="hidden md:block">
+        <app-ui-table>
+          <thead appUiTableHeader>
+            <tr appUiTableRow>
               @for (col of columns(); track col.key) {
-                <td appUiTableCell [class]="col.className ?? ''">{{ col.cell(row) }}</td>
+                <th appUiTableHead [class]="col.headerClassName ?? ''">{{ col.header }}</th>
               }
             </tr>
-          }
-        </tbody>
-      </app-ui-table>
+          </thead>
+          <tbody appUiTableBody>
+            @for (row of rows(); track trackBy(row)) {
+              <tr
+                appUiTableRow
+                [class]="rowLink() ? 'cursor-pointer hover:bg-muted/50' : ''"
+                [attr.tabindex]="rowLink() ? 0 : null"
+                [attr.role]="rowLink() ? 'button' : null"
+                (click)="onRowActivate(row)"
+                (keydown.enter)="onRowActivate(row)"
+                (keydown.space)="$event.preventDefault(); onRowActivate(row)"
+              >
+                @for (col of columns(); track col.key) {
+                  <td appUiTableCell [class]="col.className ?? ''">{{ col.cell(row) }}</td>
+                }
+              </tr>
+            }
+          </tbody>
+        </app-ui-table>
       </div>
 
       @if (showPagination()) {
@@ -97,8 +116,42 @@ export class DataTableComponent<T extends object> {
 
   protected readonly skeletonRows = [1, 2, 3, 4, 5];
 
+  private readonly titleColumn = computed(() =>
+    this.columns().find((c) => c.mobileRole === 'title') ?? this.columns()[0],
+  );
+
+  private readonly subtitleColumn = computed(() =>
+    this.columns().find((c) => c.mobileRole === 'subtitle')
+      ?? this.columns().find((c) => c !== this.titleColumn() && !c.hideOnMobile),
+  );
+
+  private readonly metaColumns = computed(() => {
+    const title = this.titleColumn();
+    const subtitle = this.subtitleColumn();
+    return this.columns().filter((c) => c !== title && c !== subtitle && !c.hideOnMobile);
+  });
+
   trackBy(row: T): unknown {
     return (row as Record<string, unknown>)[this.trackByKey()];
+  }
+
+  mobileTitle(row: T): string {
+    const col = this.titleColumn();
+    return col ? String(col.cell(row) ?? '') : '';
+  }
+
+  mobileSubtitle(row: T): string | null {
+    const col = this.subtitleColumn();
+    if (!col || col === this.titleColumn()) return null;
+    const value = col.cell(row);
+    return value == null || value === '' ? null : String(value);
+  }
+
+  mobileFields(row: T): MobileRecordField[] {
+    return this.metaColumns().map((col) => ({
+      label: col.header,
+      value: String(col.cell(row) ?? '—'),
+    }));
   }
 
   onRowActivate(row: T): void {

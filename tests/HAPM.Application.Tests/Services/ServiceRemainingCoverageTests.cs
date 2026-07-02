@@ -199,7 +199,7 @@ public class ServiceRemainingCoverageTests : ServiceTestBase
         }));
 
         // Update re-inserts consultation line when missing from request
-        await sut.UpdateAsync(created.Id, new UpdateInvoiceRequest
+        await sut.PatchAsync(created.Id, new PatchInvoiceRequest
         {
             TaxPercent = 5,
             DiscountAmount = 0,
@@ -290,14 +290,14 @@ public class ServiceRemainingCoverageTests : ServiceTestBase
             small, "r.pdf", "application/pdf", 1));
 
         var report = await SeedLabReport(scenario);
-        await Assert.ThrowsAsync<NotFoundException>(() => sut.UpdateAsync(report.Id, new UpdateLabReportRequest
+        await Assert.ThrowsAsync<NotFoundException>(() => sut.PatchAsync(report.Id, new PatchLabReportRequest
         {
             DoctorId = 9999,
             ReportType = "Blood",
             Title = "T"
         }, null, null, null, null));
 
-        await Assert.ThrowsAsync<BadRequestException>(() => sut.UpdateAsync(report.Id, new UpdateLabReportRequest
+        await Assert.ThrowsAsync<BadRequestException>(() => sut.PatchAsync(report.Id, new PatchLabReportRequest
         {
             AppointmentId = 9999,
             ReportType = "Blood",
@@ -305,13 +305,13 @@ public class ServiceRemainingCoverageTests : ServiceTestBase
         }, null, null, null, null));
 
         using var replace = new MemoryStream(new byte[] { 1 });
-        await Assert.ThrowsAsync<BadRequestException>(() => sut.UpdateAsync(report.Id, new UpdateLabReportRequest
+        await Assert.ThrowsAsync<BadRequestException>(() => sut.PatchAsync(report.Id, new PatchLabReportRequest
         {
             ReportType = "Blood",
             Title = "T"
         }, replace, null, null, 1));
 
-        await Assert.ThrowsAsync<BadRequestException>(() => sut.UpdateAsync(report.Id, new UpdateLabReportRequest
+        await Assert.ThrowsAsync<BadRequestException>(() => sut.PatchAsync(report.Id, new PatchLabReportRequest
         {
             ReportType = "Blood",
             Title = "T"
@@ -383,7 +383,7 @@ public class ServiceRemainingCoverageTests : ServiceTestBase
         });
 
         CurrentUser.As(UserRole.Admin, scenario.AdminUserId);
-        await Assert.ThrowsAsync<ForbiddenException>(() => otherSut.UpdateAsync(created.Id, new UpdatePrescriptionRequest
+        await Assert.ThrowsAsync<ForbiddenException>(() => otherSut.PatchAsync(created.Id, new PatchPrescriptionRequest
         {
             Diagnosis = "Hijack",
             Items = new List<PrescriptionItemRequest> { TestData.SamplePrescriptionItem() }
@@ -410,11 +410,9 @@ public class ServiceRemainingCoverageTests : ServiceTestBase
             Items = new List<PrescriptionItemRequest> { TestData.SamplePrescriptionItem() }
         });
 
-        await Assert.ThrowsAsync<ConflictException>(() => sut.UpdateAsync(beta.Id, new SavePrescriptionTemplateRequest
+        await Assert.ThrowsAsync<ConflictException>(() => sut.PatchAsync(beta.Id, new PatchPrescriptionTemplateRequest
         {
             Name = "alpha",
-            Diagnosis = "B2",
-            Items = new List<PrescriptionItemRequest> { TestData.SamplePrescriptionItem() }
         }));
     }
 
@@ -579,14 +577,14 @@ public class ServiceRemainingCoverageTests : ServiceTestBase
         });
 
         var plainInv = await TestData.SeedInvoiceAsync(Uow, scenario.PatientId, 100m);
-        await Assert.ThrowsAsync<BadRequestException>(() => billing.UpdateAsync(plainInv.Id, new UpdateInvoiceRequest
+        await Assert.ThrowsAsync<BadRequestException>(() => billing.PatchAsync(plainInv.Id, new PatchInvoiceRequest
         {
             TaxPercent = 0,
             DiscountAmount = 0,
             Items = new List<InvoiceItemRequest>()
         }));
 
-        await Assert.ThrowsAsync<BadRequestException>(() => billing.UpdateAsync(plainInv.Id, new UpdateInvoiceRequest
+        await Assert.ThrowsAsync<BadRequestException>(() => billing.PatchAsync(plainInv.Id, new PatchInvoiceRequest
         {
             TaxPercent = 0,
             DiscountAmount = 500m,
@@ -617,14 +615,14 @@ public class ServiceRemainingCoverageTests : ServiceTestBase
         var labs = new LabReportService(Uow, CurrentUser, FileStorage, Notifications);
         var report = await SeedLabReport(scenario);
         using var empty = new MemoryStream();
-        await Assert.ThrowsAsync<BadRequestException>(() => labs.UpdateAsync(report.Id, new UpdateLabReportRequest
+        await Assert.ThrowsAsync<BadRequestException>(() => labs.PatchAsync(report.Id, new PatchLabReportRequest
         {
             ReportType = "Blood",
             Title = "T"
         }, empty, "r.pdf", "application/pdf", 0));
 
         using var huge = new MemoryStream(new byte[11 * 1024 * 1024]);
-        await Assert.ThrowsAsync<BadRequestException>(() => labs.UpdateAsync(report.Id, new UpdateLabReportRequest
+        await Assert.ThrowsAsync<BadRequestException>(() => labs.PatchAsync(report.Id, new PatchLabReportRequest
         {
             ReportType = "Blood",
             Title = "T"
@@ -667,7 +665,7 @@ public class ServiceRemainingCoverageTests : ServiceTestBase
         await Uow.SaveChangesAsync();
         CurrentUser.As(UserRole.Doctor, otherDoctorUser.Id);
         var otherRx = new PrescriptionService(Uow, CurrentUser, Notifications);
-        await Assert.ThrowsAsync<ForbiddenException>(() => otherRx.UpdateAsync(rxCreated.Id, new UpdatePrescriptionRequest
+        await Assert.ThrowsAsync<ForbiddenException>(() => otherRx.PatchAsync(rxCreated.Id, new PatchPrescriptionRequest
         {
             Diagnosis = "Hack",
             Items = new List<PrescriptionItemRequest> { TestData.SamplePrescriptionItem() }

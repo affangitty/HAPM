@@ -1,8 +1,18 @@
-import { Component, computed, forwardRef, inject, input, ViewEncapsulation } from '@angular/core';
+import {
+  Component,
+  computed,
+  effect,
+  ElementRef,
+  forwardRef,
+  inject,
+  input,
+  viewChild,
+  ViewEncapsulation,
+} from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { cn } from '../../../utils/cn';
-import { FORM_FIELD_CONTROL_ID } from '../../forms/form-field/form-field.tokens';
-import { FormFieldA11yHost } from '../../forms/form-field/form-field-a11y.host';
+import { FormControlA11yState } from '../../forms/form-field/form-control-a11y.state';
+import { FORM_FIELD_LINKABLE } from '../../forms/form-field/form-field-linkable';
 import { formFieldAriaDescribedBy, formFieldAriaInvalid } from '../../../utils/form-field-a11y.util';
 
 @Component({
@@ -11,6 +21,8 @@ import { formFieldAriaDescribedBy, formFieldAriaInvalid } from '../../../utils/f
   encapsulation: ViewEncapsulation.None,
   host: { class: 'ui-select-host' },
   providers: [
+    FormControlA11yState,
+    { provide: FORM_FIELD_LINKABLE, useExisting: FormControlA11yState },
     {
       provide: NG_VALUE_ACCESSOR,
       useExisting: forwardRef(() => UiSelectComponent),
@@ -19,18 +31,19 @@ import { formFieldAriaDescribedBy, formFieldAriaInvalid } from '../../../utils/f
   ],
   template: `
     <select
+      #selectEl
       class="ui-select-control"
       [id]="resolvedInputId()"
+      [attr.name]="resolvedName()"
       [attr.aria-describedby]="ariaDescribedBy()"
       [attr.aria-invalid]="ariaInvalidState()"
       [disabled]="isDisabled"
-      [value]="value"
       [class]="classes"
       (change)="onChangeSelect($event)"
       (blur)="onTouched()"
     >
       @if (placeholder()) {
-        <option value="" disabled>{{ placeholder() }}</option>
+        <option value="">{{ placeholder() }}</option>
       }
       @for (opt of options(); track opt.value) {
         <option [value]="opt.value">{{ opt.label }}</option>
@@ -54,23 +67,32 @@ import { formFieldAriaDescribedBy, formFieldAriaInvalid } from '../../../utils/f
   ],
 })
 export class UiSelectComponent implements ControlValueAccessor {
-  private readonly formFieldId = inject(FORM_FIELD_CONTROL_ID, { optional: true });
-  private readonly formFieldA11y = inject(FormFieldA11yHost, { optional: true });
+  private readonly a11y = inject(FormControlA11yState);
+  private readonly selectRef = viewChild<ElementRef<HTMLSelectElement>>('selectEl');
 
   readonly placeholder = input('');
   readonly options = input<{ label: string; value: string }[]>([]);
   readonly className = input('', { alias: 'class' });
   readonly ariaInvalid = input<boolean | null>(null);
   readonly inputId = input<string | null>(null);
+  readonly inputName = input<string | null>(null);
 
-  readonly resolvedInputId = computed(() => this.inputId() ?? this.formFieldId ?? null);
-  readonly ariaDescribedBy = computed(() => formFieldAriaDescribedBy(this.formFieldA11y));
-  readonly ariaInvalidState = computed(() => formFieldAriaInvalid(this.formFieldA11y, this.ariaInvalid()));
+  readonly resolvedInputId = computed(() => this.a11y.resolveId(this.inputId()));
+  readonly resolvedName = computed(() => this.a11y.resolveName(this.inputName(), this.resolvedInputId()));
+  readonly ariaDescribedBy = computed(() => formFieldAriaDescribedBy(this.a11y.fieldHost()));
+  readonly ariaInvalidState = computed(() => formFieldAriaInvalid(this.a11y.fieldHost(), this.ariaInvalid()));
 
   value = '';
   isDisabled = false;
   onChange: (value: string) => void = () => undefined;
   onTouched: () => void = () => undefined;
+
+  constructor() {
+    effect(() => {
+      this.options();
+      this.syncNativeSelect();
+    });
+  }
 
   get classes(): string {
     return cn(
@@ -86,8 +108,9 @@ export class UiSelectComponent implements ControlValueAccessor {
     this.onChange(next);
   }
 
-  writeValue(value: string): void {
+  writeValue(value: string | null): void {
     this.value = value ?? '';
+    this.syncNativeSelect();
   }
 
   registerOnChange(fn: (value: string) => void): void {
@@ -100,5 +123,18 @@ export class UiSelectComponent implements ControlValueAccessor {
 
   setDisabledState(isDisabled: boolean): void {
     this.isDisabled = isDisabled;
+  }
+
+  /** Keep the native select element in sync when options load after writeValue. */
+  private syncNativeSelect(): void {
+    queueMicrotask(() => {
+      const el = this.selectRef()?.nativeElement;
+      if (!el) return;
+
+      const optionValues = Array.from(el.options).map((o) => o.value);
+      if (this.value === '' || optionValues.includes(this.value)) {
+        el.value = this.value;
+      }
+    });
   }
 }

@@ -1,4 +1,6 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
+import { HasUnsavedChanges } from '../../../core/guards/has-unsaved-changes';
+import { bindUnsavedChangesProtection, formsAreDirty, markFormsPristine } from '../../../shared/utils/unsaved-changes.util';
 import { ApiErrorService } from '../../../core/api/api-error.service';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { getFormControlError, markFormGroupTouched, guardFormSubmit } from '../../../shared/utils/form-errors.util';
@@ -74,11 +76,12 @@ import { DoctorsApiService } from '../data/doctors-api.service';
     }
   `,
 })
-export class DoctorProfilePageComponent implements OnInit {
+export class DoctorProfilePageComponent implements OnInit, HasUnsavedChanges {
   private readonly toasts = inject(ApiErrorService);
 
   private readonly api = inject(DoctorsApiService);
   private readonly fb = inject(FormBuilder);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly doctor = signal<DoctorDto | null>(null);
   readonly loading = signal(true);
@@ -86,6 +89,14 @@ export class DoctorProfilePageComponent implements OnInit {
   readonly saving = signal(false);
   readonly success = signal(false);
   readonly error = signal<string | null>(null);
+
+  constructor() {
+    bindUnsavedChangesProtection(this.destroyRef, () => this.hasUnsavedChanges());
+  }
+
+  hasUnsavedChanges(): boolean {
+    return formsAreDirty(this.form);
+  }
 
   readonly form = this.fb.nonNullable.group({
     fullName: ['', Validators.required],
@@ -105,6 +116,7 @@ export class DoctorProfilePageComponent implements OnInit {
           roomNumber: doctor.roomNumber ?? '',
           biography: doctor.biography ?? '',
         });
+        markFormsPristine(this.form);
       },
       error: () => setPageLoadFailed(this.loading, this.loadError, 'Unable to load your profile.'),
     });
@@ -129,6 +141,7 @@ export class DoctorProfilePageComponent implements OnInit {
         this.doctor.set(updated);
         this.saving.set(false);
         this.success.set(true);
+        markFormsPristine(this.form);
       },
       error: (err) => {
         this.saving.set(false);

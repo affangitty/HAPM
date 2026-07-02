@@ -729,6 +729,7 @@ JWT passed as `?access_token=` on hub connect (per `docs/SignalR.md`).
 - Base URL: `environment.apiUrl` (default `http://localhost:5168`)
 - Auth: `Authorization: Bearer` on all except public routes
 - Refresh: interceptor calls `/api/auth/refresh` on 401, retry once
+- Idempotency: `idempotency.interceptor.ts` adds `Idempotency-Key` on eligible POST/PATCH
 - Lists: `?page=&pageSize=&search=&sortBy=&sortDescending=`
 - Errors: map `ProblemDetails` → toast
 - File upload: `multipart/form-data` for lab reports
@@ -744,13 +745,13 @@ These are required for full backend coverage but absent from both design exports
 |----|--------|--------|
 | **WLT-01** | Waitlist join & management | Backend has `/api/waitlist`; no Stitch/Figma screen |
 | **TPL-01/02** | Prescription templates library & editor | Backend CRUD; not in Stitch/Figma |
-| **DOC-04** | Doctor weekly schedule editor | API `PUT /doctors/{id}/schedules`; only partial in DOC-02 |
+| **DOC-04** | Doctor weekly schedule editor | API `PUT /doctors/{id}/schedules` (full replace); only partial in DOC-02 |
 | **DOC-05** | Doctor leave management | API leave endpoints; not designed |
-| **APT-05** | Reschedule flow | API `PUT /appointments/{id}/reschedule`; no dedicated UI |
-| **BIL-04** | Edit pending invoice | API `PUT /invoices/{id}`; not explicit in designs |
+| **APT-05** | Reschedule flow | API `PATCH /appointments/{id}/reschedule`; no dedicated UI |
+| **BIL-04** | Edit pending invoice | API `PATCH /invoices/{id}`; not explicit in designs |
 | **EXP-01** | Exports page (or admin panel section) | API `/api/exports/*`; only button on audit screen |
 | **REV-01** | Submit review form | API `POST /reviews`; no form screen |
-| **AUTH-02** | Patient registration | API `/api/auth/register`; Figma has no dedicated page |
+| **AUTH-02** | Patient registration | API `/api/auth/register`; inline panel on login + `/auth/register` route |
 | **SYS-01/02** | 403 / 404 error pages | Standard production requirement |
 | **ONB-01** | First-run / empty dashboard states | Both assume seeded data |
 

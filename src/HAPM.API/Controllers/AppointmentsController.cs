@@ -65,7 +65,7 @@ public class AppointmentsController : ControllerBase
     public async Task<ActionResult<AppointmentDto>> MarkNoShow(int id, CancellationToken ct) =>
         Ok(await _appointmentService.MarkNoShowAsync(id, ct));
 
-    [HttpPut("{id:int}/reschedule")]
+    [HttpPatch("{id:int}/reschedule")]
     public async Task<ActionResult<AppointmentDto>> Reschedule(int id, RescheduleAppointmentRequest request, CancellationToken ct) =>
         Ok(await _appointmentService.RescheduleAsync(id, request, ct));
 }

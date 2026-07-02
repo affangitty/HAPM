@@ -1,4 +1,6 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, DestroyRef, effect, inject, OnInit, signal } from '@angular/core';
+import { HasUnsavedChanges } from '../../../core/guards/has-unsaved-changes';
+import { bindUnsavedChangesProtection, formsAreDirty, markFormsPristine } from '../../../shared/utils/unsaved-changes.util';
 import { DatePipe } from '@angular/common';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { getFormControlError, guardFormSubmit } from '../../../shared/utils/form-errors.util';
@@ -16,6 +18,7 @@ import { UiPageHeaderComponent } from '../../../shared/components/ui/page-header
 import { UiSelectComponent } from '../../../shared/components/ui/select/ui-select.component';
 import { DEFAULT_PAGE_SIZE } from '../../../shared/models/pagination.model';
 import { debounce } from '../../../shared/utils/debounce.util';
+import { MobileRecordCardComponent } from '../../../shared/components/mobile-record-card/mobile-record-card.component';
 import { UsersApiService } from '../data/users-api.service';
 
 @Component({
@@ -25,7 +28,7 @@ import { UsersApiService } from '../data/users-api.service';
     DatePipe,
     FormsModule, ReactiveFormsModule, UiPageHeaderComponent, UiFilterBarComponent, FormFieldComponent,
     UiSelectComponent, UiInputComponent, UiPasswordInputComponent, UiButtonComponent, UiCardComponent, UiCardHeaderComponent,
-    UiCardTitleComponent, UiCardContentComponent, UiPaginationComponent,
+    UiCardTitleComponent, UiCardContentComponent, UiPaginationComponent, MobileRecordCardComponent,
   ],
   template: `
     <app-ui-page-header title="User Management" subtitle="Accounts, roles, and access control">
@@ -73,8 +76,40 @@ import { UsersApiService } from '../data/users-api.service';
     } @else if (!rows().length) {
       <p class="text-sm text-muted-foreground">No users found. Adjust filters or create a receptionist account.</p>
     } @else {
-      <div class="overflow-x-auto rounded-xl border border-border">
-        <table class="w-full min-w-[720px] text-left text-sm">
+      <div class="space-y-3 md:hidden">
+        @for (user of rows(); track user.id) {
+          <app-mobile-record-card
+            [title]="user.fullName"
+            [subtitle]="user.email"
+            [fields]="[
+              { label: 'Role', value: user.role },
+              { label: 'Status', value: user.isActive ? 'Active' : 'Inactive' },
+              { label: 'Created', value: user.createdAtUtc ? ((user.createdAtUtc | date: 'mediumDate') ?? '—') : '—' },
+            ]"
+          >
+            <div class="mt-3 flex flex-wrap gap-2">
+              <app-ui-button size="sm" variant="outline" [loading]="togglingId() === user.id" (pressed)="toggleActive(user)">
+                {{ user.isActive ? 'Deactivate' : 'Activate' }}
+              </app-ui-button>
+              <app-ui-button size="sm" variant="outline" (pressed)="openReset(user)">Reset password</app-ui-button>
+            </div>
+            @if (resetUserId() === user.id) {
+              <form class="mt-3 space-y-2 border-t border-border/60 pt-3" [formGroup]="resetForm" (ngSubmit)="submitReset(user.id)">
+                <app-form-field label="New password">
+                  <app-ui-password-input formControlName="newPassword" />
+                </app-form-field>
+                <div class="flex gap-2">
+                  <app-ui-button size="sm" type="submit" [loading]="resetting()">Save password</app-ui-button>
+                  <app-ui-button size="sm" type="button" variant="outline" (pressed)="resetUserId.set(null)">Cancel</app-ui-button>
+                </div>
+              </form>
+            }
+          </app-mobile-record-card>
+        }
+      </div>
+
+      <div class="hidden overflow-x-auto rounded-xl border border-border md:block">
+        <table class="w-full text-left text-sm">
           <thead class="border-b bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
               <th class="px-4 py-3">Name</th>
@@ -128,10 +163,11 @@ import { UsersApiService } from '../data/users-api.service';
     }
   `,
 })
-export class UserListPageComponent implements OnInit {
+export class UserListPageComponent implements OnInit, HasUnsavedChanges {
   private readonly api = inject(UsersApiService);
   private readonly toasts = inject(ApiErrorService);
   private readonly fb = inject(FormBuilder);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly pageSize = DEFAULT_PAGE_SIZE;
   readonly page = signal(1);
@@ -177,6 +213,29 @@ export class UserListPageComponent implements OnInit {
 
   private readonly debouncedLoad = debounce(() => this.load(), 300);
 
+  constructor() {
+    bindUnsavedChangesProtection(this.destroyRef, () => this.hasUnsavedChanges());
+    let wasShowingCreate = false;
+    let previousResetUserId: number | null = null;
+    effect(() => {
+      const showingCreate = this.showCreate();
+      if (wasShowingCreate && !showingCreate) {
+        markFormsPristine(this.createForm);
+      }
+      wasShowingCreate = showingCreate;
+
+      const resetUserId = this.resetUserId();
+      if (previousResetUserId !== null && resetUserId === null) {
+        markFormsPristine(this.resetForm);
+      }
+      previousResetUserId = resetUserId;
+    });
+  }
+
+  hasUnsavedChanges(): boolean {
+    return (this.showCreate() && this.createForm.dirty) || (this.resetUserId() !== null && this.resetForm.dirty);
+  }
+
   ngOnInit(): void {
     this.load();
   }
@@ -205,9 +264,7 @@ export class UserListPageComponent implements OnInit {
   }
 
   createReceptionist(): void {
-    if (!guardFormSubmit(this.createForm, this.toasts, {
-      fullName: 'Full name', email: 'Email', phoneNumber: 'Phone', password: 'Password',
-    })) return;
+    if (!guardFormSubmit(this.createForm)) return;
     this.creating.set(true);
     this.createError.set(null);
     this.createSuccess.set(null);
@@ -217,6 +274,7 @@ export class UserListPageComponent implements OnInit {
         this.createSuccess.set(`Created receptionist account for ${user.fullName}.`);
         this.toasts.show('Receptionist account created.', 'success');
         this.createForm.reset();
+        markFormsPristine(this.createForm);
         this.showCreate.set(false);
         this.load();
       },
@@ -251,12 +309,13 @@ export class UserListPageComponent implements OnInit {
   }
 
   submitReset(userId: number): void {
-    if (!guardFormSubmit(this.resetForm, this.toasts, { newPassword: 'New password' })) return;
+    if (!guardFormSubmit(this.resetForm)) return;
     this.resetting.set(true);
     this.api.resetPassword(userId, this.resetForm.getRawValue()).subscribe({
       next: () => {
         this.resetting.set(false);
         this.resetUserId.set(null);
+        markFormsPristine(this.resetForm);
         this.toasts.show('Password reset successfully.', 'success');
       },
       error: (err) => {

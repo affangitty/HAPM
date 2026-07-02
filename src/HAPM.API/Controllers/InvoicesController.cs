@@ -38,10 +38,10 @@ public class InvoicesController : ControllerBase
     }
 
     /// <summary>Updates a pending invoice (line items, tax, discount, notes).</summary>
-    [HttpPut("{id:int}")]
+    [HttpPatch("{id:int}")]
     [Authorize(Roles = Roles.Staff)]
-    public async Task<ActionResult<InvoiceDto>> Update(int id, UpdateInvoiceRequest request, CancellationToken ct) =>
-        Ok(await _billingService.UpdateAsync(id, request, ct));
+    public async Task<ActionResult<InvoiceDto>> Patch(int id, PatchInvoiceRequest request, CancellationToken ct) =>
+        Ok(await _billingService.PatchAsync(id, request, ct));
 
     /// <summary>
     /// Records a (possibly partial) payment. Each payment gets a receipt number; the invoice

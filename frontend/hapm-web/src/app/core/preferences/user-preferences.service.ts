@@ -54,6 +54,20 @@ export class UserPreferencesService {
     this.applyTheme(theme);
   }
 
+  /** Whether the UI is currently rendered in dark mode (resolves System against OS preference). */
+  isDarkMode(): boolean {
+    const theme = this.theme();
+    if (theme === 'Dark') return true;
+    if (theme === 'Light') return false;
+    if (typeof window === 'undefined' || !window.matchMedia) return false;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  }
+
+  /** Quick toggle between explicit Light and Dark (leaves System if user had chosen it). */
+  toggleTheme(): void {
+    this.setTheme(this.isDarkMode() ? 'Light' : 'Dark');
+  }
+
   setDensity(density: DensityPreference): void {
     this.density.set(density);
     this.persist();

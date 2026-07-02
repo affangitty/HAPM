@@ -1,6 +1,7 @@
 import { Component, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { UiStatusBadgeComponent } from '../../../shared/components/ui/status-badge/ui-status-badge.component';
+import { MobileRecordCardComponent } from '../../../shared/components/mobile-record-card/mobile-record-card.component';
 import { APPOINTMENT_STATUS_TONE, AppointmentStatus } from '../../../shared/models/enums';
 import { DashboardAppointmentItem } from '../models/dashboard.models';
 import { DashboardSectionHeaderComponent } from './dashboard-section-header.component';
@@ -9,14 +10,34 @@ import { DashboardWidgetCardComponent } from './dashboard-kpi-grid.component';
 @Component({
   selector: 'app-recent-appointments-widget',
   standalone: true,
-  imports: [RouterLink, UiStatusBadgeComponent, DashboardSectionHeaderComponent, DashboardWidgetCardComponent],
+  imports: [RouterLink, UiStatusBadgeComponent, MobileRecordCardComponent, DashboardSectionHeaderComponent, DashboardWidgetCardComponent],
   host: { class: 'block w-full' },
   template: `
     <app-dashboard-widget-card>
       <app-dashboard-section-header title="Recent Appointments">
         <a actions [routerLink]="viewAllRoute()" class="text-xs font-medium text-primary hover:underline">View all</a>
       </app-dashboard-section-header>
-      <div class="overflow-x-auto">
+
+      <div class="space-y-3 md:hidden">
+        @for (item of items(); track item.id) {
+          <app-mobile-record-card
+            [title]="item.patient"
+            [subtitle]="item.doctor"
+            [fields]="[
+              { label: 'When', value: item.date + ' ' + item.time },
+              { label: 'Status', value: item.status },
+            ]"
+          >
+            <span trailing>
+              <app-ui-status-badge [label]="item.status" [tone]="statusTone(item.status)" />
+            </span>
+          </app-mobile-record-card>
+        } @empty {
+          <p class="py-6 text-center text-sm text-muted-foreground">No recent appointments.</p>
+        }
+      </div>
+
+      <div class="hidden md:block">
         <table class="w-full text-left text-sm">
           <thead>
             <tr class="border-b text-xs uppercase tracking-wide text-muted-foreground">

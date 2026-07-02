@@ -48,6 +48,6 @@ export class AppointmentsApiService {
   }
 
   reschedule(id: number, request: RescheduleAppointmentRequest): Observable<AppointmentDto> {
-    return this.api.put<AppointmentDto>(`/appointments/${id}/reschedule`, request);
+    return this.api.patch<AppointmentDto>(`/appointments/${id}/reschedule`, request);
   }
 }

@@ -1,4 +1,6 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { HasUnsavedChanges } from '../../../core/guards/has-unsaved-changes';
+import { bindUnsavedChangesProtection, formsAreDirty, markFormsPristine } from '../../../shared/utils/unsaved-changes.util';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { ApiErrorService } from '../../../core/api/api-error.service';
@@ -87,14 +89,23 @@ import { DoctorsApiService } from '../data/doctors-api.service';
     </app-ui-card>
   `,
 })
-export class DoctorRegisterPageComponent {
+export class DoctorRegisterPageComponent implements HasUnsavedChanges {
   private readonly api = inject(DoctorsApiService);
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
   private readonly toasts = inject(ApiErrorService);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
+
+  constructor() {
+    bindUnsavedChangesProtection(this.destroyRef, () => this.hasUnsavedChanges());
+  }
+
+  hasUnsavedChanges(): boolean {
+    return formsAreDirty(this.form);
+  }
 
   readonly form = this.fb.nonNullable.group({
     fullName: ['', Validators.required],
@@ -128,7 +139,7 @@ export class DoctorRegisterPageComponent {
   }
 
   submit(): void {
-    if (!guardFormSubmit(this.form, this.toasts, this.fieldLabels, { strongPassword: STRONG_PASSWORD_MESSAGE })) {
+    if (!guardFormSubmit(this.form)) {
       return;
     }
 
@@ -138,6 +149,7 @@ export class DoctorRegisterPageComponent {
       next: (doctor) => {
         this.saving.set(false);
         this.toasts.showSuccess(`Doctor ${doctor.fullName} registered successfully.`);
+        markFormsPristine(this.form);
         void this.router.navigateByUrl(roleRoute(this.router, 'doctors', String(doctor.id)));
       },
       error: (err) => {

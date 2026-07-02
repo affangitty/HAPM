@@ -35,6 +35,8 @@ Interactive docs: **`/swagger`** (use the **Authorize** button with your access 
 - **Enums** are serialized as strings (e.g. `"status": "Confirmed"`).
 - **IDs** are integers. **Dates** are `yyyy-MM-dd`, **times** are `HH:mm` / `HH:mm:ss`.
 - **Rate limits:** 300 req/min per IP globally; 10 req/min per IP on `/api/auth/*` → HTTP 429.
+- **Partial updates:** most resource edits use **`PATCH`** with optional fields — send only what you want to change; at least one field is required per request. **`PUT`** is reserved for full replacements (e.g. weekly doctor schedules).
+- **Idempotency:** mutating requests on key routes accept an optional `Idempotency-Key` header (max 128 chars). When supplied on supported `POST`/`PATCH` routes (register, appointments, patients, doctors, invoices, prescriptions, reviews, waitlist, receptionist creation), retries with the same key and body return the original response instead of duplicating side effects. Records expire after 24 hours. The Angular client sends this header automatically on eligible requests.
 
 ---
 
@@ -123,8 +125,8 @@ Rotates the refresh token: the old one is revoked and a new pair is returned.
 | GET | `/api/doctors/{id}/available-slots?date=2026-06-15` | Public |
 | GET | `/api/doctors/{id}/schedules` | Public |
 | POST | `/api/doctors` | Admin |
-| PUT | `/api/doctors/{id}` | Admin |
-| PUT | `/api/doctors/{id}/profile` | Doctor (own) |
+| PATCH | `/api/doctors/{id}` | Admin |
+| PATCH | `/api/doctors/{id}/profile` | Doctor (own) |
 | PUT | `/api/doctors/{id}/schedules` | Admin |
 | DELETE | `/api/doctors/{id}` | Admin (soft delete; blocked while upcoming appointments exist) |
 | GET | `/api/doctors/{id}/leaves` | Authenticated |
@@ -166,13 +168,13 @@ Sort options: `name`, `fee`, `experience`, `specialization`. Doctor responses in
 { "startDate": "2026-06-22", "endDate": "2026-06-24", "reason": "Conference" }
 ```
 
-**Update own profile** (`PUT /{id}/profile`, Doctor only - own `id`):
+**Update own profile** (`PATCH /{id}/profile`, Doctor only - own `id`):
 
 ```json
 { "fullName": "Dr. Anil Sharma", "phoneNumber": "+919999990001", "roomNumber": "C-101", "biography": "Cardiologist with 15 years experience." }
 ```
 
-Admin-only fields (specialization, fee, availability, etc.) remain on `PUT /{id}`.
+Admin-only fields (specialization, fee, availability, etc.) remain on `PATCH /{id}`.
 
 ---
 
@@ -185,7 +187,7 @@ Admin-only fields (specialization, fee, availability, etc.) remain on `PUT /{id}
 | GET | `/api/patients/{id}` | Authenticated (patients: own only) |
 | GET | `/api/patients/{id}/medical-history` | Authenticated (patients: own only) |
 | POST | `/api/patients` | Admin, Receptionist (walk-in registration) |
-| PUT | `/api/patients/{id}` | Authenticated (patients: own only) |
+| PATCH | `/api/patients/{id}` | Authenticated (patients: own only) |
 | DELETE | `/api/patients/{id}` | Admin (deactivate) |
 
 Search matches name, email, MRN and phone. Sort: `name`, `mrn`, `registeredAt`. Medical history returns the patient plus all appointments, prescriptions and lab reports.
@@ -206,7 +208,7 @@ Data is auto-scoped: patients see their own, doctors see theirs, staff see all.
 | POST | `/api/appointments/{id}/complete` | Doctor (own), Admin, Receptionist - `{ "notes": "..." }` |
 | POST | `/api/appointments/{id}/cancel` | Owner or staff - `{ "reason": "..." }` |
 | POST | `/api/appointments/{id}/no-show` | Doctor (own), Admin, Receptionist (past slots only) |
-| PUT | `/api/appointments/{id}/reschedule` | Owner or staff |
+| PATCH | `/api/appointments/{id}/reschedule` | Owner or staff |
 
 **Book** (start time must align to the doctor's slot grid; `patientId` required only for staff):
 
@@ -261,7 +263,7 @@ Validation errors → 400 (outside consulting hours, on leave, misaligned slot, 
 | GET | `/api/prescriptions/{id}` | Authenticated (scoped) |
 | GET | `/api/prescriptions/by-appointment/{appointmentId}` | Authenticated (scoped) |
 | POST | `/api/prescriptions` | Doctor (own checked-in/completed appointment) |
-| PUT | `/api/prescriptions/{id}` | Prescribing doctor |
+| PATCH | `/api/prescriptions/{id}` | Prescribing doctor |
 
 **Create** (one per appointment - 409 if it already exists):
 
@@ -298,7 +300,7 @@ Doctor-owned presets (e.g. "Viral Fever Protocol"). Using a template is **option
 | GET | `/api/prescription-templates` | Doctor (own templates only) |
 | GET | `/api/prescription-templates/{id}` | Doctor (own) |
 | POST | `/api/prescription-templates` | Doctor |
-| PUT | `/api/prescription-templates/{id}` | Doctor (own) |
+| PATCH | `/api/prescription-templates/{id}` | Doctor (own) |
 | DELETE | `/api/prescription-templates/{id}` | Doctor (own) |
 
 **Save template** (name unique per doctor - duplicate → 409):
@@ -327,13 +329,13 @@ Templates are fully isolated per doctor - other doctors get 404 for templates th
 | GET | `/api/lab-reports/{id}` | Authenticated (scoped) |
 | GET | `/api/lab-reports/{id}/download` | Authenticated (scoped) - streams the file |
 | POST | `/api/lab-reports` | Admin, Receptionist, Doctor (`multipart/form-data`) |
-| PUT | `/api/lab-reports/{id}` | Admin, Receptionist, Doctor (`multipart/form-data`, `file` optional) |
+| PATCH | `/api/lab-reports/{id}` | Admin, Receptionist, Doctor (`multipart/form-data`, `file` optional) |
 | POST | `/api/lab-reports/{id}/review` | Doctor - `{ "remarks": "..." }` |
 | DELETE | `/api/lab-reports/{id}` | Admin (also deletes the file) |
 
 **Upload form fields:** `patientId` (required), `doctorId`, `appointmentId` (optional), `reportType`, `title`, `file` (required; `.pdf .jpg .jpeg .png .dcm`, max 10 MB).
 
-**Update** (`PUT /{id}`): same metadata fields (`reportType`, `title`, `doctorId`, `appointmentId`); optional new `file`. Replacing the file resets status to `Uploaded` and clears review remarks.
+**Update** (`PATCH /{id}`): same metadata fields (`reportType`, `title`, `doctorId`, `appointmentId`); optional new `file`. Replacing the file resets status to `Uploaded` and clears review remarks.
 
 ---
 
@@ -344,7 +346,7 @@ Templates are fully isolated per doctor - other doctors get 404 for templates th
 | GET | `/api/invoices?patientId=&status=Pending&fromDate=&toDate=` | Authenticated (patients: own) |
 | GET | `/api/invoices/{id}` | Authenticated (scoped) |
 | POST | `/api/invoices` | Admin, Receptionist |
-| PUT | `/api/invoices/{id}` | Admin, Receptionist (pending only) |
+| PATCH | `/api/invoices/{id}` | Admin, Receptionist (pending only) |
 | POST | `/api/invoices/{id}/payments` | Admin, Receptionist |
 | GET | `/api/invoices/{id}/payments` | Authenticated (scoped) |
 | POST | `/api/invoices/{id}/cancel` | Admin, Receptionist (pending only) |
@@ -364,7 +366,7 @@ Templates are fully isolated per doctor - other doctors get 404 for templates th
 }
 ```
 
-**Update pending invoice** (`PUT /{id}`, status must be `Pending`):
+**Update pending invoice** (`PATCH /{id}`, status must be `Pending`):
 
 ```json
 {
@@ -506,7 +508,18 @@ Received payments grouped by the doctor's specialization (payments on invoices w
 
 ### GET `/api/audit-logs?entityName=Invoice&action=Updated&userId=&fromDate=&toDate=` (Admin)
 
-Every create/update/delete is captured automatically by an EF Core interceptor with the acting user and old/new values as JSON (`PasswordHash` masked). Technical tables (audit logs, notifications, refresh tokens) are excluded.
+Every create/update/delete is captured automatically by an EF Core interceptor with the acting user and per-field change JSON (`PasswordHash` masked). Technical tables (audit logs, archives, idempotency records, notifications, refresh tokens) are excluded.
+
+**Change JSON format** (updates):
+
+```json
+{
+  "Status": { "old": "Pending", "new": "Confirmed" },
+  "Notes": { "old": null, "new": "Patient arrived early" }
+}
+```
+
+Aged audit rows are moved to `AuditLogArchives` by a background job (default: after 90 days); archives older than 365 days are purged. Configure via `Audit` in `appsettings.json`.
 
 ---
 

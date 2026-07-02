@@ -49,14 +49,27 @@ public class ReviewService : IReviewService
             (_, _) => reviews.OrderByDescending(r => r.CreatedAtUtc)
         };
 
-        return await reviews.Select(Projections.Review).ToPagedResultAsync(query.Page, query.PageSize, ct);
+        var page = await reviews.Select(Projections.Review).ToPagedResultAsync(query.Page, query.PageSize, ct);
+        var (viewerDoctorId, viewerPatientId) = await GetViewerContextAsync(ct);
+        return new PagedResult<ReviewDto>
+        {
+            Items = ReviewPrivacy.ApplyAll(page.Items, _currentUser.Role, viewerDoctorId, viewerPatientId),
+            Page = page.Page,
+            PageSize = page.PageSize,
+            TotalCount = page.TotalCount,
+        };
     }
 
-    public async Task<ReviewDto> GetByIdAsync(int id, CancellationToken ct = default) =>
-        await _uow.DoctorReviews.Query()
+    public async Task<ReviewDto> GetByIdAsync(int id, CancellationToken ct = default)
+    {
+        var review = await _uow.DoctorReviews.Query()
             .Where(r => r.Id == id)
             .Select(Projections.Review)
             .FirstOrDefaultAsync(ct) ?? throw new NotFoundException("Review", id);
+
+        var (viewerDoctorId, viewerPatientId) = await GetViewerContextAsync(ct);
+        return ReviewPrivacy.Apply(review, _currentUser.Role, viewerDoctorId, viewerPatientId);
+    }
 
     public async Task<ReviewDto> CreateAsync(CreateReviewRequest request, CancellationToken ct = default)
     {
@@ -111,5 +124,31 @@ public class ReviewService : IReviewService
 
         _uow.DoctorReviews.Remove(review);
         await _uow.SaveChangesAsync(ct);
+    }
+
+    private async Task<(int? DoctorId, int? PatientId)> GetViewerContextAsync(CancellationToken ct)
+    {
+        if (_currentUser.UserId is null)
+            return (null, null);
+
+        int? doctorId = null;
+        if (_currentUser.Role == UserRole.Doctor)
+        {
+            doctorId = await _uow.Doctors.Query()
+                .Where(d => d.UserId == _currentUser.UserId)
+                .Select(d => (int?)d.Id)
+                .FirstOrDefaultAsync(ct);
+        }
+
+        int? patientId = null;
+        if (_currentUser.Role == UserRole.Patient)
+        {
+            patientId = await _uow.Patients.Query()
+                .Where(p => p.UserId == _currentUser.UserId)
+                .Select(p => (int?)p.Id)
+                .FirstOrDefaultAsync(ct);
+        }
+
+        return (doctorId, patientId);
     }
 }

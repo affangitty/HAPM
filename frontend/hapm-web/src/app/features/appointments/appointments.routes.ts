@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { unsavedChangesGuard } from '../../core/guards/unsaved-changes.guard';
 
 export const APPOINTMENT_ROUTES: Routes = [
   {
@@ -11,6 +12,7 @@ export const APPOINTMENT_ROUTES: Routes = [
     path: 'appointments/book',
     loadComponent: () =>
       import('./pages/appointment-book-page.component').then((m) => m.AppointmentBookPageComponent),
+    canDeactivate: [unsavedChangesGuard],
     data: { title: 'Book Appointment' },
   },
   {

@@ -5,7 +5,7 @@ import { ChartDataPoint, ChartSeries, DEFAULT_CHART_PADDING } from './chart.mode
   selector: 'app-area-chart',
   standalone: true,
   template: `
-    <div class="w-full overflow-x-auto">
+    <div class="w-full min-w-0">
       <svg [attr.viewBox]="'0 0 ' + width() + ' ' + height()" class="w-full" role="img" [attr.aria-label]="ariaLabel()">
         @for (line of gridLines(); track line) {
           <line

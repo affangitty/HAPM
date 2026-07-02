@@ -1,5 +1,4 @@
 import { AbstractControl, FormGroup } from '@angular/forms';
-import { ApiErrorService } from '../../core/api/api-error.service';
 
 const DEFAULT_MESSAGES: Record<string, string> = {
   required: 'This field is required.',
@@ -61,16 +60,10 @@ export function collectFormErrors(
 }
 
 /**
- * Marks form touched and shows a toast when invalid. Returns true when the form can be submitted.
+ * Marks the form touched so inline field errors appear. Returns true when the form can be submitted.
  */
-export function guardFormSubmit(
-  form: FormGroup,
-  toasts?: ApiErrorService,
-  labels?: Record<string, string>,
-  messages?: Record<string, string>,
-): boolean {
+export function guardFormSubmit(form: FormGroup): boolean {
   if (form.valid) return true;
   markFormGroupTouched(form);
-  toasts?.showFormValidation(collectFormErrors(form, labels, messages));
   return false;
 }

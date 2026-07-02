@@ -94,7 +94,7 @@ public class BillingServiceTests : ServiceTestBase
     }
 
     [Fact]
-    public async Task UpdateAsync_pending_invoice_updates_totals()
+    public async Task PatchAsync_pending_invoice_updates_totals()
     {
         var scenario = await SeedScenarioAsync();
         var seeded = await TestData.SeedInvoiceAsync(Uow, scenario.PatientId, 100m);
@@ -102,7 +102,7 @@ public class BillingServiceTests : ServiceTestBase
         CurrentUser.As(UserRole.Receptionist, scenario.ReceptionistUserId);
         var sut = CreateSut();
 
-        var updated = await sut.UpdateAsync(seeded.Id, new UpdateInvoiceRequest
+        var updated = await sut.PatchAsync(seeded.Id, new PatchInvoiceRequest
         {
             TaxPercent = 0m,
             DiscountAmount = 0m,
@@ -117,7 +117,7 @@ public class BillingServiceTests : ServiceTestBase
     }
 
     [Fact]
-    public async Task UpdateAsync_paid_invoice_throws_conflict()
+    public async Task PatchAsync_paid_invoice_throws_conflict()
     {
         var scenario = await SeedScenarioAsync();
         var seeded = await TestData.SeedInvoiceAsync(Uow, scenario.PatientId, 100m, InvoiceStatus.Paid);
@@ -125,7 +125,7 @@ public class BillingServiceTests : ServiceTestBase
         CurrentUser.As(UserRole.Receptionist, scenario.ReceptionistUserId);
         var sut = CreateSut();
 
-        await Assert.ThrowsAsync<ConflictException>(() => sut.UpdateAsync(seeded.Id, new UpdateInvoiceRequest
+        await Assert.ThrowsAsync<ConflictException>(() => sut.PatchAsync(seeded.Id, new PatchInvoiceRequest
         {
             Items = { new InvoiceItemRequest { Description = "X", Quantity = 1, UnitPrice = 10m } }
         }));

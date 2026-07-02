@@ -17,8 +17,8 @@ import { NotificationDto } from '../models/notification.models';
   imports: [RouterLink, UiButtonComponent, UiEmptyStateComponent, UiSkeletonComponent, NotificationListItemComponent],
   template: `
     @if (open()) {
-      <div class="fixed inset-0 z-50 lg:hidden" (click)="close.emit()"></div>
-      <aside class="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col border-l bg-card shadow-xl" role="dialog" aria-modal="true" aria-label="Notifications">
+      <div class="fixed inset-0 z-50 bg-black/40" (click)="close.emit()"></div>
+      <aside class="fixed inset-y-0 right-0 z-[51] flex w-full max-w-md flex-col border-l bg-card shadow-xl sm:max-w-sm" role="dialog" aria-modal="true" aria-label="Notifications">
         <div class="flex items-center justify-between border-b px-4 py-3">
           <div>
             <h2 class="font-semibold">Notifications</h2>

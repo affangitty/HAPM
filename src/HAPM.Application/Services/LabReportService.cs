@@ -130,25 +130,36 @@ public class LabReportService : ILabReportService
         return new LabReportFileDto(stream, report.FileName, report.ContentType);
     }
 
-    public async Task<LabReportDto> UpdateAsync(int id, UpdateLabReportRequest request, Stream? content, string? fileName, string? contentType, long? sizeBytes, CancellationToken ct = default)
+    public async Task<LabReportDto> PatchAsync(int id, PatchLabReportRequest request, Stream? content, string? fileName, string? contentType, long? sizeBytes, CancellationToken ct = default)
     {
+        var hasMetadata = request.DoctorId.HasValue || request.AppointmentId.HasValue ||
+                          request.ReportType is not null || request.Title is not null;
+        if (!hasMetadata && content is null)
+            PatchValidation.EnsureAnyFieldSet(request);
+
         if (_currentUser.Role is not (UserRole.Admin or UserRole.Receptionist or UserRole.Doctor))
             throw new ForbiddenException("Only clinical staff can update lab reports.");
 
         var report = await _uow.LabReports.QueryTracked()
             .FirstOrDefaultAsync(r => r.Id == id, ct) ?? throw new NotFoundException("Lab report", id);
 
-        if (request.DoctorId.HasValue && !await _uow.Doctors.Query().AnyAsync(d => d.Id == request.DoctorId.Value, ct))
-            throw new NotFoundException("Doctor", request.DoctorId.Value);
+        if (request.DoctorId.HasValue)
+        {
+            if (!await _uow.Doctors.Query().AnyAsync(d => d.Id == request.DoctorId.Value, ct))
+                throw new NotFoundException("Doctor", request.DoctorId.Value);
+            report.DoctorId = request.DoctorId;
+        }
 
-        if (request.AppointmentId.HasValue && !await _uow.Appointments.Query()
-                .AnyAsync(a => a.Id == request.AppointmentId.Value && a.PatientId == report.PatientId, ct))
-            throw new BadRequestException("The appointment does not exist or does not belong to this patient.");
+        if (request.AppointmentId.HasValue)
+        {
+            if (!await _uow.Appointments.Query()
+                    .AnyAsync(a => a.Id == request.AppointmentId.Value && a.PatientId == report.PatientId, ct))
+                throw new BadRequestException("The appointment does not exist or does not belong to this patient.");
+            report.AppointmentId = request.AppointmentId;
+        }
 
-        report.DoctorId = request.DoctorId;
-        report.AppointmentId = request.AppointmentId;
-        report.ReportType = request.ReportType.Trim();
-        report.Title = request.Title.Trim();
+        if (request.ReportType is not null) report.ReportType = request.ReportType.Trim();
+        if (request.Title is not null) report.Title = request.Title.Trim();
 
         if (content is not null)
         {

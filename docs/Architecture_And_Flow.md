@@ -90,7 +90,7 @@ HAPM.API
 
 | Folder | Contents |
 |--------|----------|
-| `Entities/` | `User`, `Doctor`, `DoctorSchedule`, `DoctorLeave`, `Patient`, `Appointment`, `VitalSign`, `Prescription(+Item)`, `PrescriptionTemplate(+Item)`, `LabReport`, `Invoice(+Item)`, `Payment`, `DoctorReview`, `WaitlistEntry`, `Notification`, `RefreshToken`, `AuditLog` |
+| `Entities/` | `User`, `Doctor`, `DoctorSchedule`, `DoctorLeave`, `Patient`, `Appointment`, `VitalSign`, `Prescription(+Item)`, `PrescriptionTemplate(+Item)`, `LabReport`, `Invoice(+Item)`, `Payment`, `DoctorReview`, `WaitlistEntry`, `Notification`, `RefreshToken`, `AuditLog`, `AuditLogArchive`, `IdempotencyRecord` |
 | `Enums/` | `UserRole`, `Gender`, `AppointmentStatus`, `InvoiceStatus`, `PaymentMethod`, `LabReportStatus`, `NotificationType`, `WaitlistStatus`, `AuditAction` |
 | `Common/` | `BaseEntity` |
 
@@ -124,10 +124,12 @@ Id (int), CreatedAtUtc, UpdatedAtUtc
 |--------|----------|
 | `Persistence/` | `AppDbContext` (fluent configs inline), `Repository<T>` + `UnitOfWork`, `DbSeeder`, EF `Migrations/` |
 | `Auth/` | `TokenService` (JWT + refresh token values), `BcryptPasswordHasher`, `JwtSettings` |
-| `Auditing/` | `AuditSaveChangesInterceptor` - writes `AuditLog` rows on every save |
+| `Auditing/` | `AuditSaveChangesInterceptor` - collects EF changes, delegates to `ChangeLogService` |
+| `ChangeLog/` | `ChangeLogService` - writes per-field `AuditLog` rows; archives aged logs to `AuditLogArchive` |
+| `Idempotency/` | `IdempotencyService` - stores/replays mutating responses keyed by `Idempotency-Key` |
 | `Storage/` | `LocalFileStorageService` (path-traversal-safe; swap target for Azure Blob) |
-| `BackgroundJobs/` | `AppointmentReminderService` (hosted service) |
-| `DependencyInjection.cs` | Registers DbContext + interceptor, UoW, token/hashing/storage services, hosted job |
+| `BackgroundJobs/` | `AppointmentReminderService`, `IdempotencyCleanupService`, `AuditLogArchiveService` |
+| `DependencyInjection.cs` | Registers DbContext + interceptor, UoW, change log, idempotency, token/hashing/storage services, hosted jobs |
 
 ### 3.4 API Layer (`HAPM.API`)
 
@@ -136,7 +138,7 @@ Id (int), CreatedAtUtc, UpdatedAtUtc
 | Folder | Contents |
 |--------|----------|
 | `Controllers/` | 16 thin controllers - read input, call one service method, return result |
-| `Middleware/` | `ExceptionHandlingMiddleware` → `ProblemDetails` |
+| `Middleware/` | `ExceptionHandlingMiddleware` → `ProblemDetails`; `IdempotencyMiddleware` |
 | `Security/` | `CurrentUserService` (claims → typed user), `Roles` constants |
 | `Program.cs` | Serilog, DI, JWT bearer, rate limiter, health checks, Swagger, CORS, migration+seed at startup |
 
@@ -171,10 +173,14 @@ Id (int), CreatedAtUtc, UpdatedAtUtc
 ```
 AppDbContext (Npgsql + AuditSaveChangesInterceptor)
 IUnitOfWork            → UnitOfWork          (exposes IRepository<T> per aggregate)
+IChangeLogService      → ChangeLogService    (also IAuditLogService)
+IIdempotencyService    → IdempotencyService
 ITokenService          → TokenService
 IPasswordHasher        → BcryptPasswordHasher    (singleton)
 IFileStorageService    → LocalFileStorageService (singleton)
 IHostedService         → AppointmentReminderService
+IHostedService         → IdempotencyCleanupService
+IHostedService         → AuditLogArchiveService
 ```
 
 **Application (`HAPM.Application/DependencyInjection.cs`):**
@@ -227,6 +233,10 @@ Incoming HTTP Request
           ▼
 ┌──────────────────────────┐
 │ UseAuthorization         │  ← [Authorize(Roles=...)] checks
+└─────────┬────────────────┘
+          ▼
+┌──────────────────────────┐
+│ IdempotencyMiddleware    │  ← optional Idempotency-Key replay on POST/PATCH
 └─────────┬────────────────┘
           ▼
 ┌──────────────────────────┐
@@ -415,7 +425,7 @@ POST /{id}/check-in   Confirmed → CheckedIn      (doctor own / staff)
 POST /{id}/complete   Confirmed|CheckedIn → Completed (+ notes) → notify patient (AppointmentCompleted)
 POST /{id}/cancel     any non-terminal → Cancelled (+ reason)           → notify both + waitlist
 POST /{id}/no-show    Pending|Confirmed (past) → NoShow
-PUT  /{id}/reschedule Pending|Confirmed → revalidated slot, back to Pending, reminder flag reset
+PATCH /{id}/reschedule Pending|Confirmed → revalidated slot, back to Pending, reminder flag reset
 ```
 
 Illegal transitions return **409** with the current status in the message.
@@ -423,7 +433,9 @@ Illegal transitions return **409** with the current status in the message.
 ### 9.3 Doctor leave vs. slot engine
 
 ```
-PUT  /api/doctors/{id}/schedules     weekly template (validated: start<end, no same-day overlap)
+PUT  /api/doctors/{id}/schedules     weekly template — full replace (validated: start<end, no same-day overlap)
+PATCH /api/doctors/{id}              partial admin profile update
+PATCH /api/doctors/{id}/profile      partial self-service update (doctor own)
 POST /api/doctors/{id}/leaves        absence window
         ├── overlap with existing leave → 409
         └── active appointments in range → 409 ("cancel or reschedule them first")
@@ -489,7 +501,7 @@ LabReportService.UploadAsync()
     └── Notify patient (LabReportUploaded)
 
 GET /api/lab-reports/{id}/download → access-checked, then streams via File()
-PUT  /{id} [Clinical] → update metadata; optional new file resets review status
+PATCH /{id} [Clinical] → partial metadata update; optional new file resets review status
 POST /{id}/review [Doctor] → Status = Reviewed + remarks
 DELETE [Admin] → removes row + file from disk
 ```
@@ -499,8 +511,8 @@ Files are **not** served as static files - every download passes the scoping che
 ### 9.8 Billing & payments flow
 
 ```
-PUT  /api/invoices/{id}  [Staff, Pending only]
-    ├── Replace line items, tax%, discount, notes; consultation line preserved when appointment-linked
+PATCH /api/invoices/{id}  [Staff, Pending only]
+    ├── Patch line items, tax%, discount, notes; consultation line preserved when appointment-linked
     └── Recalculate totals
 
 POST /api/invoices  [Staff]
@@ -539,10 +551,14 @@ Any SaveChanges on AppDbContext
     ▼
 AuditSaveChangesInterceptor
     ├── SavingChanges: snapshot Added/Modified/Deleted entries
-    │       (skips AuditLog, Notification, RefreshToken; masks PasswordHash)
-    ├── SavedChanges: keys now generated → build AuditLog rows
-    │       { user, entity, id, action, ChangesJson: {old, new} }
-    └── second SaveChanges persists them (re-entry safe - pending list cleared)
+    │       (skips AuditLog, AuditLogArchive, IdempotencyRecord, Notification, RefreshToken; masks PasswordHash)
+    ├── SavedChanges: keys now generated → queue ChangeLogEntry list
+    └── resolves IChangeLogService via scoped factory → ChangeLogService.WriteAsync()
+            └── per-field JSON: { "Field": { "old": …, "new": … } }
+
+AuditLogArchiveService (background, default every 24 h)
+    ├── Move AuditLog rows older than ArchiveAfterDays → AuditLogArchives
+    └── Purge archives older than PurgeArchiveAfterDays
 ```
 
 ---
@@ -567,7 +583,9 @@ Users ──1:1── Doctors ──1:N── DoctorSchedules
   ├──1:N── RefreshTokens
   └──1:N── Notifications
 
-AuditLogs (standalone - written by the EF interceptor)
+AuditLogs (standalone - written by ChangeLogService via the EF interceptor)
+AuditLogArchives (cold storage after retention period)
+IdempotencyRecords (24 h TTL; purged hourly)
 ```
 
 See `docs/ER_Diagram.md` for the full dbdiagram.io schema.
@@ -597,6 +615,10 @@ Pattern: prefix + year + `(count + 1)` padded to 6 digits.
 | `InitialCreate` | Core tables: users, doctors(+schedules), patients, appointments, prescriptions(+items), lab reports, invoices(+items), notifications, refresh tokens |
 | `AddClinicalAndOpsFeatures` | `VitalSigns`, `DoctorLeaves`, `DoctorReviews`, `WaitlistEntries`, `Payments`, `AuditLogs`; drops `Invoices.PaymentMethod` (moved to payments) |
 | `AddTemplatesFollowUpAndAnalytics` | `PrescriptionTemplates(+Items)`; adds `Prescriptions.FollowUpReminderSent` |
+| `AddStaffMessages` | `StaffMessages` for internal chat |
+| `AddPasswordResetTokens` | `PasswordResetTokens` |
+| `AddIdempotencyRecords` | `IdempotencyRecords` for request deduplication |
+| `AddAuditLogArchives` | `AuditLogArchives` for cold audit storage |
 
 Migrations + seeding run automatically on startup (`DbSeeder.SeedAsync`).
 
@@ -617,11 +639,25 @@ Runs two checks every tick:
 |---------|-------|
 | Interval | every 5 minutes (constant), first tick at startup |
 
-**How it works:**
+### `IdempotencyCleanupService`
+
+| Setting | Value |
+|---------|-------|
+| Interval | every 1 hour |
+| Action | deletes `IdempotencyRecords` where `ExpiresAtUtc` has passed (24 h retention) |
+
+### `AuditLogArchiveService`
+
+| Setting | Value |
+|---------|-------|
+| Interval | `Audit:ArchiveIntervalHours` (default 24) |
+| Archive | move `AuditLog` rows older than `ArchiveAfterDays` (default 90) → `AuditLogArchives` |
+| Purge | delete archives older than `PurgeArchiveAfterDays` (default 365) |
+
+**How hosted jobs work:**
 1. Loop runs independently of HTTP requests (`BackgroundService`)
 2. Creates its own DI scope → fresh `AppDbContext` per tick
-3. Inserts `AppointmentReminder` / `FollowUpDue` notifications for the patient and sets the dedup flag
-4. Errors are logged and the loop continues (a DB outage never kills the host)
+3. Errors are logged and the loop continues (a DB outage never kills the host)
 
 ---
 
@@ -749,7 +785,7 @@ The architecture is designed so these can be added without restructuring:
 | Real-time | `NotificationsHub`, `AppointmentsHub`, `ChatHub` | Dispatchers + `StaffMessageService` | `StaffMessage` |
 | Staff messages | `StaffMessagesController` | `StaffMessageService` | `StaffMessage` |
 | Dashboard | `DashboardController` | `DashboardService` | (aggregates: stats, peak hours, revenue by specialization) |
-| Audit | `AuditLogsController` | `AuditLogService` | `AuditLog` |
+| Audit | `AuditLogsController` | `ChangeLogService` | `AuditLog`, `AuditLogArchive` |
 | Exports | `ExportsController` | `ExportService` | (CSV) |
 
 ---

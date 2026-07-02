@@ -97,7 +97,7 @@ export class ForgotPasswordPageComponent {
   }
 
   submit(): void {
-    if (!guardFormSubmit(this.form, this.toasts)) return;
+    if (!guardFormSubmit(this.form)) return;
 
     const email = this.form.controls.email.value;
     this.loading.set(true);

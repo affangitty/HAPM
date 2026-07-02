@@ -2,6 +2,24 @@
 
 All notable changes to the Hospital Appointment & Patient Management System (HAPM).
 
+## [1.6.0] - 2026-06-30 - PATCH, idempotency & audit hardening
+
+### Added
+- **PATCH partial updates** for patients, doctors (admin + self profile), prescriptions, templates, lab reports, invoices, and appointment reschedule (`PUT` retained for full weekly schedule replace)
+- **`Idempotency-Key`** middleware + `IdempotencyRecords` table; Angular `idempotency.interceptor.ts`
+- **`ChangeLogService`** — per-field audit JSON (`{ "Field": { "old", "new" } }`); audit detail UI table
+- **`AuditLogArchive`** entity + `AuditLogArchiveService` background job (`Audit` settings in `appsettings.json`)
+- **`IdempotencyCleanupService`** — hourly purge of expired keys
+- Frontend: dark/light theme toggle; inline patient registration on login shell; doctor route order fix (`/doctors/new` before `:id`)
+
+### Fixed
+- **Circular DI deadlock** on startup — `AuditSaveChangesInterceptor` resolves `IChangeLogService` via `IServiceScopeFactory` instead of constructor injection
+
+### Changed
+- Service methods renamed from `Update*` to `Patch*` where applicable; `PatchDtos.cs` request types
+
+---
+
 ## [1.5.0] - 2026-06-16 - Real-time (SignalR)
 
 ### Added

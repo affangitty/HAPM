@@ -3,6 +3,7 @@ import { RouterLink } from '@angular/router';
 import { UiAvatarComponent } from '../../../shared/components/ui/avatar/ui-avatar.component';
 import { UiButtonComponent } from '../../../shared/components/ui/button/ui-button.component';
 import { UiStatusBadgeComponent } from '../../../shared/components/ui/status-badge/ui-status-badge.component';
+import { MobileRecordCardComponent } from '../../../shared/components/mobile-record-card/mobile-record-card.component';
 import { APPOINTMENT_STATUS_TONE, AppointmentStatus } from '../../../shared/models/enums';
 import { AuditLogDto } from '../../audit-logs/models/audit-log.models';
 import { DashboardScheduleItem } from '../models/dashboard.models';
@@ -12,7 +13,7 @@ import { DashboardWidgetCardComponent } from './dashboard-kpi-grid.component';
 @Component({
   selector: 'app-audit-log-table-widget',
   standalone: true,
-  imports: [RouterLink, UiAvatarComponent, UiStatusBadgeComponent, DashboardSectionHeaderComponent, DashboardWidgetCardComponent],
+  imports: [RouterLink, UiAvatarComponent, UiStatusBadgeComponent, MobileRecordCardComponent, DashboardSectionHeaderComponent, DashboardWidgetCardComponent],
   host: { class: 'block w-full shrink-0' },
   template: `
     <app-dashboard-widget-card>
@@ -20,8 +21,24 @@ import { DashboardWidgetCardComponent } from './dashboard-kpi-grid.component';
         <a actions routerLink="/admin/audit-logs" class="text-xs font-medium text-primary hover:underline">View All →</a>
       </app-dashboard-section-header>
 
-      <div class="overflow-x-auto">
-        <table class="w-full min-w-[720px] border-collapse text-left text-sm">
+      <div class="space-y-3 md:hidden">
+        @for (row of rows(); track row.id) {
+          <app-mobile-record-card
+            [title]="row.userEmail ?? 'System'"
+            [subtitle]="formatTime(row.timestampUtc)"
+            [fields]="[
+              { label: 'Action', value: row.action },
+              { label: 'Resource', value: row.entityName + ' #' + row.entityId },
+              { label: 'Status', value: row.action === 'Deleted' ? 'Failed' : 'Success' },
+            ]"
+          />
+        } @empty {
+          <p class="py-6 text-center text-sm text-muted-foreground">No audit activity yet.</p>
+        }
+      </div>
+
+      <div class="hidden overflow-x-auto md:block">
+        <table class="w-full border-collapse text-left text-sm">
           <thead class="border-b bg-muted/50">
             <tr class="text-xs uppercase tracking-wide text-muted-foreground">
               <th class="h-12 whitespace-nowrap px-4 text-left font-semibold">Timestamp</th>
@@ -67,7 +84,7 @@ export class AuditLogTableWidgetComponent {
 @Component({
   selector: 'app-schedule-table-widget',
   standalone: true,
-  imports: [RouterLink, UiAvatarComponent, UiStatusBadgeComponent, UiButtonComponent, DashboardSectionHeaderComponent, DashboardWidgetCardComponent],
+  imports: [RouterLink, UiAvatarComponent, UiStatusBadgeComponent, UiButtonComponent, MobileRecordCardComponent, DashboardSectionHeaderComponent, DashboardWidgetCardComponent],
   host: { class: 'flex min-h-0 min-w-0 flex-col self-stretch lg:col-span-3' },
   template: `
     <app-dashboard-widget-card class="min-h-0 flex-1">
@@ -75,8 +92,33 @@ export class AuditLogTableWidgetComponent {
         <a actions [routerLink]="viewAllRoute()" class="text-xs font-medium text-primary hover:underline">View calendar</a>
       </app-dashboard-section-header>
 
-      <div class="overflow-x-auto">
-        <table class="w-full min-w-[720px] border-collapse text-left text-sm">
+      <div class="space-y-3 md:hidden">
+        @for (item of items(); track item.id) {
+          <app-mobile-record-card
+            [title]="item.patient"
+            [subtitle]="item.time"
+            [className]="item.highlight ? 'bg-teal-50' : ''"
+            [fields]="[
+              { label: 'Reason', value: item.type },
+              { label: 'Status', value: item.status },
+            ]"
+          >
+            <span trailing>
+              <app-ui-status-badge [label]="item.status" [tone]="statusTone(item.status)" />
+            </span>
+            <div class="mt-3 flex gap-2">
+              @if (item.highlight) {
+                <app-ui-button size="sm">Start Visit</app-ui-button>
+              } @else {
+                <a [routerLink]="viewAllRoute()" class="text-xs font-medium text-primary hover:underline">Review Chart</a>
+              }
+            </div>
+          </app-mobile-record-card>
+        }
+      </div>
+
+      <div class="hidden overflow-x-auto md:block">
+        <table class="w-full border-collapse text-left text-sm">
           <thead class="border-b bg-muted/50">
             <tr class="text-xs uppercase tracking-wide text-muted-foreground">
               <th class="h-12 whitespace-nowrap px-4 text-left font-semibold">Time</th>

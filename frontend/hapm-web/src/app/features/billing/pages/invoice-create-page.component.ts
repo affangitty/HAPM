@@ -10,7 +10,9 @@ import { UiInputComponent } from '../../../shared/components/ui/input/ui-input.c
 import { UiPageHeaderComponent } from '../../../shared/components/ui/page-header/ui-page-header.component';
 import { UiSelectComponent } from '../../../shared/components/ui/select/ui-select.component';
 import { UiTextareaComponent } from '../../../shared/components/ui/textarea/ui-textarea.component';
+import { HasUnsavedChanges } from '../../../core/guards/has-unsaved-changes';
 import { getFormControlError, guardFormSubmit } from '../../../shared/utils/form-errors.util';
+import { bindUnsavedChangesProtection, formsAreDirty, markFormsPristine } from '../../../shared/utils/unsaved-changes.util';
 import { roleRoute } from '../../../shared/utils/role-prefix.util';
 import { PatientsApiService } from '../../patients/data/patients-api.service';
 import { AppointmentsApiService } from '../../appointments/data/appointments-api.service';
@@ -93,7 +95,7 @@ import { BillingApiService } from '../data/billing-api.service';
     </app-ui-card>
   `,
 })
-export class InvoiceCreatePageComponent implements OnInit {
+export class InvoiceCreatePageComponent implements OnInit, HasUnsavedChanges {
   private readonly api = inject(BillingApiService);
   private readonly patientsApi = inject(PatientsApiService);
   private readonly appointmentsApi = inject(AppointmentsApiService);
@@ -115,6 +117,14 @@ export class InvoiceCreatePageComponent implements OnInit {
     notes: [''],
     items: this.fb.nonNullable.array([this.itemGroup()]),
   });
+
+  constructor() {
+    bindUnsavedChangesProtection(this.destroyRef, () => this.hasUnsavedChanges());
+  }
+
+  hasUnsavedChanges(): boolean {
+    return formsAreDirty(this.form);
+  }
 
   get itemControls() {
     return this.form.controls.items.controls;
@@ -178,6 +188,7 @@ export class InvoiceCreatePageComponent implements OnInit {
       next: (inv) => {
         this.saving.set(false);
         this.toasts.show('Invoice created.', 'success');
+        markFormsPristine(this.form);
         void this.router.navigate([roleRoute(this.router, 'billing', 'invoices', String(inv.id))]);
       },
       error: (err) => {

@@ -30,8 +30,8 @@ public interface IDoctorService
     Task<DoctorDto> GetByIdAsync(int id, CancellationToken ct = default);
     Task<DoctorDto> GetCurrentAsync(CancellationToken ct = default);
     Task<DoctorDto> CreateAsync(CreateDoctorRequest request, CancellationToken ct = default);
-    Task<DoctorDto> UpdateAsync(int id, UpdateDoctorRequest request, CancellationToken ct = default);
-    Task<DoctorDto> UpdateOwnProfileAsync(int id, UpdateOwnDoctorProfileRequest request, CancellationToken ct = default);
+    Task<DoctorDto> PatchAsync(int id, PatchDoctorRequest request, CancellationToken ct = default);
+    Task<DoctorDto> PatchOwnProfileAsync(int id, PatchOwnDoctorProfileRequest request, CancellationToken ct = default);
     Task DeactivateAsync(int id, CancellationToken ct = default);
     Task<IReadOnlyList<DoctorScheduleDto>> SetSchedulesAsync(int doctorId, List<ScheduleSlotRequest> slots, CancellationToken ct = default);
     Task<IReadOnlyList<DoctorScheduleDto>> GetSchedulesAsync(int doctorId, CancellationToken ct = default);
@@ -46,7 +46,7 @@ public interface IPatientService
     Task<PatientDto> GetByIdAsync(int id, CancellationToken ct = default);
     Task<PatientDto> GetMyProfileAsync(CancellationToken ct = default);
     Task<PatientDto> CreateAsync(CreatePatientRequest request, CancellationToken ct = default);
-    Task<PatientDto> UpdateAsync(int id, UpdatePatientRequest request, CancellationToken ct = default);
+    Task<PatientDto> PatchAsync(int id, PatchPatientRequest request, CancellationToken ct = default);
     Task DeactivateAsync(int id, CancellationToken ct = default);
     Task<PatientMedicalHistoryDto> GetMedicalHistoryAsync(int id, CancellationToken ct = default);
 }
@@ -70,7 +70,7 @@ public interface IPrescriptionService
     Task<PrescriptionDto> GetByIdAsync(int id, CancellationToken ct = default);
     Task<PrescriptionDto> GetByAppointmentAsync(int appointmentId, CancellationToken ct = default);
     Task<PrescriptionDto> CreateAsync(CreatePrescriptionRequest request, CancellationToken ct = default);
-    Task<PrescriptionDto> UpdateAsync(int id, UpdatePrescriptionRequest request, CancellationToken ct = default);
+    Task<PrescriptionDto> PatchAsync(int id, PatchPrescriptionRequest request, CancellationToken ct = default);
 }
 
 public interface ILabReportService
@@ -80,7 +80,7 @@ public interface ILabReportService
     Task<LabReportDto> UploadAsync(UploadLabReportRequest request, Stream content, string fileName, string contentType, long sizeBytes, CancellationToken ct = default);
     Task<LabReportFileDto> DownloadAsync(int id, CancellationToken ct = default);
     Task<LabReportDto> ReviewAsync(int id, ReviewLabReportRequest request, CancellationToken ct = default);
-    Task<LabReportDto> UpdateAsync(int id, UpdateLabReportRequest request, Stream? content, string? fileName, string? contentType, long? sizeBytes, CancellationToken ct = default);
+    Task<LabReportDto> PatchAsync(int id, PatchLabReportRequest request, Stream? content, string? fileName, string? contentType, long? sizeBytes, CancellationToken ct = default);
     Task DeleteAsync(int id, CancellationToken ct = default);
 }
 
@@ -89,7 +89,7 @@ public interface IBillingService
     Task<PagedResult<InvoiceDto>> GetPagedAsync(InvoiceQueryParams query, CancellationToken ct = default);
     Task<InvoiceDto> GetByIdAsync(int id, CancellationToken ct = default);
     Task<InvoiceDto> CreateAsync(CreateInvoiceRequest request, CancellationToken ct = default);
-    Task<InvoiceDto> UpdateAsync(int id, UpdateInvoiceRequest request, CancellationToken ct = default);
+    Task<InvoiceDto> PatchAsync(int id, PatchInvoiceRequest request, CancellationToken ct = default);
     Task<InvoiceDto> AddPaymentAsync(int id, AddPaymentRequest request, CancellationToken ct = default);
     Task<IReadOnlyList<PaymentDto>> GetPaymentsAsync(int id, CancellationToken ct = default);
     Task<InvoiceDto> CancelAsync(int id, CancellationToken ct = default);
@@ -150,7 +150,7 @@ public interface IPrescriptionTemplateService
     Task<IReadOnlyList<PrescriptionTemplateDto>> GetMineAsync(CancellationToken ct = default);
     Task<PrescriptionTemplateDto> GetByIdAsync(int id, CancellationToken ct = default);
     Task<PrescriptionTemplateDto> CreateAsync(SavePrescriptionTemplateRequest request, CancellationToken ct = default);
-    Task<PrescriptionTemplateDto> UpdateAsync(int id, SavePrescriptionTemplateRequest request, CancellationToken ct = default);
+    Task<PrescriptionTemplateDto> PatchAsync(int id, PatchPrescriptionTemplateRequest request, CancellationToken ct = default);
     Task DeleteAsync(int id, CancellationToken ct = default);
 }
 
@@ -159,7 +159,6 @@ public interface IAuditLogService
     Task<PagedResult<AuditLogDto>> GetPagedAsync(AuditLogQueryParams query, CancellationToken ct = default);
     Task<AuditLogDto> GetByIdAsync(int id, CancellationToken ct = default);
 }
-
 public record CsvExport(byte[] Content, string FileName);
 
 public interface IExportService

@@ -1,5 +1,7 @@
 using HAPM.Application.Common;
+using HAPM.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace HAPM.API.Middleware;
 
@@ -24,6 +26,11 @@ public class ExceptionHandlingMiddleware
         {
             _logger.LogWarning("Handled application error ({StatusCode}): {Message}", ex.StatusCode, ex.Message);
             await WriteProblemAsync(context, ex.StatusCode, ex.Message);
+        }
+        catch (DbUpdateException ex) when (DbExceptionMapper.IsUniqueViolation(ex))
+        {
+            _logger.LogWarning(ex, "Unique constraint violation on {Method} {Path}", context.Request.Method, context.Request.Path);
+            await WriteProblemAsync(context, StatusCodes.Status409Conflict, DbExceptionMapper.UniqueViolationMessage(ex));
         }
         catch (Exception ex)
         {
@@ -51,6 +58,7 @@ public class ExceptionHandlingMiddleware
                 403 => "Forbidden",
                 404 => "Not Found",
                 409 => "Conflict",
+                422 => "Unprocessable Entity",
                 _ => "Internal Server Error"
             },
             Detail = detail,

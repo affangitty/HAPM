@@ -4,24 +4,42 @@ import {
   UiTableHeadComponent, UiTableHeaderComponent, UiTableRowComponent,
 } from '../../../shared/components/ui/table/ui-table.component';
 import { UiEmptyStateComponent } from '../../../shared/components/ui/empty-state/ui-empty-state.component';
+import { MobileRecordCardComponent } from '../../../shared/components/mobile-record-card/mobile-record-card.component';
 import { PaymentDto } from '../models/billing.models';
 
 @Component({
   selector: 'app-payment-history-table',
   standalone: true,
-  imports: [UiTableComponent, UiTableHeaderComponent, UiTableBodyComponent, UiTableRowComponent, UiTableHeadComponent, UiTableCellComponent, UiEmptyStateComponent],
+  imports: [
+    UiTableComponent, UiTableHeaderComponent, UiTableBodyComponent, UiTableRowComponent,
+    UiTableHeadComponent, UiTableCellComponent, UiEmptyStateComponent, MobileRecordCardComponent,
+  ],
   template: `
     @if (!payments().length) {
       <app-ui-empty-state title="No payments" message="Payment records will appear here." />
     } @else {
-      <div class="overflow-x-auto rounded-xl border">
+      <div class="space-y-3 md:hidden">
+        @for (p of payments(); track p.id) {
+          <app-mobile-record-card
+            [title]="p.receiptNumber"
+            [subtitle]="formatDate(p.paidAtUtc)"
+            [fields]="[
+              { label: 'Amount', value: '$' + p.amount.toFixed(2) },
+              { label: 'Method', value: p.method },
+              { label: 'Notes', value: p.notes || '—' },
+            ]"
+          />
+        }
+      </div>
+
+      <div class="hidden md:block">
         <app-ui-table>
           <thead appUiTableHeader>
             <tr appUiTableRow>
               <th appUiTableHead>Receipt</th>
               <th appUiTableHead>Amount</th>
               <th appUiTableHead>Method</th>
-              <th appUiTableHead class="hidden sm:table-cell">Notes</th>
+              <th appUiTableHead>Notes</th>
               <th appUiTableHead>Date</th>
             </tr>
           </thead>
@@ -31,7 +49,7 @@ import { PaymentDto } from '../models/billing.models';
                 <td appUiTableCell class="font-mono text-xs">{{ p.receiptNumber }}</td>
                 <td appUiTableCell class="font-medium text-emerald-600">{{ '$' + p.amount.toFixed(2) }}</td>
                 <td appUiTableCell>{{ p.method }}</td>
-                <td appUiTableCell class="hidden sm:table-cell text-muted-foreground">{{ p.notes || '—' }}</td>
+                <td appUiTableCell class="text-muted-foreground">{{ p.notes || '—' }}</td>
                 <td appUiTableCell>{{ formatDate(p.paidAtUtc) }}</td>
               </tr>
             }

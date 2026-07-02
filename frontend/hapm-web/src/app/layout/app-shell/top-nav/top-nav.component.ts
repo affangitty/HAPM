@@ -7,18 +7,19 @@ import { NotificationsApiService } from '../../../features/notifications/data/no
 import { NotificationsHubService } from '../../../core/realtime/notifications-hub.service';
 import { NotificationDto } from '../../../features/notifications/models/notification.models';
 import { NotificationDrawerComponent } from '../../../features/notifications/components/notification-drawer.component';
+import { ThemeToggleButtonComponent } from '../../../shared/components/ui/theme-toggle/theme-toggle-button.component';
 import { UiSearchInputComponent } from '../../../shared/components/ui/search-input/ui-search-input.component';
 import { PAGE_TITLES } from '../sidebar/nav-config';
 
 @Component({
   selector: 'app-top-nav',
   standalone: true,
-  imports: [RouterLink, UiSearchInputComponent, NotificationDrawerComponent],
+  imports: [RouterLink, UiSearchInputComponent, NotificationDrawerComponent, ThemeToggleButtonComponent],
   template: `
     <header class="flex h-14 shrink-0 items-center gap-4 border-b bg-card px-4">
       <button
         type="button"
-        class="rounded-lg p-2 text-muted-foreground hover:bg-muted lg:hidden"
+        class="rounded-lg p-2 text-muted-foreground hover:bg-muted md:hidden"
         aria-label="Open navigation menu"
         (click)="menuToggle.emit()"
       >
@@ -27,13 +28,13 @@ import { PAGE_TITLES } from '../sidebar/nav-config';
         </svg>
       </button>
 
-      <div class="hidden items-center gap-1.5 text-sm sm:flex">
+      <div class="hidden items-center gap-1.5 text-sm min-[480px]:flex">
         <a routerLink="/" class="text-muted-foreground hover:text-foreground">HAPM</a>
         <span class="text-muted-foreground">/</span>
         <span class="font-medium text-foreground">{{ pageTitle() }}</span>
       </div>
 
-      <div class="relative mx-auto hidden max-w-md flex-1 md:block">
+      <div class="relative mx-auto hidden max-w-md flex-1 sm:block">
         <app-ui-search-input
           placeholder="Search patients, doctors, appointments, billing..."
           (searchChange)="onSearch($event)"
@@ -55,7 +56,7 @@ import { PAGE_TITLES } from '../sidebar/nav-config';
         }
       </div>
 
-      <div class="relative flex-1 md:hidden">
+      <div class="relative min-w-0 flex-1 sm:hidden">
         <app-ui-search-input
           placeholder="Search..."
           (searchChange)="onSearch($event)"
@@ -77,6 +78,7 @@ import { PAGE_TITLES } from '../sidebar/nav-config';
       </div>
 
       <div class="ml-auto flex items-center gap-2">
+        <app-theme-toggle-button />
         <button
           type="button"
           class="relative rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
